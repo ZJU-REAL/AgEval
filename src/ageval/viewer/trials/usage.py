@@ -137,40 +137,61 @@ def _cache_hit_heuristic(
 
 
 def _usage_summary_for_actor(usage: dict[str, Any] | None) -> dict[str, Any] | None:
-    """Normalize a terminal usage dict into viewer-facing summary fields (#27/#30).
+    """Normalize a terminal usage dict into viewer-facing summary fields.
 
-    - Prefer normalized keys (input_tokens / output_tokens / cost / context).
-    - Never treat legacy ``used`` (context occupancy) as tokens.
-    - Cache hit rate via :func:`_cache_hit_heuristic` (inclusion vs disjoint).
-    - Observational only; not PASS authority.
+    Prefers layer-C first-class names (``prompt_tokens`` / ``completion_tokens``
+    / ``cached_tokens`` / ``cost_usd``); aliases older ACP keys and ``usage.extra``
+    leftovers so existing archives still paint. Never treats legacy ``used``
+    (context occupancy) as tokens. Observational only; not PASS authority.
     """
     if not isinstance(usage, dict) or not usage:
         return None
 
-    inp = _as_int(
-        usage.get("input_tokens") if "input_tokens" in usage else usage.get("inputTokens")
-    )
-    outp = _as_int(
-        usage.get("output_tokens") if "output_tokens" in usage else usage.get("outputTokens")
-    )
-    cached_read = _as_int(
-        usage.get("cached_read_tokens")
-        if "cached_read_tokens" in usage
-        else usage.get("cachedReadTokens")
-    )
-    cached_write = _as_int(
-        usage.get("cached_write_tokens")
-        if "cached_write_tokens" in usage
-        else usage.get("cachedWriteTokens")
-    )
-    total = _as_int(
-        usage.get("total_tokens") if "total_tokens" in usage else usage.get("totalTokens")
-    )
+    extra = usage.get("extra") if isinstance(usage.get("extra"), dict) else {}
 
-    cost_raw = usage.get("cost")
+    inp = _as_int(usage.get("prompt_tokens"))
+    if inp is None:
+        inp = _as_int(
+            usage.get("input_tokens") if "input_tokens" in usage else usage.get("inputTokens")
+        )
+    outp = _as_int(usage.get("completion_tokens"))
+    if outp is None:
+        outp = _as_int(
+            usage.get("output_tokens") if "output_tokens" in usage else usage.get("outputTokens")
+        )
+    cached_read = _as_int(usage.get("cached_tokens"))
+    if cached_read is None:
+        cached_read = _as_int(
+            usage.get("cached_read_tokens")
+            if "cached_read_tokens" in usage
+            else usage.get("cachedReadTokens")
+        )
+    if cached_read is None:
+        cached_read = _as_int(extra.get("cached_read_tokens"))
+    cached_write = _as_int(
+        extra.get("cached_write_tokens")
+        if "cached_write_tokens" in extra
+        else (
+            usage.get("cached_write_tokens")
+            if "cached_write_tokens" in usage
+            else usage.get("cachedWriteTokens")
+        )
+    )
+    total = _as_int(extra.get("total_tokens"))
+    if total is None:
+        total = _as_int(
+            usage.get("total_tokens") if "total_tokens" in usage else usage.get("totalTokens")
+        )
+
     cost_amount: float | int | None = None
     cost_currency: str | None = None
-    if isinstance(cost_raw, dict):
+    if isinstance(usage.get("cost_usd"), (int, float)) and not isinstance(
+        usage.get("cost_usd"), bool
+    ):
+        cost_amount = usage["cost_usd"]
+        cost_currency = "USD"
+    cost_raw = extra.get("cost") if isinstance(extra.get("cost"), dict) else usage.get("cost")
+    if cost_amount is None and isinstance(cost_raw, dict):
         amt = cost_raw.get("amount")
         if isinstance(amt, (int, float)) and not isinstance(amt, bool):
             cost_amount = amt
@@ -179,7 +200,9 @@ def _usage_summary_for_actor(usage: dict[str, Any] | None) -> dict[str, Any] | N
             cost_currency = cur.strip()
     # Legacy flat cost is rare; ignore non-mapping.
 
-    context_raw = usage.get("context") if isinstance(usage.get("context"), dict) else None
+    context_raw = extra.get("context") if isinstance(extra.get("context"), dict) else None
+    if context_raw is None:
+        context_raw = usage.get("context") if isinstance(usage.get("context"), dict) else None
     context_used = _as_int(context_raw.get("used")) if isinstance(context_raw, dict) else None
     context_size = _as_int(context_raw.get("size")) if isinstance(context_raw, dict) else None
     # Old evidence: top-level used/size only — keep as context, never as tokens.

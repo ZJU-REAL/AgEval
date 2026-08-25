@@ -59,18 +59,30 @@ def trial_trajectory(
                 by_session[session] = row
 
     for entry in rows:
+        row_meta = entry.get("metadata") if isinstance(entry.get("metadata"), dict) else {}
         label = by_session.get(str(entry.get("session_id") or "")) or (
             invocations[0] if len(invocations) == 1 else None
         )
         if label is not None:
             label["step_count"] = int(label["step_count"]) + 1
+        profile_id = (
+            row_meta.get("profile_id") if isinstance(row_meta.get("profile_id"), str) else None
+        )
+        model = row_meta.get("model") if isinstance(row_meta.get("model"), str) else None
+        elapsed = entry.get("elapsed_ms")
+        if elapsed is None:
+            lat = row_meta.get("latency_ms")
+            if isinstance(lat, (int, float)) and not isinstance(lat, bool):
+                elapsed = lat
         steps.append(
             {
                 **entry,
+                "elapsed_ms": elapsed,
                 "invocation": (label or {}).get("dirname"),
-                "invocation_id": (label or {}).get("invocation_id"),
-                "profile_id": (label or {}).get("profile_id"),
-                "model": (label or {}).get("model"),
+                "invocation_id": row_meta.get("invocation_id")
+                or (label or {}).get("invocation_id"),
+                "profile_id": profile_id or (label or {}).get("profile_id"),
+                "model": model or (label or {}).get("model"),
             }
         )
 
@@ -164,12 +176,8 @@ def _parse_trajectory_jsonl(path: Path) -> list[dict[str, Any]]:
                     err = obj.get("error")
                     if err is not None and err != "":
                         tparts.append(f"error={err}")
-                    usage = obj.get("usage") if isinstance(obj.get("usage"), dict) else None
-                    if usage:
-                        try:
-                            tparts.append(f"usage={json.dumps(usage, ensure_ascii=False)}")
-                        except (TypeError, ValueError):
-                            tparts.append(f"usage={usage}")
+                    # Usage chips live on the SPA TERMINAL card; do not dump
+                    # the object into the body text.
                     meta = obj.get("metadata") if isinstance(obj.get("metadata"), dict) else None
                     if meta:
                         # Compact interesting keys only
@@ -203,6 +211,7 @@ def _parse_trajectory_jsonl(path: Path) -> list[dict[str, Any]]:
                         "ok": obj.get("ok"),
                         "error": obj.get("error"),
                         "usage": obj.get("usage") if isinstance(obj.get("usage"), dict) else None,
+                        "extra": obj.get("extra") if isinstance(obj.get("extra"), dict) else None,
                         "metadata": obj.get("metadata")
                         if isinstance(obj.get("metadata"), dict)
                         else None,
