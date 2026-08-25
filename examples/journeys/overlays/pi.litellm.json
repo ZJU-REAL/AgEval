@@ -1,7 +1,7 @@
 {
   "providers": {
     "litellm": {
-      "baseUrl": "http://10.130.138.46:8010/v1",
+      "baseUrl": "${litellm_base_url}",
       "api": "openai-completions",
       "apiKey": "$litellm_api_key",
       "models": [

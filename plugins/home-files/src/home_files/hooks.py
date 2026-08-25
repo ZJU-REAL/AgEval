@@ -2,13 +2,23 @@
 
 from __future__ import annotations
 
+import os
+import re
 import shutil
+import tempfile
 from collections.abc import Mapping
 from pathlib import Path
 from typing import Any
 
 PLUGIN_ID = "home-files"
 DEST_ROOTS = frozenset({"home", "workspace"})
+
+# Same wrappers as profiles (`${NAME}`) and OpenCode (`{env:NAME}`).
+# Bare `$NAME` is left for the engine (Pi interpolates apiKey itself).
+_EMBEDDED_REF = re.compile(
+    r"\$\{([A-Za-z_][A-Za-z0-9_]*)\}"
+    r"|\{env:([A-Za-z_][A-Za-z0-9_]*)\}"
+)
 
 
 class HomeFilesError(Exception):
@@ -58,6 +68,7 @@ def apply_files(files: Any, value: dict[str, Any]) -> None:
     cred_root = _require_dir(value.get("cred_root"), name="cred_root")
     home_overlay = cred_root / "home_overlay"
     home_overlay.mkdir(parents=True, exist_ok=True)
+    environ = _overlay_environ(package_root)
 
     for i, item in enumerate(files):
         if not isinstance(item, dict):
@@ -84,10 +95,40 @@ def apply_files(files: Any, value: dict[str, Any]) -> None:
             dest.relative_to(root.resolve())
         except ValueError as exc:
             raise HomeFilesError("dest_escapes_root", kind="home_files_path_invalid") from exc
-        _copy_one(src, dest)
+        _copy_one(src, dest, environ=environ)
 
 
-def _copy_one(src: Path, dest: Path) -> None:
+def _overlay_environ(package_root: Path) -> Mapping[str, str]:
+    """Same .env chain as profiles: process env, dataset root, cwd, repo root."""
+    from ageval.application.host_env import load_host_env_files
+
+    load_host_env_files(package_root=package_root)
+    return os.environ
+
+
+def expand_embedded_env_refs(text: str, *, environ: Mapping[str, str]) -> str:
+    """Replace `${NAME}` and `{env:NAME}` from *environ*. Unset names fail closed."""
+    missing: list[str] = []
+
+    def _repl(match: re.Match[str]) -> str:
+        name = match.group(1) or match.group(2)
+        raw = environ.get(name)
+        if raw is None or not str(raw).strip():
+            missing.append(name)
+            return match.group(0)
+        return str(raw).strip()
+
+    out = _EMBEDDED_REF.sub(_repl, text)
+    if missing:
+        names = ", ".join(sorted(set(missing)))
+        raise HomeFilesError(
+            f"overlay_env_unset:{names}",
+            kind="home_files_env_unset",
+        )
+    return out
+
+
+def _copy_one(src: Path, dest: Path, *, environ: Mapping[str, str]) -> None:
     if src.is_dir():
         if dest.exists() and dest.is_file():
             raise HomeFilesError("dest_file_src_dir", kind="home_files_dest_invalid")
@@ -98,12 +139,21 @@ def _copy_one(src: Path, dest: Path) -> None:
                 child.resolve().relative_to(src_root)
             except ValueError as exc:
                 raise HomeFilesError("src_symlink_escapes", kind="home_files_path_invalid") from exc
-            _copy_one(child, dest / child.name)
+            _copy_one(child, dest / child.name, environ=environ)
         return
     if dest.exists() and dest.is_dir():
         raise HomeFilesError("dest_dir_src_file", kind="home_files_dest_invalid")
     dest.parent.mkdir(parents=True, exist_ok=True)
-    shutil.copy2(src, dest)
+    try:
+        text = src.read_text(encoding="utf-8")
+    except (OSError, UnicodeDecodeError):
+        shutil.copy2(src, dest)
+        return
+    if not _EMBEDDED_REF.search(text):
+        shutil.copy2(src, dest)
+        return
+    dest.write_text(expand_embedded_env_refs(text, environ=environ), encoding="utf-8")
+    shutil.copystat(src, dest)
 
 
 def _files_from_ctx(ctx: Any) -> Any:
@@ -123,6 +173,7 @@ async def build_home_overlay(ctx: Any, value: Any, nxt: Any) -> Any:
     if files:
         host = ctx.host
         package_root = Path(str(ctx.dataset_root or ctx.task_root))
+        environ = _overlay_environ(package_root)
         for i, item in enumerate(files):
             if not isinstance(item, Mapping):
                 raise HomeFilesError(f"files[{i}]_not_mapping", kind="home_files_options_invalid")
@@ -138,5 +189,11 @@ async def build_home_overlay(ctx: Any, value: Any, nxt: Any) -> Any:
             if not src.exists():
                 raise HomeFilesError(f"src_missing:{src_rel}", kind="home_files_src_missing")
             box_base = "/attempt/home" if dest_root == "home" else "/attempt/workspace"
-            await host.upload(src, f"{box_base}/{dest_rel.as_posix()}")
+            staged = Path(tempfile.mkdtemp(prefix="ageval-overlay-"))
+            try:
+                staged_src = staged / src.name
+                _copy_one(src, staged_src, environ=environ)
+                await host.upload(staged_src, f"{box_base}/{dest_rel.as_posix()}")
+            finally:
+                shutil.rmtree(staged, ignore_errors=True)
     return await nxt(payload)

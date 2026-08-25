@@ -5,7 +5,7 @@
       "npm": "@ai-sdk/openai-compatible",
       "name": "LiteLLM",
       "options": {
-        "baseURL": "http://10.130.138.46:8010/v1",
+        "baseURL": "{env:litellm_base_url}",
         "apiKey": "{env:litellm_api_key}"
       },
       "models": {

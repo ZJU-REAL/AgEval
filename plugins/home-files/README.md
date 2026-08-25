@@ -45,7 +45,11 @@ extensions:
 | `options.files[].dest` | *(required per row)* | Relative to `dest_root`. No `..`. Not under `evaluation/`. |
 | `options.files[].dest_root` | *(required per row)* | `home` or `workspace`. Any other value fails closed. |
 
-Secrets stay locators. Overlay JSON must not embed tokens. No JSON deep-merge.
+Secrets stay locators. Overlay JSON must not embed tokens or upstream URLs.
+Use `${NAME}` (same as profiles) or `{env:NAME}`. Copy expands those from the
+same `.env` chain as lock (process env, then dataset `.env`, cwd `.env`, repo
+`.env`). Unset names fail closed. Bare `$NAME` is left for the engine (Pi
+`apiKey`). No JSON deep-merge.
 
 To show the same files on Hub Agent appearances, list them on this role as
 `overlays:` (paths under `overlays/`, resolved from the Agent package when

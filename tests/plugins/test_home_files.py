@@ -14,7 +14,7 @@ _SRC = Path(__file__).resolve().parents[2] / "plugins" / "home-files" / "src"
 if str(_SRC) not in sys.path:
     sys.path.insert(0, str(_SRC))
 
-from home_files.hooks import HomeFilesError, apply_files  # noqa: E402
+from home_files.hooks import HomeFilesError, apply_files, expand_embedded_env_refs  # noqa: E402
 
 
 def _ctx(tmp: Path) -> dict[str, Path]:
@@ -181,6 +181,80 @@ def test_symlink_child_outside_src_fails(tmp_path: Path) -> None:
             {k: str(v) for k, v in ctx.items()},
         )
     assert ei.value.kind == "home_files_path_invalid"
+
+
+def test_expand_embedded_refs_and_leave_bare_dollar() -> None:
+    env = {"GW": "http://example.test/v1", "KEY": "secret"}
+    assert (
+        expand_embedded_env_refs(
+            '{"baseUrl": "${GW}", "apiKey": "$KEY", "other": "{env:GW}"}',
+            environ=env,
+        )
+        == '{"baseUrl": "http://example.test/v1", "apiKey": "$KEY", "other": "http://example.test/v1"}'
+    )
+    with pytest.raises(HomeFilesError) as ei:
+        expand_embedded_env_refs("${MISSING}", environ={})
+    assert ei.value.kind == "home_files_env_unset"
+
+
+def test_copy_interpolates_from_dataset_env(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.delenv("AGEVAL_TEST_OVERLAY_URL", raising=False)
+    ctx = _ctx(tmp_path)
+    (ctx["package_root"] / ".env").write_text(
+        "AGEVAL_TEST_OVERLAY_URL=http://from-dataset/v1\n",
+        encoding="utf-8",
+    )
+    src = ctx["package_root"] / "overlays" / "pi.json"
+    src.parent.mkdir()
+    src.write_text(
+        '{"baseUrl": "${AGEVAL_TEST_OVERLAY_URL}", "apiKey": "$litellm_api_key"}\n',
+        encoding="utf-8",
+    )
+    apply_files(
+        [{"src": "overlays/pi.json", "dest": ".pi/models.json", "dest_root": "home"}],
+        {k: str(v) for k, v in ctx.items()},
+    )
+    dest = ctx["cred_root"] / "home_overlay" / ".pi" / "models.json"
+    text = dest.read_text(encoding="utf-8")
+    assert "http://from-dataset/v1" in text
+    assert "$litellm_api_key" in text
+    assert "${AGEVAL_TEST_OVERLAY_URL}" not in text
+
+
+def test_copy_process_env_wins_over_dataset_env(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setenv("AGEVAL_TEST_OVERLAY_URL", "http://from-process/v1")
+    ctx = _ctx(tmp_path)
+    (ctx["package_root"] / ".env").write_text(
+        "AGEVAL_TEST_OVERLAY_URL=http://from-dataset/v1\n",
+        encoding="utf-8",
+    )
+    src = ctx["package_root"] / "overlays" / "a.json"
+    src.parent.mkdir()
+    src.write_text('{"u": "${AGEVAL_TEST_OVERLAY_URL}"}\n', encoding="utf-8")
+    apply_files(
+        [{"src": "overlays/a.json", "dest": "a.json", "dest_root": "workspace"}],
+        {k: str(v) for k, v in ctx.items()},
+    )
+    text = (ctx["workspace_root"] / "a.json").read_text(encoding="utf-8")
+    assert text == '{"u": "http://from-process/v1"}\n'
+
+
+def test_copy_unset_locator_fails(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.delenv("AGEVAL_TEST_OVERLAY_MISSING", raising=False)
+    ctx = _ctx(tmp_path)
+    src = ctx["package_root"] / "overlays" / "a.json"
+    src.parent.mkdir()
+    src.write_text('{"u": "${AGEVAL_TEST_OVERLAY_MISSING}"}\n', encoding="utf-8")
+    with pytest.raises(HomeFilesError) as ei:
+        apply_files(
+            [{"src": "overlays/a.json", "dest": "a.json", "dest_root": "home"}],
+            {k: str(v) for k, v in ctx.items()},
+        )
+    assert ei.value.kind == "home_files_env_unset"
 
 
 def test_dest_root_required(tmp_path: Path) -> None:

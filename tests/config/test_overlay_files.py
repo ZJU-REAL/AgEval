@@ -102,9 +102,22 @@ def test_normalize_overlay_path_rejects_bad_shape(raw: str) -> None:
 
 
 def test_locator_forms_are_not_secrets() -> None:
-    text = '{"apiKey": "{env:litellm_api_key}", "other": "$litellm_api_key"}'
+    text = (
+        '{"apiKey": "{env:litellm_api_key}", "other": "$litellm_api_key",'
+        ' "baseUrl": "${litellm_base_url}", "baseURL": "{env:litellm_base_url}"}'
+    )
     assert overlay_secret_hits(text) == []
     assert overlay_secret_hits("API key: see README") == []
+
+
+def test_journeys_litellm_overlays_base_url_are_locators() -> None:
+    root = Path(__file__).resolve().parents[2] / "examples" / "journeys" / "overlays"
+    pi = (root / "pi.litellm.json").read_text(encoding="utf-8")
+    opencode = (root / "opencode.litellm.json").read_text(encoding="utf-8")
+    assert "${litellm_base_url}" in pi
+    assert "{env:litellm_base_url}" in opencode
+    assert "http://" not in pi
+    assert "http://" not in opencode
 
 
 def test_pem_and_token_are_secrets() -> None:
