@@ -69,7 +69,7 @@ landing 的 oklch 系(`oklch(15.4% 0.018 264)` 底等)是本表的 oklch 等值�
 | Floating Label | 描述填写框(plugin / org 等):placeholder 在 focus 或有值时抬成 label;焦点色走 `link` |
 | Catalog 卡 | plugin / agent 市场包用 `CatalogCard`:12px 圆角、hairline、hover `canvas-soft`。标题为 20px 实体标 + `org/name`(+ official)。**first-party contrib overlay** 走短 id（无 `org/` 前缀）；左侧用侧栏 GitHub 链同一地址（默认 `https://github.com/ZJU-REAL/ageval`）的 GitHub 头像（`BrandMark`），名称右侧 lucide `HousePlug` 走 `link`（IKB，不复用 OfficialMark / BadgeCheck）。描述固定两行高。卡上不画 slot/binding tag。底行同一排：左侧 `download_count` 与 star 数（lucide `Download` / `Star` + 数字，卡上不可点 star），右侧更新日期。无 `created_at` 就不要画日期。Star 操作只在详情页头右侧无描边 icon;填实用 `star` 金。Datasets / jobs / leaderboard / members 用表 |
 | 页头(PageHead) | h1 + 可选 sub + hairline(无编号 kicker) |
-| 相位/耗时图谱 | `--viewer-phase-1..6` 用 ink / body / mute / hairline 冷灰阶（执行段用 ink，不用 IKB）。IKB 留给链接 / 焦点 / 主 CTA。禁 zinc 等外部灰阶 |
+| 相位/耗时图谱 | `--viewer-phase-1..6` 用 ink / body / mute / hairline 冷灰阶。执行段 `--viewer-phase-1` 为 ink 与 mute 的 `color-mix`（约 55% ink），不用实心 ink，也不用 IKB。IKB 留给链接 / 焦点 / 主 CTA。禁 zinc 等外部灰阶 |
 | 弹层(tooltip/select/dropdown/dialog) | hairline 边框 + `--viewer-shadow-pop` |
 | 危险确认 | Modal：较大标题 + mute 说明后果 + Cancel / Confirm 两枚按钮 |
 

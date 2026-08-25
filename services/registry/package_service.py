@@ -17,6 +17,7 @@ from services.registry.builtin_plugins import (
 )
 from services.registry.dataset import DRAFT_SLOT, is_draft_version
 from services.registry.errors import RegistryAppError
+from services.registry.paging import page_slice
 from services.registry.store import (
     DraftRow,
     ReleaseRow,
@@ -544,6 +545,48 @@ class PackageService:
             "digest": row.package_digest,
             "version": row.version,
             "items": index.list_items(),
+        }
+
+    def list_tasks(
+        self,
+        *,
+        dataset_id: str,
+        auth: TokenInfo,
+        package_digest: str | None = None,
+        version: str | None = None,
+        limit: int | None = None,
+        offset: int = 0,
+    ) -> dict[str, Any]:
+        from services.registry.package_files import get_or_build_index
+
+        row = self._visible_release(
+            dataset_id=dataset_id,
+            auth=auth,
+            package_digest=package_digest,
+            version=version,
+        )
+        archive = read_blob(self.blobs, row.blob_digest, prefix="packages")
+        if archive is None:
+            raise RegistryAppError("not_found", "blob missing", http_status=404)
+        try:
+            index = get_or_build_index(archive, package_digest=row.package_digest)
+        except Exception as exc:  # noqa: BLE001
+            raise RegistryAppError(
+                "archive_error",
+                f"cannot index package: {exc}",
+                http_status=500,
+            ) from exc
+        tasks, has_shared = index.list_tasks()
+        page, total = page_slice(tasks, limit=limit, offset=offset)
+        return {
+            "dataset_id": row.dataset_id,
+            "digest": row.package_digest,
+            "version": row.version,
+            "items": page,
+            "total": total,
+            "limit": limit,
+            "offset": offset,
+            "has_shared": has_shared,
         }
 
     def read_file(

@@ -42,6 +42,22 @@ Hub 列表 tab **就是**这些查询参数（不要再叠一层 `scope=`）。�
 
 卡片把 `favorite_count` 与 `download_count` **同一行**展示（star 只是计数）。详情页头右侧用 icon 按钮 star/unstar；未登录点它去登录页。组织详情用 `?tab=settings`（默认 overview 省略 `tab`）。
 
+## Dataset Tasks / Jobs 分页
+
+Hub 表分页**就是**查询参数（不要再叠 `page=` 之外的 scope 层）。默认 `limit=20`，上限 `100`。`offset` 默认 `0`。响应带 `items`、`total`、`limit`、`offset`。
+
+| URL / 请求 | 含义 |
+| --- | --- |
+| Dataset `?tab=tasks` | 第一页 Tasks |
+| Dataset `?tab=tasks&offset=20` | 下一页；Hub 请求 `GET /v1/packages/{id}/by-digest/{dig}/tasks?limit=20&offset=20` |
+| Task Jobs `?tab=jobs&offset=` | 该 task 的 suite/attempt 行 |
+
+`GET /v1/packages/{id}/by-digest/{dig}/tasks` 从已有包文件索引抽出 `tasks/{id}`（带 `has_readme`），并返回 `has_shared`（是否存在 `shared/`）。不把整棵文件树交给浏览器。未知查询键拒绝。
+
+`GET /v1/results/suites` 增加可选 `task_id`、`limit`、`offset`。省略 `limit` 时返回全量（兼容现有客户端）。`task_id` 按 suite `task_refs` 过滤。
+
+Hub Dataset / Task 详情：README 不进整包文件树闸门。默认 README tab 只拉版本元数据与对应 `README.md`；Tasks / Files / Jobs / Leaderboard 按 tab 懒加载。
+
 ## 组织成员顺序
 
 `GET /v1/orgs/{id}/members` 的 `items`：**owner 在前**，同角色按 `user_id`。Hub 成员表按该顺序渲染。

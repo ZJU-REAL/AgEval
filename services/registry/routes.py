@@ -116,6 +116,14 @@ ROUTES: tuple[Route, ...] = (
     ),
     Route(
         "GET",
+        "serve_package_tasks",
+        access="bearer",
+        pattern=r"/v1/packages/(.+)/by-digest/(sha256:[0-9a-f]{64})/tasks",
+        groups=("dataset_id", "package_digest"),
+        pass_qs=True,
+    ),
+    Route(
+        "GET",
         "serve_package_files_list",
         access="bearer",
         pattern=r"/v1/packages/(.+)/by-digest/(sha256:[0-9a-f]{64})/files",
@@ -127,6 +135,14 @@ ROUTES: tuple[Route, ...] = (
         access="bearer",
         pattern=r"/v1/packages/(.+)/by-digest/(sha256:[0-9a-f]{64})/files/(.+)",
         groups=("dataset_id", "package_digest", "file_path"),
+    ),
+    Route(
+        "GET",
+        "serve_package_tasks",
+        access="bearer",
+        pattern=r"/v1/packages/(.+)/versions/([^/]+)/tasks",
+        groups=("dataset_id", "version"),
+        pass_qs=True,
     ),
     Route(
         "GET",

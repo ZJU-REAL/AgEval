@@ -84,6 +84,35 @@ class PackageFileIndex:
     def get(self, path: str) -> FileEntry | None:
         return self._by_path.get(path)
 
+    def list_tasks(self) -> tuple[list[dict[str, Any]], bool]:
+        """Return ``(task rows, has_shared)`` from the archive index.
+
+        Each row is ``{task_id, has_readme}``, sorted by task_id.
+        """
+        readme: dict[str, bool] = {}
+        has_shared = False
+        for entry in self.entries:
+            path = entry.path
+            if path == "shared" or path.startswith("shared/"):
+                has_shared = True
+            if not path.startswith("tasks/"):
+                continue
+            rest = path[len("tasks/") :]
+            if not rest:
+                continue
+            task_id = rest.split("/", 1)[0]
+            if not task_id:
+                continue
+            if task_id not in readme:
+                readme[task_id] = False
+            if entry.type == "file" and rest == f"{task_id}/README.md":
+                readme[task_id] = True
+        items = [
+            {"task_id": task_id, "has_readme": readme[task_id]}
+            for task_id in sorted(readme)
+        ]
+        return items, has_shared
+
 
 def build_index_from_archive(archive: bytes, *, package_digest: str) -> PackageFileIndex:
     """List tar members (gzip-compressed package archive)."""

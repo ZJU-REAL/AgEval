@@ -444,3 +444,50 @@ def test_favorite_rejects_dataset_and_anonymous(tmp_path: Path) -> None:
     with pytest.raises(RegistryAppError) as anon_err:
         svc.set_favorite(dataset_id="test/publish-min", auth=anon, favorited=True)
     assert anon_err.value.http_status == 401
+
+
+def test_list_tasks_pages_and_flags(tmp_path: Path) -> None:
+    from services.registry.package_files import FileEntry, PackageFileIndex
+
+    index = PackageFileIndex(
+        package_digest="sha256:abc",
+        entries=[
+            FileEntry(path="tasks/a/task.yaml", type="file", size=1),
+            FileEntry(path="tasks/a/README.md", type="file", size=1),
+            FileEntry(path="tasks/b/task.yaml", type="file", size=1),
+            FileEntry(path="shared/note.txt", type="file", size=1),
+        ],
+        _by_path={},
+    )
+    items, has_shared = index.list_tasks()
+    assert has_shared is True
+    assert items == [
+        {"task_id": "a", "has_readme": True},
+        {"task_id": "b", "has_readme": False},
+    ]
+
+    svc = _service(tmp_path)
+    svc.meta.create_org(name="acme", owner_user_id="alice", display_name="Acme")
+    meta, archive, _raw = _meta_archive(tmp_path)
+    auth = TokenInfo(scopes=frozenset({"registry:publish"}), user_id="alice")
+    payload = svc.publish(meta=meta, archive=archive, auth=auth)
+    digest = str(payload["package_digest"])
+    listed = svc.list_tasks(
+        dataset_id="test/publish-min",
+        auth=auth,
+        package_digest=digest,
+        limit=50,
+        offset=0,
+    )
+    assert listed["total"] == 1
+    assert listed["has_shared"] is False
+    assert listed["items"] == [{"task_id": "hello", "has_readme": False}]
+    empty = svc.list_tasks(
+        dataset_id="test/publish-min",
+        auth=auth,
+        package_digest=digest,
+        limit=50,
+        offset=50,
+    )
+    assert empty["items"] == []
+    assert empty["total"] == 1

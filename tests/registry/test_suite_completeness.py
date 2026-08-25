@@ -100,6 +100,41 @@ def test_fail_on_all_tasks_is_complete_and_on_board(tmp_path: Path) -> None:
     assert [i["suite_run_id"] for i in board["items"]] == ["suite_fail_all"]
 
 
+def test_list_suites_task_id_and_limit(tmp_path: Path) -> None:
+    packages, results = _services(tmp_path)
+    _publish_release(packages, tmp_path)
+    auth = TokenInfo(scopes=frozenset({"results:upload"}), user_id="alice")
+    first, first_blob = _suite_meta(
+        tmp_path,
+        suite_run_id="suite_hello",
+        task_refs=[{"task_id": "hello", "status": "FAIL", "score": 0.0}],
+    )
+    results.upload_suite(meta=first, archive=first_blob, auth=auth)
+    second, second_blob = _suite_meta(
+        tmp_path,
+        suite_run_id="suite_other",
+        task_refs=[{"task_id": "other", "status": "PASS", "score": 1.0}],
+    )
+    results.upload_suite(meta=second, archive=second_blob, auth=auth)
+    hello = results.list_suites(
+        auth=auth, dataset_id="test/publish-min", task_id="hello"
+    )
+    assert [i["suite_run_id"] for i in hello["items"]] == ["suite_hello"]
+    paged = results.list_suites(
+        auth=auth, dataset_id="test/publish-min", limit=1, offset=0
+    )
+    assert paged["total"] == 2
+    assert len(paged["items"]) == 1
+    rest = results.list_suites(
+        auth=auth, dataset_id="test/publish-min", limit=1, offset=1
+    )
+    assert rest["total"] == 2
+    assert {paged["items"][0]["suite_run_id"], rest["items"][0]["suite_run_id"]} == {
+        "suite_hello",
+        "suite_other",
+    }
+
+
 def test_missing_task_is_incomplete_hidden_from_board(tmp_path: Path) -> None:
     packages, results = _services(tmp_path)
     _publish_release(packages, tmp_path)

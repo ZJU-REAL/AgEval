@@ -20,6 +20,7 @@ Endpoints:
   GET  /v1/packages/{id}/by-digest/{dig}/content
   GET  /v1/packages/{id}/by-digest/{dig}/files
   GET  /v1/packages/{id}/by-digest/{dig}/files/{path}
+  GET  /v1/packages/{id}/by-digest/{dig}/tasks[?limit=&offset=]
   DELETE /v1/packages/{id}/versions/{ver}
   PATCH /v1/packages/{id}/versions/{ver}   (visibility)
   POST /v1/results/attempts
