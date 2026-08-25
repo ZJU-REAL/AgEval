@@ -255,7 +255,7 @@ export function JobsPage() {
     <Shell
       meta={
         datasetId ? (
-          <span className="text-xs text-mute font-mono truncate max-w-[40ch]">{datasetId}</span>
+          <span className="text-xs text-mute truncate max-w-[40ch]">{datasetId}</span>
         ) : null
       }
     >
@@ -458,7 +458,7 @@ export function JobsPage() {
                         <span className="block truncate">{jobDisplayName(job)}</span>
                       </HoverTip>
                     </TableCell>
-                    <TableCell className="font-mono text-xs text-body max-w-[16rem]">
+                    <TableCell className="text-xs text-body max-w-[16rem]">
                       <HoverTip content={job.dataset_ref || ""}>
                         <span className="block truncate">{job.dataset_ref || "-"}</span>
                       </HoverTip>

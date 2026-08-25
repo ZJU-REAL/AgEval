@@ -50,7 +50,7 @@ function PeekCell({
   return (
     <button
       type="button"
-      className="font-mono text-xs text-link hover:text-link-deep hover:underline underline-offset-2"
+      className="text-xs text-link hover:text-link-deep hover:underline underline-offset-2"
       onClick={onPeek}
     >
       {label}
@@ -173,7 +173,7 @@ export function InboxPage() {
         title="Inbox"
         sub="Pending listing and appearance requests you can decide."
       />
-      {error ? <p className="text-sm font-mono text-error">{error}</p> : null}
+      {error ? <p className="text-sm text-error">{error}</p> : null}
 
       <div className="flex flex-wrap items-center gap-2">
         <Input
@@ -256,7 +256,7 @@ export function InboxPage() {
                   <TableCell>
                     <PeekCell label={row.applicant} onPeek={() => peekApplicant(row)} />
                   </TableCell>
-                  <TableCell className="font-mono text-xs">
+                  <TableCell className="text-xs">
                     {row.agent_ref || "—"}
                   </TableCell>
                 </TableRow>
@@ -296,10 +296,10 @@ export function InboxPage() {
                     <TableCell>
                       <PeekCell label={row.applicant} onPeek={() => peekApplicant(row)} />
                     </TableCell>
-                    <TableCell className="font-mono text-xs">
+                    <TableCell className="text-xs">
                       {row.agent_ref || "—"}
                     </TableCell>
-                    <TableCell className="font-mono text-xs text-mute">
+                    <TableCell className="text-xs text-mute">
                       {formatDate(row.decided_at ?? row.created_at)}
                     </TableCell>
                   </TableRow>

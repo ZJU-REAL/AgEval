@@ -150,7 +150,7 @@ export function HomePage() {
               <>
                 Signed in as{" "}
                 <span className="inline-flex items-center gap-1 align-middle">
-                  <span className="font-mono text-xs">{githubUser}</span>
+                  <span className="text-xs">{githubUser}</span>
                   {orgs.some((o) => o.official) ? (
                     <OfficialMark kind="org" />
                   ) : null}
@@ -167,7 +167,7 @@ export function HomePage() {
       {error ? (
         <div className="rounded-[8px] border border-hairline bg-canvas-soft p-4 text-sm mb-4">
           <p className="text-error font-medium">Could not load home</p>
-          <p className="mt-1 font-mono text-xs text-body">{error}</p>
+          <p className="mt-1 text-xs text-body">{error}</p>
         </div>
       ) : null}
 
@@ -188,7 +188,7 @@ export function HomePage() {
                     navigate(`/organizations/${encodeURIComponent(o.org_id)}`),
                   cells: [
                     <span key="id" className="inline-flex items-center gap-1.5 min-w-0">
-                      <span className="font-mono text-sm">{o.org_id}</span>
+                      <span className="text-sm">{o.org_id}</span>
                       {o.display_name ? (
                         <span className="text-mute text-xs">
                           {o.display_name}
@@ -246,10 +246,10 @@ export function HomePage() {
                       `/datasets/${encodeDatasetId(t.datasetId)}/tasks/${encodeURIComponent(t.taskId)}`,
                     ),
                   cells: [
-                    <span key="db" className="font-mono text-xs">
+                    <span key="db" className="text-xs">
                       {t.datasetId}
                     </span>,
-                    <span key="t" className="font-mono text-sm">
+                    <span key="t" className="text-sm">
                       {t.taskId}
                     </span>,
                   ],
@@ -311,11 +311,11 @@ export function HomePage() {
                     );
                   },
                   cells: [
-                    <span key="id" className="font-mono text-xs">
+                    <span key="id" className="text-xs">
                       {s.suite_run_id}
                     </span>,
                     datasetRef(s.dataset_id, s.dataset_version) || "—",
-                    <span key="env" className="font-mono text-xs">
+                    <span key="env" className="text-xs">
                       {environmentFromOverlay(s.job_overlay) || "—"}
                     </span>,
                     s.pass_rate == null

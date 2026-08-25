@@ -282,14 +282,14 @@ export function AgentDetailPage() {
               }}
             />
             {formatBadge ? (
-              <span className="text-[11px] font-medium font-mono px-2 py-0.5 rounded border border-hairline bg-canvas-soft text-body">
+              <span className="text-[11px] font-medium px-2 py-0.5 rounded border border-hairline bg-canvas-soft text-body">
                 {formatBadge}
               </span>
             ) : null}
           </div>
           {release ? (
             <div className="mt-1 flex flex-wrap items-center gap-x-1.5 gap-y-1 text-sm text-mute">
-              <span className="font-mono">@{agentId}</span>
+              <span>@{agentId}</span>
               <span aria-hidden>·</span>
               <span>
                 {isDraftRelease(release) ? "draft" : `v${release.version}`}
@@ -306,7 +306,7 @@ export function AgentDetailPage() {
                     org{" "}
                     <Link
                       to={`/organizations/${encodeURIComponent(release.org_id)}`}
-                      className="font-mono text-xs text-link hover:text-link-deep"
+                      className="text-xs text-link hover:text-link-deep"
                     >
                       {release.org_id}
                     </Link>
@@ -356,7 +356,7 @@ export function AgentDetailPage() {
       {error && (
         <div className="rounded-[8px] border border-hairline bg-canvas-soft p-4 text-sm">
           <p className="text-error font-medium">Could not load agent</p>
-          <p className="mt-1 font-mono text-xs text-body">{error}</p>
+          <p className="mt-1 text-xs text-body">{error}</p>
           <p className="mt-3">
             <Link to="/agents" className="text-link hover:text-link-deep underline underline-offset-2">
               ← Back to Agent hub
@@ -377,8 +377,8 @@ export function AgentDetailPage() {
             <CommandStrip command={runCmd} />
             <p className="text-xs text-mute">
               Install writes only the local cache; the binding applies per run via{" "}
-              <span className="font-mono">--agent</span> and lands in the lock&apos;s
-              job_overlay as <span className="font-mono">agent_ref</span> (provenance,
+              <span>--agent</span> and lands in the lock&apos;s
+              job_overlay as <span>agent_ref</span> (provenance,
               not fingerprint identity).
             </p>
           </section>
@@ -402,13 +402,13 @@ export function AgentDetailPage() {
             {appearancesByVersion.length === 0 ? (
               <p className="text-sm text-mute">
                 No Hub appearances yet. Attach a published{" "}
-                <span className="font-mono">org/name@version</span> as this
+                <span>org/name@version</span> as this
                 Agent’s org owner, or approve an appearance request.
               </p>
             ) : (
               appearancesByVersion.map(([version, rows]) => (
                 <div key={version} className="space-y-2">
-                  <h3 className="text-xs font-mono text-mute">v{version}</h3>
+                  <h3 className="text-xs text-mute">v{version}</h3>
                   <div className="rounded-[8px] border border-hairline overflow-hidden">
                     <Table>
                       <TableHeader>
@@ -425,7 +425,7 @@ export function AgentDetailPage() {
                           const key = `${row.suite_run_id}:${row.role}`;
                           return (
                             <TableRow key={key}>
-                              <TableCell className="font-mono text-xs">
+                              <TableCell className="text-xs">
                                 <Link
                                   to={`/datasets/${encodeDatasetId(row.dataset_id)}?tab=leaderboard&suite=${encodeURIComponent(row.suite_run_id)}`}
                                   onClick={(e) => e.stopPropagation()}
@@ -434,10 +434,10 @@ export function AgentDetailPage() {
                                   {row.dataset_id}
                                 </Link>
                               </TableCell>
-                              <TableCell className="font-mono text-xs">
+                              <TableCell className="text-xs">
                                 {row.role}
                               </TableCell>
-                              <TableCell className="font-mono text-xs">
+                              <TableCell className="text-xs">
                                 {row.model || "—"}
                               </TableCell>
                               <TableCell className="text-right tabular-nums text-xs">
@@ -461,7 +461,7 @@ export function AgentDetailPage() {
             <h2 className="text-sm font-medium text-ink">Files</h2>
             <p className="text-xs text-mute">
               Read-only preview of this package, including any bundled{" "}
-              <span className="font-mono">overlays/</span> files. Locator names
+              <span>overlays/</span> files. Locator names
               only, never secret values.
             </p>
             <div className="rounded-[8px] border border-hairline overflow-hidden">

@@ -35,7 +35,7 @@ landing 的 oklch 系(`oklch(15.4% 0.018 264)` 底等)是本表的 oklch 等值�
 | 角色 | 栈 | 说明 |
 | --- | --- | --- |
 | sans | `Geist` → `Inter` → `system-ui` → CJK(`Noto Sans SC` / `PingFang SC` / `Microsoft YaHei`) | 全部界面正文;hub/viewer 为系统栈(Geist 命中本地),website 经 next/font 加载 |
-| mono | `Geist Mono` → `ui-monospace` → `Menlo` | 代码 / 命令 / 等宽标签 |
+| mono | `Geist Mono` → `ui-monospace` → `Menlo` | 代码块 / 命令条 / 数字对齐（`tabular-nums`）；列表与表格里的非数字可读字段用 sans |
 | display | `Anton`(wordmark 专用) | 只用于品牌瞬间(hero、logo),**永不**进正文或工具 UI |
 
 ## 形状与动效

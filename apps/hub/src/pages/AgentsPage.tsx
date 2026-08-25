@@ -56,10 +56,10 @@ export function AgentsPage() {
         title="Agent hub"
         sub={
           <>
-            Browse <span className="font-mono text-xs">ageval.agent/1</span>{" "}
+            Browse <code className="font-mono text-xs">ageval.agent/1</code>{" "}
             definitions (one job binding: executor × model × options). Install
             is CLI-only and never edits profiles; bind at run time with{" "}
-            <span className="font-mono text-xs">--agent</span>.
+            <code className="font-mono text-xs">--agent</code>.
           </>
         }
       />
@@ -102,7 +102,7 @@ export function AgentsPage() {
       ) : error ? (
         <div className="rounded-[8px] border border-hairline bg-canvas-soft p-4 text-sm text-body">
           <p className="text-error font-medium">Could not load agents</p>
-          <p className="mt-1 font-mono text-xs">{error}</p>
+          <p className="mt-1 text-xs">{error}</p>
         </div>
       ) : (
         <>

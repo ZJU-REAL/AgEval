@@ -359,7 +359,7 @@ export function ResultOwnerOps({
             >
               <SelectTrigger
                 aria-label="Result visibility"
-                className="h-8 min-w-0 w-auto font-mono text-xs"
+                className="h-8 min-w-0 w-auto text-xs"
               >
                 <SelectValue />
               </SelectTrigger>
@@ -380,7 +380,7 @@ export function ResultOwnerOps({
                   value={agentRef}
                   onChange={(e) => setAgentRef(e.target.value)}
                   placeholder="org/name@version"
-                  className="h-8 min-w-0 flex-1 font-mono text-xs"
+                  className="h-8 min-w-0 flex-1 text-xs"
                   disabled={busy}
                   onKeyDown={(e) => {
                     if (e.key === "Enter") void attachOrRequest();
@@ -399,7 +399,7 @@ export function ResultOwnerOps({
               {matchingAppearance ? (
                 <p className="text-xs text-body">
                   Appearance request pending for{" "}
-                  <span className="font-mono">{matchingAppearance.agent_ref}</span>
+                  <span>{matchingAppearance.agent_ref}</span>
                   . Waiting on the agent org owner.
                 </p>
               ) : pendingAppearance.length > 0 ? (
@@ -407,7 +407,7 @@ export function ResultOwnerOps({
                   {pendingAppearance.map((row) => (
                     <li key={row.request_id}>
                       Pending:{" "}
-                      <span className="font-mono">
+                      <span>
                         {row.agent_ref || "agent"}
                       </span>
                     </li>
@@ -454,7 +454,7 @@ export function ResultOwnerOps({
                 }}
                 disabled={busy}
               >
-                <SelectTrigger className="h-8 min-w-0 w-auto font-mono text-xs">
+                <SelectTrigger className="h-8 min-w-0 w-auto text-xs">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -466,7 +466,7 @@ export function ResultOwnerOps({
                 value={targetId}
                 onChange={(e) => setTargetId(e.target.value)}
                 placeholder={targetType === "org" ? "org-id" : "github-login"}
-                className="h-8 min-w-0 flex-1 font-mono text-xs"
+                className="h-8 min-w-0 flex-1 text-xs"
                 disabled={busy}
                 onKeyDown={(e) => {
                   if (e.key === "Enter") void share();
@@ -491,7 +491,7 @@ export function ResultOwnerOps({
                     key={`${row.target_type}:${row.target_id}`}
                     className="flex items-center justify-between gap-2 px-3 py-1.5"
                   >
-                    <span className="font-mono text-xs text-body">
+                    <span className="text-xs text-body">
                       {row.target_type}/{row.target_id}
                     </span>
                     <Button

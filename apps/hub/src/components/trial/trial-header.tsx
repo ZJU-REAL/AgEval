@@ -42,7 +42,7 @@ export function TrialHeader({
               <span className="text-mute select-none" aria-hidden>
                 ·
               </span>
-              <span className="text-body font-medium font-mono text-[13px]">
+              <span className="text-body font-medium text-[13px]">
                 {trial.dataset_ref}
               </span>
             </>
@@ -52,7 +52,7 @@ export function TrialHeader({
               <span className="text-mute select-none" aria-hidden>
                 ·
               </span>
-              <span className="text-body font-medium font-mono text-[13px]">
+              <span className="text-body font-medium text-[13px]">
                 {trial.framework}
               </span>
             </>
@@ -62,7 +62,7 @@ export function TrialHeader({
               <span className="text-mute select-none" aria-hidden>
                 ·
               </span>
-              <span className="text-body font-medium font-mono text-[13px]">
+              <span className="text-body font-medium text-[13px]">
                 {trial.environment}
               </span>
             </>
@@ -77,7 +77,7 @@ export function TrialHeader({
                   href={trial.upstream_url}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="text-link hover:text-link-deep font-mono text-[13px] truncate max-w-[min(48ch,100%)]"
+                  className="text-link hover:text-link-deep text-[13px] truncate max-w-[min(48ch,100%)]"
                 >
                   {trial.upstream_url}
                 </a>

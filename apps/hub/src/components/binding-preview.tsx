@@ -49,7 +49,7 @@ function Field({
 }) {
   return (
     <div className="grid grid-cols-[7.5rem_minmax(0,1fr)] gap-x-4 gap-y-1 px-4 py-2.5">
-      <div className="font-mono text-[11px] uppercase tracking-wide text-mute pt-0.5">
+      <div className="text-[11px] uppercase tracking-wide text-mute pt-0.5">
         {label}
       </div>
       <div className="min-w-0 text-sm text-ink">{children}</div>
@@ -73,12 +73,12 @@ function OverlayChips({
           <button
             type="button"
             onClick={() => onOpen(path)}
-            className="cursor-pointer font-mono text-xs text-ink underline-offset-2 hover:underline hover:decoration-mute"
+            className="cursor-pointer text-xs text-ink underline-offset-2 hover:underline hover:decoration-mute"
           >
             {leaf}
           </button>
         ) : (
-          <span className="font-mono text-xs text-ink">{leaf}</span>
+          <span className="text-xs text-ink">{leaf}</span>
         );
         return (
           <li key={path} className="min-w-0">
@@ -97,7 +97,7 @@ function ChipList({ items }: { items: string[] }) {
       {items.map((item) => (
         <li
           key={item}
-          className="rounded-[6px] border border-hairline bg-canvas-soft px-1.5 py-0.5 font-mono text-[11px] text-ink"
+          className="rounded-[6px] border border-hairline bg-canvas-soft px-1.5 py-0.5 text-[11px] text-ink"
         >
           {item}
         </li>
@@ -146,12 +146,12 @@ export function BindingPreview({
       <div className="divide-y divide-hairline">
         {executor ? (
           <Field label="executor">
-            <span className="font-mono text-[13px]">{executor}</span>
+            <span className="text-[13px]">{executor}</span>
           </Field>
         ) : null}
         {model ? (
           <Field label="model">
-            <span className="font-mono text-[13px]">{model}</span>
+            <span className="text-[13px]">{model}</span>
           </Field>
         ) : null}
         {label ? (
@@ -171,7 +171,7 @@ export function BindingPreview({
         ) : null}
         {extra.map(([key, value]) => (
           <Field key={key} label={key}>
-            <span className="font-mono text-[12px] text-body break-all">
+            <span className="text-[12px] text-body break-all">
               {typeof value === "string" ? value : JSON.stringify(value)}
             </span>
           </Field>

@@ -293,14 +293,14 @@ export function PluginDetailPage() {
               }}
             />
             {formatBadge ? (
-              <span className="text-[11px] font-medium font-mono px-2 py-0.5 rounded border border-hairline bg-canvas-soft text-body">
+              <span className="text-[11px] font-medium px-2 py-0.5 rounded border border-hairline bg-canvas-soft text-body">
                 {formatBadge}
               </span>
             ) : null}
           </div>
           {release ? (
             <div className="mt-1 flex flex-wrap items-center gap-x-1.5 gap-y-1 text-sm text-mute">
-              <span className="font-mono">@{pluginId}</span>
+              <span>@{pluginId}</span>
               {builtin ? null : (
                 <>
                   <span aria-hidden>·</span>
@@ -321,7 +321,7 @@ export function PluginDetailPage() {
                     org{" "}
                     <Link
                       to={`/organizations/${encodeURIComponent(release.org_id)}`}
-                      className="font-mono text-xs text-link hover:text-link-deep"
+                      className="text-xs text-link hover:text-link-deep"
                     >
                       {release.org_id}
                     </Link>
@@ -371,7 +371,7 @@ export function PluginDetailPage() {
       {error && (
         <div className="rounded-[8px] border border-hairline bg-canvas-soft p-4 text-sm">
           <p className="text-error font-medium">Could not load plugin</p>
-          <p className="mt-1 font-mono text-xs text-body">{error}</p>
+          <p className="mt-1 text-xs text-body">{error}</p>
           <p className="mt-3">
             <Link to="/plugins" className="text-link hover:text-link-deep underline underline-offset-2">
               ← Back to marketplace

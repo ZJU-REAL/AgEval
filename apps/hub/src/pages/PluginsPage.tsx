@@ -57,7 +57,7 @@ export function PluginsPage() {
         title="Plugin marketplace"
         sub={
           <>
-            Browse <span className="font-mono text-xs">ageval.plugin/1</span>{" "}
+            Browse <code className="font-mono text-xs">ageval.plugin/1</code>{" "}
             packages. Install is CLI-only (Recognition only — does not change
             profiles).
           </>
@@ -102,7 +102,7 @@ export function PluginsPage() {
       ) : error ? (
         <div className="rounded-[8px] border border-hairline bg-canvas-soft p-4 text-sm text-body">
           <p className="text-error font-medium">Could not load plugins</p>
-          <p className="mt-1 font-mono text-xs">{error}</p>
+          <p className="mt-1 text-xs">{error}</p>
         </div>
       ) : (
         <>

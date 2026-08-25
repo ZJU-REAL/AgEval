@@ -54,7 +54,7 @@ export function SlotHistorySelect({
 
   return (
     <Select value={viewingRunId} onValueChange={onSelect}>
-      <SelectTrigger aria-label="Slot version" className="min-w-0 w-auto font-mono">
+      <SelectTrigger aria-label="Slot version" className="min-w-0 w-auto">
         <SelectValue />
       </SelectTrigger>
       <SelectContent className="w-max min-w-0">

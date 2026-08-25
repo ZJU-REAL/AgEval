@@ -411,7 +411,7 @@ export function OrganizationDetailPage() {
       ) : error ? (
         <div className="rounded-[8px] border border-hairline bg-canvas-soft p-4 text-sm">
           <p className="text-error font-medium">Could not load organization</p>
-          <p className="mt-1 font-mono text-xs text-body">{error}</p>
+          <p className="mt-1 text-xs text-body">{error}</p>
         </div>
       ) : (
         <>
@@ -426,7 +426,7 @@ export function OrganizationDetailPage() {
                 setOrg(updated);
               }}
             />
-            <p className="font-mono text-sm text-mute mt-1">@{orgId}</p>
+            <p className="text-sm text-mute mt-1">@{orgId}</p>
             {org ? (
               <div className="mt-3">
                 <DescriptionEditor
@@ -513,7 +513,7 @@ export function OrganizationDetailPage() {
                                     <div className="text-sm font-medium text-ink truncate">
                                       {title}
                                     </div>
-                                    <div className="text-xs font-mono text-mute truncate">
+                                    <div className="text-xs text-mute truncate">
                                       @{m.user_id}
                                     </div>
                                   </div>
@@ -570,7 +570,7 @@ export function OrganizationDetailPage() {
                                   d.display_name,
                                 )}
                               </TableCell>
-                              <TableCell className="font-mono text-xs text-body">
+                              <TableCell className="text-xs text-body">
                                 {d.version}
                               </TableCell>
                               <TableCell className="text-sm text-body">
@@ -653,10 +653,10 @@ export function OrganizationDetailPage() {
                               );
                             }}
                           >
-                            <TableCell className="font-mono text-xs">
+                            <TableCell className="text-xs">
                               {s.suite_run_id}
                             </TableCell>
-                            <TableCell className="font-mono text-xs text-body">
+                            <TableCell className="text-xs text-body">
                               {s.dataset_id ? (
                                 <Link
                                   to={`/datasets/${encodeDatasetId(s.dataset_id)}`}
@@ -669,7 +669,7 @@ export function OrganizationDetailPage() {
                                 "—"
                               )}
                             </TableCell>
-                            <TableCell className="font-mono text-xs text-mute">
+                            <TableCell className="text-xs text-mute">
                               {s.uploaded_by ? `@${s.uploaded_by}` : "—"}
                             </TableCell>
                             <TableCell className="text-xs text-mute">
@@ -748,7 +748,7 @@ export function OrganizationDetailPage() {
                                         </span>
                                       ) : null}
                                     </div>
-                                    <div className="text-xs font-mono text-mute truncate">
+                                    <div className="text-xs text-mute truncate">
                                       @{m.user_id}
                                     </div>
                                   </div>
@@ -970,7 +970,7 @@ export function OrganizationDetailPage() {
                               k.active === false ? "inactive" : "active";
                             return (
                               <TableRow key={k.key_id}>
-                                <TableCell className="font-mono text-xs max-w-[min(40rem,50vw)]">
+                                <TableCell className="text-xs max-w-[min(40rem,50vw)]">
                                   <HoverTip content={display}>
                                     <span className="block truncate">
                                       {display}
@@ -1102,7 +1102,7 @@ export function OrganizationDetailPage() {
                 value={addLogin}
                 onChange={(e) => setAddLogin(e.target.value)}
                 placeholder="alice"
-                className="mt-1.5 font-mono text-sm"
+                className="mt-1.5 text-sm"
                 autoFocus
                 disabled={addBusy}
                 onKeyDown={(e) => {

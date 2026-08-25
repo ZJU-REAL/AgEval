@@ -475,7 +475,7 @@ export function TaskDetailPage() {
       />
       <div className="mb-4 flex flex-wrap items-start justify-between gap-3">
         <div>
-          <h1 className="text-xl font-semibold tracking-tight text-ink font-mono">
+          <h1 className="text-xl font-semibold tracking-tight text-ink">
             {taskId}
           </h1>
           <p className="text-sm text-mute mt-1">{datasetId}</p>
@@ -506,7 +506,7 @@ export function TaskDetailPage() {
       />
 
       {error ? (
-        <p className="text-sm text-error font-mono mb-4">{error}</p>
+        <p className="text-sm text-error mb-4">{error}</p>
       ) : null}
 
       {tab === "readme" ? (
@@ -616,7 +616,7 @@ export function TaskDetailPage() {
                         tabIndex={canOpen ? 0 : undefined}
                         role={canOpen ? "link" : undefined}
                       >
-                        <TableCell className="font-mono text-xs">
+                        <TableCell className="text-xs">
                           <HoverTip content={rowTip}>
                           <span className="text-ink">{j.job_id}</span>
                           </HoverTip>
@@ -626,7 +626,7 @@ export function TaskDetailPage() {
                             </span>
                           ) : null}
                         </TableCell>
-                        <TableCell className="font-mono text-xs text-body">
+                        <TableCell className="text-xs text-body">
                           {j.dataset_ref || "-"}
                         </TableCell>
                         <TableCell className="text-sm">
@@ -638,16 +638,16 @@ export function TaskDetailPage() {
                         <TableCell className="text-sm text-body">
                           <AxisLabel value={j.agent_label} />
                         </TableCell>
-                        <TableCell className="text-sm font-mono text-xs">
+                        <TableCell className="text-sm text-xs">
                           <ModelLabel
                             value={j.model_label}
                             effort={j.reasoning_effort}
                           />
                         </TableCell>
-                        <TableCell className="font-mono text-xs">
+                        <TableCell className="text-xs">
                           {j.environment || "-"}
                         </TableCell>
-                        <TableCell className="font-mono text-xs text-mute tabular">
+                        <TableCell className="text-xs text-mute tabular">
                           {j.created_at != null && j.created_at !== ""
                             ? formatDate(j.created_at)
                             : "-"}

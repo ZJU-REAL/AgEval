@@ -254,13 +254,13 @@ function SuiteJobsList({
             onClick: href ? () => onOpen(href) : undefined,
             muted: !href,
             cells: [
-              <span key="t" className="font-mono text-xs">
+              <span key="t" className="text-xs">
                 {j.taskId}
               </span>,
               j.status || "—",
               formatScore(j.score),
               j.runId ? (
-                <span key="r" className="font-mono text-xs">
+                <span key="r" className="text-xs">
                   {shortSuiteId(j.runId)}
                   {!href ? (
                     <span className="ml-2 font-sans text-[11px] text-mute">
@@ -452,7 +452,7 @@ export function LeaderboardTable({
   return (
     <div className="space-y-3">
       <p className="text-xs text-mute">
-        <span className="font-mono">{datasetId}</span>
+        <span>{datasetId}</span>
         {" · "}metrics only (not suite PASS)
         {" · "}click headers to sort
         {showKColumns ? " · pass@k uses job max k" : null}
@@ -575,11 +575,11 @@ export function LeaderboardTable({
                       <ModelLabel
                         value={modelText}
                         effort={reasoningEffortFromOverlay(s.job_overlay)}
-                        className="font-mono text-xs"
+                        className="text-xs"
                       />
                     </TableCell>
                     <TableCell
-                      className={`font-mono text-xs ${COL_METRIC}`}
+                      className={`text-xs ${COL_METRIC}`}
                     >
                       <span className="inline-flex items-center gap-1.5">
                         {environmentKey ? (
@@ -649,7 +649,7 @@ export function LeaderboardTable({
                           ? String(nTasks)
                           : "—"}
                     </TableCell>
-                    <TableCell className={`font-mono text-xs ${COL_TEXT}`}>
+                    <TableCell className={`text-xs ${COL_TEXT}`}>
                       <HoverTip content={s.uploaded_by || undefined}>
                         <span className="block truncate">
                           {s.uploaded_by || "—"}
@@ -657,7 +657,7 @@ export function LeaderboardTable({
                       </HoverTip>
                     </TableCell>
                     <TableCell
-                      className={`font-mono text-[11px] ${COL_METRIC}`}
+                      className={`text-[11px] ${COL_METRIC}`}
                     >
                       <HoverTip content={s.suite_run_id}>
                         <span className="block truncate">
@@ -677,12 +677,12 @@ export function LeaderboardTable({
                             <p className="text-xs text-mute">
                               Observational k metrics for this job (not PASS
                               authority; not identity). Display k=
-                              <span className="font-mono">{atK.k}</span>
+                              <span>{atK.k}</span>
                               {nAtt != null ? (
                                 <>
                                   {" "}
                                   · n_attempts=
-                                  <span className="font-mono">{nAtt}</span>
+                                  <span>{nAtt}</span>
                                 </>
                               ) : null}
                               .
@@ -765,11 +765,11 @@ export function LeaderboardTable({
                                         to={`/plugins/${encodeDatasetId(p.plugin_id)}`}
                                         className="flex items-center justify-between gap-3 px-3 py-2 text-sm hover:bg-row-hover"
                                       >
-                                        <span className="inline-flex min-w-0 items-center gap-1.5 font-mono text-xs text-link hover:text-link-deep">
+                                        <span className="inline-flex min-w-0 items-center gap-1.5 text-xs text-link hover:text-link-deep">
                                           {p.plugin_id}
                                           {bundled ? <BuiltinMark /> : null}
                                         </span>
-                                        <span className="font-mono text-[11px] text-mute">
+                                        <span className="text-[11px] text-mute">
                                           {bundled
                                             ? "bundled"
                                             : p.version

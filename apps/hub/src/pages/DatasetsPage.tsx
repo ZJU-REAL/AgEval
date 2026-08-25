@@ -141,7 +141,7 @@ export function DatasetsPage() {
       ) : error ? (
         <div className="rounded-[8px] border border-hairline bg-canvas-soft p-4 text-sm text-body">
           <p className="text-error font-medium">Could not load packages</p>
-          <p className="mt-1 font-mono text-xs">{error}</p>
+          <p className="mt-1 text-xs">{error}</p>
         </div>
       ) : (
         <>
@@ -190,7 +190,7 @@ export function DatasetsPage() {
                       <TableCell className="font-medium text-sm">
                         {packageDisplayTitle(row.dataset_id, row.display_name)}
                       </TableCell>
-                      <TableCell className="font-mono text-xs text-mute">
+                      <TableCell className="text-xs text-mute">
                         {row.org_id ? (
                           <Link
                             to={`/organizations/${encodeURIComponent(row.org_id)}`}
@@ -203,7 +203,7 @@ export function DatasetsPage() {
                           "—"
                         )}
                       </TableCell>
-                      <TableCell className="font-mono text-xs text-body">
+                      <TableCell className="text-xs text-body">
                         {versionLabel(row)}
                       </TableCell>
                       <TableCell className="text-body">{row.visibility}</TableCell>

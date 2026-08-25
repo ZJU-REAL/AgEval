@@ -32,7 +32,7 @@ export function VersionSwitcher({
     <Select value={value} onValueChange={onChange}>
       <SelectTrigger
         aria-label="Package version"
-        className="h-8 min-w-0 w-auto font-mono text-xs"
+        className="h-8 min-w-0 w-auto text-xs"
       >
         <SelectValue />
       </SelectTrigger>

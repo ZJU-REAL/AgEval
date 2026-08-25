@@ -159,7 +159,7 @@ export function DeleteJobDialog({ jobs, onClose, onDeleted }: Props) {
       title={bulk ? `Delete ${jobs.length} jobs` : `Delete ${singleKind} job`}
       description={
         <>
-          <span className="block font-mono text-xs truncate">
+          <span className="block text-xs truncate">
             {bulk
               ? jobs.map((j) => jobDisplayName(j)).join(", ")
               : jobDisplayName(jobs[0])}
@@ -191,7 +191,7 @@ export function DeleteJobDialog({ jobs, onClose, onDeleted }: Props) {
                   key={`${row.locator}-${row.run_id || ""}`}
                   className="flex items-start justify-between gap-3 px-2.5 py-1.5"
                 >
-                  <span className="font-mono text-xs break-all">
+                  <span className="text-xs break-all">
                     {row.locator}
                     {!row.exists ? (
                       <span className="text-mute"> (missing)</span>

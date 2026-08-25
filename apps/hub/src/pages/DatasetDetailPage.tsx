@@ -429,17 +429,17 @@ export function DatasetDetailPage() {
           />
           {release ? (
             <p className="text-sm text-mute mt-1">
-              <span className="font-mono">{versionLabel(release)}</span> ·{" "}
+              <span>{versionLabel(release)}</span> ·{" "}
               {release.visibility}
               {release.org_id ? (
                 <>
                   {" "}
                   · org{" "}
-                  <span className="font-mono text-xs text-body">{release.org_id}</span>
+                  <span className="text-xs text-body">{release.org_id}</span>
                 </>
               ) : null}{" "}
               ·{" "}
-              <span className="font-mono text-xs">
+              <span className="text-xs">
                 {release.package_digest.slice(0, 19)}…
               </span>
             </p>
@@ -505,7 +505,7 @@ export function DatasetDetailPage() {
         <p className="text-sm text-mute">Loading…</p>
       ) : error ? (
         <div className="space-y-2 text-sm">
-          <p className="text-error font-mono">{error}</p>
+          <p className="text-error">{error}</p>
           {error.includes("Plugin marketplace") || error.includes("plugin") ? (
             <p className="text-body">
               <Link

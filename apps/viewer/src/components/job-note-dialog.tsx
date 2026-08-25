@@ -49,7 +49,7 @@ export function JobNoteDialog({ job, initialNote, onClose, onSave }: Props) {
           <h2 id={titleId} className="text-sm font-medium text-ink">
             Note
           </h2>
-          <p className="mt-1 text-xs text-mute font-mono truncate">
+          <p className="mt-1 text-xs text-mute truncate">
             {jobDisplayName(job)}
           </p>
         </div>

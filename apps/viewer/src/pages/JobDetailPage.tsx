@@ -171,7 +171,7 @@ export function JobDetailPage() {
         />
 
         <div>
-          <h1 className="text-2xl font-semibold tracking-tight text-ink font-mono">{jobId}</h1>
+          <h1 className="text-2xl font-semibold tracking-tight text-ink">{jobId}</h1>
           {job && (
             <p className="text-sm text-mute mt-1 flex flex-wrap items-center gap-x-1.5">
               {job.agent_label ? <span>{job.agent_label}</span> : null}
@@ -189,7 +189,7 @@ export function JobDetailPage() {
                   {job.agent_label || job.model_label ? (
                     <span aria-hidden>/</span>
                   ) : null}
-                  <span className="font-mono">{job.dataset_ref}</span>
+                  <span>{job.dataset_ref}</span>
                 </>
               ) : null}
             </p>

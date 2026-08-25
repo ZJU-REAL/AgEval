@@ -147,7 +147,7 @@ export function PackageOwnerOps({
         >
           <SelectTrigger
             aria-label="Package visibility"
-            className="h-8 min-w-0 w-auto font-mono text-xs"
+            className="h-8 min-w-0 w-auto text-xs"
           >
             <SelectValue />
           </SelectTrigger>
@@ -227,7 +227,7 @@ export function PackageOwnerOps({
                 onChange={(e) => setReleaseVersion(e.target.value)}
                 placeholder="from archive"
                 disabled={busy}
-                className="mt-1.5 font-mono text-sm"
+                className="mt-1.5 text-sm"
               />
             </div>
             <div>
@@ -243,7 +243,7 @@ export function PackageOwnerOps({
                 }}
                 disabled={busy}
               >
-                <SelectTrigger className="mt-1.5 h-9 min-w-0 w-full font-mono text-sm">
+                <SelectTrigger className="mt-1.5 h-9 min-w-0 w-full text-sm">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>

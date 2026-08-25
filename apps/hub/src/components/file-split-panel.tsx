@@ -371,7 +371,7 @@ export function FileSplitPanel({
         )}
       >
         {selectedPath ? (
-          <div className="px-3 py-2 border-b border-hairline text-[12px] font-mono text-mute shrink-0 bg-canvas flex items-center gap-2">
+          <div className="px-3 py-2 border-b border-hairline text-[12px] text-mute shrink-0 bg-canvas flex items-center gap-2">
             <FileTypeIcon
               name={selectedPath.split("/").pop() || selectedPath}
               kind="file"

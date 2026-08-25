@@ -107,7 +107,7 @@ export function BrandMarkPicker({
             }
             size={20}
           />
-          <span className="font-mono text-[10px] text-mute">Default</span>
+          <span className="text-[10px] text-mute">Default</span>
         </button>
         {rows.map((row) => (
           <button
@@ -122,7 +122,7 @@ export function BrandMarkPicker({
             )}
           >
             <BrandMark mark={{ kind: "catalog", id: row.id }} size={20} />
-            <span className="w-full truncate font-mono text-[10px] text-body">
+            <span className="w-full truncate text-[10px] text-body">
               {row.label}
             </span>
           </button>
@@ -144,7 +144,7 @@ export function BrandMarkPicker({
         />
       </label>
       {githubInvalid ? (
-        <p className="mt-1 font-mono text-xs text-error">Need a GitHub login or github.com/login URL</p>
+        <p className="mt-1 text-xs text-error">Need a GitHub login or github.com/login URL</p>
       ) : null}
     </ConfirmDialog>
   );

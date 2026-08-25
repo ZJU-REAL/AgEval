@@ -164,7 +164,7 @@ function StepBody({
             <pre
               aria-hidden
               className={cn(
-                "pointer-events-none absolute inset-x-0 top-0 m-0 truncate font-mono text-[13px] leading-5 text-mute",
+                "pointer-events-none absolute inset-x-0 top-0 m-0 truncate text-[13px] leading-5 text-mute",
                 "motion-safe:transition-opacity motion-safe:duration-200 motion-safe:ease-smooth",
                 open ? "opacity-0" : "opacity-100",
               )}
@@ -416,17 +416,17 @@ export function TrajectoryPanel({
                     {label}
                   </span>
                   {!hideTurnIndex && s.turn_index != null ? (
-                    <span className="text-mute font-mono font-normal normal-case tracking-normal">
+                    <span className="text-mute font-normal normal-case tracking-normal">
                       turn {s.turn_index}
                     </span>
                   ) : null}
                   {s.kind && isToolCall && s.kind !== label ? (
-                    <span className="rounded bg-canvas-soft border border-hairline px-1.5 py-0 font-mono text-[11px] text-mute font-normal normal-case tracking-normal">
+                    <span className="rounded bg-canvas-soft border border-hairline px-1.5 py-0 text-[11px] text-mute font-normal normal-case tracking-normal">
                       {s.kind}
                     </span>
                   ) : null}
                 </div>
-                <div className="ml-auto flex flex-col items-end gap-0.5 min-w-0 max-w-[min(100%,36rem)] text-right text-mute font-mono font-normal normal-case tracking-normal">
+                <div className="ml-auto flex flex-col items-end gap-0.5 min-w-0 max-w-[min(100%,36rem)] text-right text-mute font-normal normal-case tracking-normal">
                   {showStatus ? (
                     <span
                       className={cn(
@@ -522,7 +522,7 @@ export function TrajectoryPanel({
                 : who || "invoke";
             return (
               <section key={`${block.turn ?? "x"}-${i}`} className="space-y-2">
-                <h3 className="text-xs font-medium text-ink sticky top-0 bg-canvas/95 backdrop-blur-sm py-1 border-b border-hairline font-mono">
+                <h3 className="text-xs font-medium text-ink sticky top-0 bg-canvas/95 backdrop-blur-sm py-1 border-b border-hairline">
                   {title}
                   <span className="text-mute font-normal ml-2">
                     {block.steps.length} step

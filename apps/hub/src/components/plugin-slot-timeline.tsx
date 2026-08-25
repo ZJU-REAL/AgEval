@@ -90,7 +90,7 @@ export function PluginSlotTimeline({
     return (
       <p className="text-sm text-mute">
         No slot preview available (open{" "}
-        <span className="font-mono text-xs">plugin.yaml</span> in files).
+        <span className="text-xs">plugin.yaml</span> in files).
       </p>
     );
   }
@@ -110,7 +110,7 @@ export function PluginSlotTimeline({
                   : "flex items-center gap-3 px-3 py-2.5 text-mute bg-canvas"
               }
             >
-              <span className="font-mono text-[11px] w-6 shrink-0">
+              <span className="text-[11px] w-6 shrink-0">
                 L{level}
               </span>
               <span
@@ -132,7 +132,7 @@ export function PluginSlotTimeline({
                         key={`${slot.kind}-${slot.id}`}
                         type="button"
                         onClick={() => onOpenPath(path)}
-                        className="cursor-pointer font-mono text-xs text-ink underline-offset-2 hover:underline hover:decoration-mute"
+                        className="cursor-pointer text-xs text-ink underline-offset-2 hover:underline hover:decoration-mute"
                       >
                         {slot.id}
                       </button>

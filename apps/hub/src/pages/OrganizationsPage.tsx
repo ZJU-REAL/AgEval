@@ -241,7 +241,7 @@ export function OrganizationsPage() {
       ) : error ? (
         <div className="rounded-[8px] border border-hairline bg-canvas-soft p-4 text-sm">
           <p className="text-error font-medium">Could not load organizations</p>
-          <p className="mt-1 font-mono text-xs text-body">{error}</p>
+          <p className="mt-1 text-xs text-body">{error}</p>
         </div>
       ) : (
         <>
@@ -351,7 +351,7 @@ export function OrganizationsPage() {
                           {org.official ? <OfficialMark kind="org" /> : null}
                         </span>
                       </TableCell>
-                      <TableCell className="font-mono text-xs text-mute">
+                      <TableCell className="text-xs text-mute">
                         @{org.org_id}
                       </TableCell>
                       <TableCell className="text-body capitalize text-sm">
@@ -413,7 +413,7 @@ export function OrganizationsPage() {
                 value={orgName}
                 onChange={(e) => setOrgName(e.target.value)}
                 placeholder="my-lab"
-                className="mt-1.5 font-mono text-sm"
+                className="mt-1.5 text-sm"
                 autoFocus
                 disabled={createBusy}
                 maxLength={64}
@@ -455,7 +455,7 @@ export function OrganizationsPage() {
               maxLength={500}
             />
             {createError ? (
-              <p className="text-sm text-error font-mono">{createError}</p>
+              <p className="text-sm text-error">{createError}</p>
             ) : null}
             <div className="flex justify-end gap-2">
               <Button
@@ -512,7 +512,7 @@ export function OrganizationsPage() {
                 value={inviteKey}
                 onChange={(e) => setInviteKey(e.target.value)}
                 placeholder="ageval-inv_…"
-                className="mt-1.5 font-mono text-sm"
+                className="mt-1.5 text-sm"
                 autoFocus
                 disabled={joinBusy}
                 onKeyDown={(e) => {
@@ -521,7 +521,7 @@ export function OrganizationsPage() {
               />
             </div>
             {joinError ? (
-              <p className="text-sm text-error font-mono">{joinError}</p>
+              <p className="text-sm text-error">{joinError}</p>
             ) : null}
             <div className="flex justify-end gap-2">
               <Button

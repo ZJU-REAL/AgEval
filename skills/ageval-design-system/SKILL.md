@@ -43,8 +43,8 @@ fix the surfaces to match docs/13 + the script.
   clip-path chamfer on buttons.
 - Underline tabs use `UnderlineTabs` (sans `text-sm`, sliding IKB bar). Page heads use
   `PageHead` (h1 + optional sub + hairline; no numbered kicker).
-- List / table primary labels (display titles, scope tabs, sidebar section labels)
-  use the default sans stack. Mono is for commands, digests, and technical IDs.
+- List / table row text (non-numeric): always default sans. Mono only for
+  `<code>` / `<pre>` / command strips, and numeric `tabular-nums` alignment.
 - Plugin / agent marketplace lists are `CatalogCard` grids (20px entity mark +
   `org/name` + date, two-line description, tags at the bottom). Datasets, jobs,
   leaderboard, and members are hairline tables.

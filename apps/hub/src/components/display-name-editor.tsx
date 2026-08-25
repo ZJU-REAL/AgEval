@@ -73,7 +73,7 @@ export function DisplayNameEditor({
         <div className="flex items-center gap-1.5">
           {beforeTitle}
           {locked ? (
-            <span className="font-mono text-sm text-mute shrink-0">{locked}</span>
+            <span className="text-sm text-mute shrink-0">{locked}</span>
           ) : null}
           <Input
             value={draft}
