@@ -81,7 +81,7 @@ Hub **Dataset → Leaderboard** and **Task → Jobs** list Registry **suite** ro
 | --- | --- |
 | 1. Run suite | `uv run ageval run <dataset>` (**omit** `--task`; optional `--profiles`) |
 | 2. Note id | `suite_run_id` in stdout / `summary.json` (default 8 hex) |
-| 3. Upload suite | `uv run ageval results upload-suite <dataset|id@version> --suite-run <id> --public` |
+| 3. Upload suite | `uv run ageval results upload-suite <dataset> --suite-run <id> --public` (or `id@version`) |
 | 4. Deep-link trajectory | Add `--with-attempts` |
 
 ```bash
