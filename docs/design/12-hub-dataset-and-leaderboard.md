@@ -6,7 +6,7 @@
 
 单 Attempt `results upload` 通常上不了榜。正确路径：`ageval run <dataset>`（无 `--task`）→ `ageval results upload-suite --suite-run <id> --with-attempts`。申请人是 suite `uploaded_by`；不完备或 draft-bound 申请 listing fail closed。批准只写 listing 标记，不改 lock / fingerprint / overlay。
 
-`--agent` 投影进 profiles 通道，与 `--profiles` 互斥。`agent_ref` 是溯源不是身份，不进 `config_fingerprint`。已上传 suite 允许延后把 published `org/name@version` 写入 **Registry 存的** `job_overlay`（对齐 `_binding_role_key`：executor、ACP entry、model、secret-free plugin options）。不改 Attempt `lock.json`、digest、PASS。`local/` 与 `file:` 不能当 Hub 溯源。plaza 出场（官方 Dataset + public + complete + release）不变；仅 overlay 有 `agent_ref` 不够 —— Appearances 还要 Agent 包 org 同意。
+`--agent` 投影进 profiles 通道，与 `--profiles` 互斥。`agent_ref` 是 harness 溯源不是身份，不进 `config_fingerprint`（包身份与 `--model` 见 [14](14-agent-hub.md)）。已上传 suite 允许延后把 published `org/name@version` 写入 **Registry 存的** `job_overlay`。Appearances 对齐尺子：executor、ACP entry、secret-free plugin options（**不含** model）。suite 可比性仍走 `_binding_role_key`（含实际 model）。不改 Attempt `lock.json`、digest、PASS。`local/` 与 `file:` 不能当 Hub 溯源。plaza 出场（官方 Dataset + public + complete + release）不变；仅 overlay 有 `agent_ref` 不够 —— Appearances 还要 Agent 包 org 同意。
 
 Inbox：Registry 一等 request 行（`pending` / `approved` / `rejected`）。两种 kind：`leaderboard_list`（收件人 = Dataset org owner）、`agent_appearance`（收件人 = Agent 包 org owner）。批准只跑已有写入（listing 标记，或同一条 attach 路径）。申请人已是该 Agent org owner 时出场走 attach、不建请求。加入 org 仍是 invite key。
 
