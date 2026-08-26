@@ -7,7 +7,7 @@ from typing import Annotated, Any
 
 import typer
 
-from ageval.cli.cmd_agent import AGENT_OPTION_HELP, resolve_agent_option
+from ageval.cli.cmd_agent import AGENT_OPTION_HELP, MODEL_OPTION_HELP, resolve_agent_option
 from ageval.cli.present import emit
 from ageval.cli.run_output import (
     RunProgress,
@@ -56,6 +56,10 @@ def register(app: typer.Typer) -> None:
             list[str] | None,
             typer.Option("--agent", help=AGENT_OPTION_HELP),
         ] = None,
+        model: Annotated[
+            str | None,
+            typer.Option("--model", help=MODEL_OPTION_HELP),
+        ] = None,
         keep_vendor_raw: Annotated[
             bool,
             typer.Option(
@@ -73,7 +77,7 @@ def register(app: typer.Typer) -> None:
         from ageval.application.composition import build_campaign_runner
         from ageval.config.errors import ConfigError
 
-        profiles = resolve_agent_option(agent, profiles)
+        profiles = resolve_agent_option(agent, profiles, model=model)
         run_campaign = build_campaign_runner()
         try:
             summary = asyncio.run(
@@ -190,6 +194,10 @@ def register(app: typer.Typer) -> None:
             list[str] | None,
             typer.Option("--agent", help=AGENT_OPTION_HELP),
         ] = None,
+        model: Annotated[
+            str | None,
+            typer.Option("--model", help=MODEL_OPTION_HELP),
+        ] = None,
         probe: Annotated[
             bool,
             typer.Option(
@@ -254,7 +262,7 @@ def register(app: typer.Typer) -> None:
             build_suite_runner,
         )
 
-        profiles = resolve_agent_option(agent, profiles)
+        profiles = resolve_agent_option(agent, profiles, model=model)
         if install_dir is not None:
             from ageval.config.errors import ConfigError as DirConfigError
 

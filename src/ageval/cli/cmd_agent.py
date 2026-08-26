@@ -32,12 +32,30 @@ def register(app: typer.Typer) -> None:
 AGENT_OPTION_HELP = (
     "Bind an installed Agent (ageval.agent/1) for this run; repeatable. "
     "Forms: <id>@<version> (all roles), <role>=<ref> (one role), or a local "
-    "path to an agent dir / agent.yaml. Mutually exclusive with --profiles."
+    "path to an agent dir / agent.yaml. Mutually exclusive with --profiles. "
+    "The package is a harness; binding.model is the default when --model is omitted."
+)
+
+MODEL_OPTION_HELP = (
+    "Override binding.model for roles bound by --agent on this lock/run/campaign. "
+    "Requires --agent. Omit to keep the package default. "
+    "Not the observational --model on ageval results upload / upload-suite."
 )
 
 
-def resolve_agent_option(agent: list[str] | None, profiles: Path | None) -> Path | None:
+def resolve_agent_option(
+    agent: list[str] | None,
+    profiles: Path | None,
+    model: str | None = None,
+) -> Path | None:
     """Shared --agent handling: mutual exclusion + projection into a profiles file."""
+    model_text = model.strip() if isinstance(model, str) else ""
+    if model is not None and not model_text:
+        typer.echo("invalid_override: --model must be a non-empty string", err=True)
+        raise typer.Exit(code=2)
+    if model_text and not agent:
+        typer.echo("invalid_override: --model requires --agent", err=True)
+        raise typer.Exit(code=2)
     if not agent:
         return profiles
     if profiles is not None:
@@ -50,7 +68,7 @@ def resolve_agent_option(agent: list[str] | None, profiles: Path | None) -> Path
     from ageval.config.errors import ConfigError
 
     try:
-        return build_agent_projection()(list(agent))
+        return build_agent_projection()(list(agent), model=model_text or None)
     except ConfigError as exc:
         typer.echo(str(exc), err=True)
         raise typer.Exit(code=2) from exc

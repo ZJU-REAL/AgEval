@@ -95,3 +95,14 @@ def test_resolve_writes_parseable_profiles_document(tmp_path: Path) -> None:
     assert set(doc["agent_profiles"]) == {"*", "critic"}
     # Content-addressed: same specs → same path.
     assert resolve_agent_specs([str(pkg), f"critic={pkg}"]) == out
+
+
+def test_resolve_model_overrides_bound_roles(tmp_path: Path) -> None:
+    pkg = _make_pkg(tmp_path)
+    default = resolve_agent_specs([str(pkg), f"critic={pkg}"])
+    overridden = resolve_agent_specs([str(pkg), f"critic={pkg}"], model="glm-4.7")
+    assert overridden != default
+    doc = yaml.safe_load(overridden.read_text(encoding="utf-8"))
+    assert {row["model"] for row in doc["agent_profiles"].values()} == {"glm-4.7"}
+    base = yaml.safe_load(default.read_text(encoding="utf-8"))
+    assert {row["model"] for row in base["agent_profiles"].values()} == {"none"}

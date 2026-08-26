@@ -11,7 +11,9 @@ Spec forms (repeatable):
 The synthesized document enters the existing ``profiles_path`` lane, so lock /
 job_overlay / fingerprint behave exactly as with a hand-written profiles file.
 ``agent_ref`` (``<id>@<version>+sha256:<digest12>``) is injected per binding as
-provenance; it never enters suite fingerprint identity.
+provenance; it never enters suite fingerprint identity. Optional ``model``
+patches ``binding.model`` on every role this ``--agent`` bound (package default
+otherwise).
 """
 
 from __future__ import annotations
@@ -119,14 +121,18 @@ def bindings_from_agent_specs(specs: list[str]) -> dict[str, dict[str, Any]]:
     return bindings
 
 
-def resolve_agent_specs(specs: list[str]) -> Path:
+def resolve_agent_specs(specs: list[str], model: str | None = None) -> Path:
     """Synthesize a ``ageval.profiles/1`` file for the profiles lane; return its path.
 
     Written content-addressed under ``$AGEVAL_HOME/agents/.projections`` so the
     exact document a run used stays inspectable and re-runnable (also works
     when the Dataset itself is a registry ref with no local root).
+    ``model`` (from ``--model``) overrides ``binding.model`` on bound roles.
     """
     bindings = bindings_from_agent_specs(specs)
+    if model:
+        for binding in bindings.values():
+            binding["model"] = model
     document = {"format": PROFILES_FORMAT, "agent_profiles": bindings}
     # Re-parse for shape safety before anything reads the file.
     parse_job_mapping(document, location="--agent")
