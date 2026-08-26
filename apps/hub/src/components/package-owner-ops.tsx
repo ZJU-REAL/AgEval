@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { Input } from "@/components/ui/input";
 import { toast } from "@/components/ui/toast";
+import { toastError } from "@/lib/toast-error";
 import {
   Select,
   SelectContent,
@@ -18,7 +19,6 @@ import {
   setPackageVisibility,
   versionLabel,
   type PackageRelease,
-  RegistryHttpError,
 } from "@/lib/api";
 
 export function PackageOwnerOps({
@@ -39,7 +39,6 @@ export function PackageOwnerOps({
   onReleased: (next: PackageRelease) => void;
 }) {
   const [busy, setBusy] = useState(false);
-  const [error, setError] = useState<string | null>(null);
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [releaseOpen, setReleaseOpen] = useState(false);
   const [releaseVisibility, setReleaseVisibility] = useState<
@@ -53,17 +52,12 @@ export function PackageOwnerOps({
   if (!canManage || !token) return null;
 
   function fail(err: unknown) {
-    if (err instanceof RegistryHttpError) {
-      setError(`${err.code}: ${err.message}`);
-    } else {
-      setError(err instanceof Error ? err.message : String(err));
-    }
+    toastError(err);
   }
 
   async function changeVisibility(next: "public" | "private") {
     if (next === release.visibility) return;
     setBusy(true);
-    setError(null);
     try {
       const updated = await setPackageVisibility(
         packageId,
@@ -82,7 +76,6 @@ export function PackageOwnerOps({
 
   async function remove() {
     setBusy(true);
-    setError(null);
     try {
       await deletePackageRelease(packageId, release.version, token);
       setDeleteOpen(false);
@@ -97,7 +90,6 @@ export function PackageOwnerOps({
 
   async function promote() {
     setBusy(true);
-    setError(null);
     try {
       const updated = await releasePackageDraft(
         packageId,
@@ -127,7 +119,6 @@ export function PackageOwnerOps({
           disabled={busy}
           onClick={() => {
             setReleaseOpen(true);
-            setError(null);
             setReleaseVisibility(
               release.visibility === "public" ? "public" : "private",
             );
@@ -163,7 +154,6 @@ export function PackageOwnerOps({
         variant="dangerOutline"
         disabled={busy}
         onClick={() => {
-          setError(null);
           setDeleteOpen(true);
         }}
       >
@@ -181,11 +171,9 @@ export function PackageOwnerOps({
         }
         confirmLabel="Delete"
         busy={busy}
-        error={error}
         onCancel={() => {
           if (!busy) {
             setDeleteOpen(false);
-            setError(null);
           }
         }}
         onConfirm={() => void remove()}

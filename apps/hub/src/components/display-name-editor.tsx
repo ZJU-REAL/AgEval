@@ -5,6 +5,7 @@ import { HoverTip } from "@/components/hover-tip";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { toast } from "@/components/ui/toast";
+import { toastError } from "@/lib/toast-error";
 import { cn } from "@/lib/utils";
 
 export function DisplayNameEditor({
@@ -29,7 +30,6 @@ export function DisplayNameEditor({
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState(value);
   const [busy, setBusy] = useState(false);
-  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     if (!editing) setDraft(value);
@@ -41,21 +41,19 @@ export function DisplayNameEditor({
     const next = draft.trim();
     if (!next || next === value) {
       setEditing(false);
-      setError(null);
       return;
     }
     if (next.includes("/")) {
-      setError("Edit only the name after the org prefix");
+      toastError("Edit only the name after the org prefix");
       return;
     }
     setBusy(true);
-    setError(null);
     try {
       await onSave(next);
       setEditing(false);
       toast("Name saved");
     } catch (err) {
-      setError(err instanceof Error ? err.message : String(err));
+      toastError(err);
     } finally {
       setBusy(false);
     }
@@ -104,13 +102,11 @@ export function DisplayNameEditor({
             onClick={() => {
               setDraft(value);
               setEditing(false);
-              setError(null);
             }}
           >
             <X className="size-4" />
           </Button>
         </div>
-        {error ? <p className="text-xs text-error">{error}</p> : null}
       </form>
     );
   }

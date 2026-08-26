@@ -20,7 +20,6 @@ export function BrandMarkPicker({
   current,
   uploadedBy,
   busy = false,
-  error = null,
   onCancel,
   onSave,
 }: {
@@ -28,7 +27,6 @@ export function BrandMarkPicker({
   current: MarkDraft;
   uploadedBy?: string | null;
   busy?: boolean;
-  error?: string | null;
   onCancel: () => void;
   onSave: (draft: MarkDraft) => void;
 }) {
@@ -64,7 +62,6 @@ export function BrandMarkPicker({
       confirmVariant="default"
       busy={busy}
       confirmDisabled={selected.mode === "github" && !githubLogin}
-      error={error}
       className="max-w-lg"
       onCancel={onCancel}
       onConfirm={() => {

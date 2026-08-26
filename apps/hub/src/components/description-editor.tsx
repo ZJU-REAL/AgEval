@@ -5,6 +5,7 @@ import { HoverTip } from "@/components/hover-tip";
 import { Button } from "@/components/ui/button";
 import { FloatingField } from "@/components/ui/floating-field";
 import { toast } from "@/components/ui/toast";
+import { toastError } from "@/lib/toast-error";
 
 export function DescriptionEditor({
   value,
@@ -24,7 +25,6 @@ export function DescriptionEditor({
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState(value);
   const [busy, setBusy] = useState(false);
-  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     if (!editing) setDraft(value);
@@ -36,17 +36,15 @@ export function DescriptionEditor({
     const next = draft.replace(/\r\n/g, "\n").replace(/\r/g, "\n").trim();
     if (next === text) {
       setEditing(false);
-      setError(null);
       return;
     }
     setBusy(true);
-    setError(null);
     try {
       await onSave(next);
       setEditing(false);
       toast("Description saved");
     } catch (err) {
-      setError(err instanceof Error ? err.message : String(err));
+      toastError(err);
     } finally {
       setBusy(false);
     }
@@ -94,13 +92,11 @@ export function DescriptionEditor({
             onClick={() => {
               setDraft(value);
               setEditing(false);
-              setError(null);
             }}
           >
             <X className="size-4" />
           </Button>
         </div>
-        {error ? <p className="text-xs text-error">{error}</p> : null}
       </form>
     );
   }
