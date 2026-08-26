@@ -38,6 +38,10 @@ pnpm --dir website dev
 
 Open `http://localhost:3000`. Default locale is Simplified Chinese at `/zh-CN`; English at `/en`.
 
+| Env | Meaning |
+| --- | --- |
+| `NEXT_PUBLIC_HUB_URL` | Homepage CTA and docs sidebar link to the Hub SPA. Unset = `http://127.0.0.1:5174`. Empty = hide. |
+
 ## Content layout
 
 - `content/docs/*.mdx` — Simplified Chinese (default locale)

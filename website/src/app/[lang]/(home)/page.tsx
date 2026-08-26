@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
-import { BookOpen } from "lucide-react";
+import { BookOpen, Orbit } from "lucide-react";
 import { DshWhale } from "@/components/landing/dsh-whale";
 import { landingCopy } from "@/components/landing/copy";
 import { LandingNav } from "@/components/landing/landing-nav";
@@ -8,7 +8,7 @@ import { HeroSignal } from "@/components/landing/hero-signal";
 import { OwlPixelMark } from "@/components/landing/owl-pixel";
 import { StartCode } from "@/components/landing/start-code";
 import { isSiteLocale } from "@/lib/i18n";
-import { gitConfig } from "@/lib/shared";
+import { gitConfig, hubSiteUrl } from "@/lib/shared";
 
 /** GitHub invertocat. Fill uses currentColor. Path matches hub `GitHubIcon`. */
 function GitHubMark() {
@@ -26,6 +26,38 @@ function GitHubMark() {
 
 const repoUrl = `https://github.com/${gitConfig.user}/${gitConfig.repo}`;
 const designUrl = `https://github.com/${gitConfig.user}/${gitConfig.repo}/tree/${gitConfig.branch}/docs/design`;
+const hubUrl = hubSiteUrl();
+
+function HeroCtas({
+  repoLabel,
+  hubLabel,
+  docsLabel,
+  docsHref,
+}: {
+  repoLabel: string;
+  hubLabel: string;
+  docsLabel: string;
+  docsHref: string;
+}) {
+  return (
+    <div className="hero-ctas">
+      <a className="btn btn-pri" href={repoUrl} rel="noopener noreferrer">
+        <GitHubMark />
+        {repoLabel}
+      </a>
+      {hubUrl ? (
+        <a className="btn btn-ghost" href={hubUrl} rel="noopener noreferrer">
+          <Orbit aria-hidden="true" />
+          {hubLabel}
+        </a>
+      ) : null}
+      <a className="btn btn-ghost" href={docsHref}>
+        <BookOpen aria-hidden="true" />
+        {docsLabel}
+      </a>
+    </div>
+  );
+}
 
 type HomeParams = { lang: string };
 
@@ -73,16 +105,12 @@ export default async function HomePage({ params }: { params: Promise<HomeParams>
                 {text.hero.title[1]}
               </p>
               <p className="hero-lead">{text.hero.lead}</p>
-              <div className="hero-ctas">
-                <a className="btn btn-pri" href={repoUrl} rel="noopener noreferrer">
-                  <GitHubMark />
-                  {text.hero.primary}
-                </a>
-                <a className="btn btn-ghost" href={`/${lang}/docs`}>
-                  <BookOpen aria-hidden="true" />
-                  {text.hero.secondary}
-                </a>
-              </div>
+              <HeroCtas
+                repoLabel={text.hero.primary}
+                hubLabel={text.hero.hub}
+                docsLabel={text.hero.secondary}
+                docsHref={`/${lang}/docs`}
+              />
             </div>
             <aside className="stage" aria-label={text.hero.startAria}>
               <span className="cross tl" aria-hidden="true" />
@@ -416,16 +444,12 @@ export default async function HomePage({ params }: { params: Promise<HomeParams>
               {text.cta.title[1]}
             </h2>
             <p className="lead">{text.cta.lead}</p>
-            <div className="hero-ctas">
-              <a className="btn btn-pri" href={repoUrl} rel="noopener noreferrer">
-                <GitHubMark />
-                {text.cta.primary}
-              </a>
-              <a className="btn btn-ghost" href={`/${lang}/docs`}>
-                <BookOpen aria-hidden="true" />
-                {text.cta.docs}
-              </a>
-            </div>
+            <HeroCtas
+              repoLabel={text.cta.primary}
+              hubLabel={text.cta.hub}
+              docsLabel={text.cta.docs}
+              docsHref={`/${lang}/docs`}
+            />
           </div>
         </section>
 

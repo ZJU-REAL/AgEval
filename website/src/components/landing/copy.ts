@@ -24,6 +24,7 @@ export const landingCopy = {
       title: ["把 Harness 作为一等评测维度，", "与 Model、运行环境一并锁定"],
       lead: "大多数 Agent 评测仍停留在模型层面：同一套提示、同一套工具约定，比较不同权重或不同 API。可交付的 Agent 是 Model 与 Harness 的组合。ageval 把一次 bench 的 runtime 组成拆开：Environment 与 Agent 经插件组合，同一份 run.py 在不同绑定下运行。",
       primary: "打开仓库",
+      hub: "前往 Hub",
       secondary: "阅读文档",
       startAria: "快速开始",
       startLabel: "快速开始",
@@ -199,6 +200,7 @@ export const landingCopy = {
       title: ["先锁定绑定，", "再比较分数。"],
       lead: "clone 仓库，跑 examples/journeys。公开入口以 ageval --help 为准。",
       primary: "打开仓库",
+      hub: "前往 Hub",
       docs: "阅读文档",
     },
     faq: {
@@ -256,6 +258,7 @@ export const landingCopy = {
       title: ["Treat Harness as a first-class eval axis.", "Lock it with the Model and the environment."],
       lead: "Most agent evaluation still sits at the model: same prompts, same tool contract, different weights or APIs. A shippable agent is a Model plus a Harness. ageval decouples the runtime of a bench run: Environment and Agent combine through plugins, so one run.py runs under each binding.",
       primary: "Open repo",
+      hub: "Go to Hub",
       secondary: "Read the docs",
       startAria: "Quick start",
       startLabel: "Quick start",
@@ -431,6 +434,7 @@ export const landingCopy = {
       title: ["Lock the binding first.", "Then compare the scores."],
       lead: "Clone the repo. Run examples/journeys. Public entrypoints follow ageval --help.",
       primary: "Open repo",
+      hub: "Go to Hub",
       docs: "Read the docs",
     },
     faq: {
