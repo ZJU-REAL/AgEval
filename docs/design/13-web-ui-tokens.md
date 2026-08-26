@@ -27,6 +27,12 @@
 | warning-soft | `#F4ECDE` | `#3A2E1D` | 警告次底 | `warning-soft` | — |
 | link-soft | `#DAE2F6` | `#1E2645` | IKB 次底(成功 / tip toast) | `link-soft` | — |
 | star | `#E3B341` | `#F5C84C` | Star 填实金 | `star` | — |
+| nav-home | `#2F6E4A` | `#6FBF93` | Hub Home 侧栏 lucide,**仅字形** | `nav-home` | — |
+| nav-datasets | `#187A8C` | `#5EC4D4` | Hub Datasets 侧栏 lucide,**仅字形** | `nav-datasets` | — |
+| nav-plugins | `#9A5C16` | `#D4924A` | Hub Plugins 侧栏 lucide,**仅字形** | `nav-plugins` | — |
+| nav-agents | `#5A4AA8` | `#A898E8` | Hub Agents 侧栏 lucide,**仅字形** | `nav-agents` | — |
+| nav-inbox | `#B34A3C` | `#E08A7A` | Hub Inbox 侧栏 lucide,**仅字形** | `nav-inbox` | — |
+| nav-orgs | `#3E5F7A` | `#8AA8C0` | Hub Organizations 侧栏 lucide,**仅字形** | `nav-orgs` | — |
 | code-bg | `#F4F5F8` | `#0C0E14` | 代码底 | `code-bg` | — |
 | accent(landing) | `#5B7BFF`(亮)/ `#002FA7`(深) | 同左 | landing `--accent` / `--accent-deep` | — | — |
 
@@ -46,7 +52,7 @@ landing 的 oklch 系(`oklch(15.4% 0.018 264)` 底等)是本表的 oklch 等值�
 - **圆角**:6 / 8 / 12px 三档(sm 控件、md 默认、lg 卡片);不发明新档,hero 面板上限 16px。
   按钮走 6px,不要 `clip-path` 切角。
 - **动效**:默认 `--ease-smooth` `cubic-bezier(0.22, 1, 0.36, 1)`、200ms。
-  Hub / Viewer 只允许 CSS(无 GSAP / Motion)。Landing 允许一次性 hero stagger 与 8px view-timeline 揭示,进场可到 400ms(强调瞬间,须在 `website/DESIGN.md` 写明)。
+  Hub / Viewer 只允许 CSS(无 GSAP / Motion),**一条命名例外**:列表/详情的 Loading 用 `ThinkingLogo`(本地 canvas 2D,owl 面标点云绕成工作结;不是 playground iframe,也不是 GSAP/Motion)。`prefers-reduced-motion: reduce` 时同一组件停在静态帧,不是第二棵树。Landing 允许一次性 hero stagger 与 8px view-timeline 揭示,进场可到 400ms(强调瞬间,须在 `website/DESIGN.md` 写明)。
   Landing 像素标(`OwlPixelMark`)是第三条 landing 例外:canvas 2D 把 owl 面标栅格成方块,hero 一次性 assemble(约 1.4s);指针在 hero 内时方块径向推开;assemble 完成后整标共用一条透明度呼吸(6s,最暗 35%,最亮 80%),并带轻微整体起伏/旋转与边缘 drift。不是磁吸或光标拖尾。`prefers-reduced-motion` 为静止像素标。导航 logo 仍用静态 SVG。
   Landing hero 背景允许 ThreeUI `signal-particles` 点阵场(本地 canvas,不走其 iframe;`speed` 为原 `time += 0.02` 的倍率)。只铺在 hero,`pointer-events: none`,`prefers-reduced-motion` 不挂载。
   第二档命名曲线是已记录例外,不得再发明 playground 弹簧:
@@ -77,6 +83,10 @@ landing 的 oklch 系(`oklch(15.4% 0.018 264)` 底等)是本表的 oklch 等值�
 | 相位/耗时图谱 | `--viewer-phase-1..6` 用 ink / body / mute / hairline 冷灰阶。执行段 `--viewer-phase-1` 为 ink 与 mute 的 `color-mix`（约 55% ink），不用实心 ink，也不用 IKB。IKB 留给链接 / 焦点 / 主 CTA。禁 zinc 等外部灰阶 |
 | 弹层(tooltip/select/dropdown/dialog) | hairline 边框 + `--viewer-shadow-pop` |
 | 危险确认 | Modal：较大标题 + mute 说明后果 + Cancel / Confirm 两枚按钮 |
+| Hub 壳 | 侧栏与顶栏同一实底 `canvas-soft`(不透明,顶栏不做半透明/blur)。正文列 `canvas`。选中侧栏行底走 `canvas`,hover 同;不要再铺 `canvas-soft`(会与壳糊在一起) |
+| 侧栏字形色 | Hub 六个主目的地各一枚 `nav-*` 令牌,只涂 lucide 线框字形。标签走 `font-mono text-[13px]`(侧栏 chrome 例外,不是正文)。未选:该令牌与 `mute` 的 `color-mix`,标签 `font-normal`,描边 2;选中:令牌本体 + 行底 `canvas`,标签 `font-semibold`,描边 2.5。字重与描边用默认 200ms `--ease-smooth` 过渡;不要 fill。`prefers-reduced-motion: reduce` 时瞬时到位。焦点环仍是 IKB。不要拿字形色铺页面,也不要涂正文。Viewer 没有 Hub 侧栏;已有 chrome 图标不另发明色,功能图标继续 `mute` |
+| Loading | 与 empty **分开**。正在拉取时:`ThinkingLogo` + 一行「Loading …」,不要骨架栅格,也不要用 empty 的虚线井。画布停在屏外/隐藏页时不转 |
+| Empty | 在剩余主列里**双轴居中**。栈:大图标(owl 或该目的地 lucide,静态,无 thinking) → 一行标题 → **要么**一行说明 **要么**一个控件(`Sign in` / `Explore` / `Clear search` / `CommandStrip`),不要一段里两者都有。无 thinking 动效 |
 
 ## 不变量(十条)
 
@@ -88,7 +98,7 @@ landing 的 oklch 系(`oklch(15.4% 0.018 264)` 底等)是本表的 oklch 等值�
 6. 焦点可见性不妥协。字段用 1px IKB 描边;其它控件用 2px IKB 环
    (landing 3px outline)。
 7. 选区、hover、active 的色彩表达一律引用令牌,不自调 hex / opacity 组合。
-8. 动效默认 `--ease-smooth` 200ms。`--ease-spring` / `--ease-glide`、按下 80ms、toast 550ms、landing hero/章节揭示 400ms 是已记录的例外。其它曲线或时长先改本文件。
+8. 动效默认 `--ease-smooth` 200ms。`--ease-spring` / `--ease-glide`、按下 80ms、toast 550ms、landing hero/章节揭示 400ms、Hub/Viewer `ThinkingLogo` canvas 是已记录的例外。其它曲线或时长先改本文件。
 9. 图标三用途:产品品牌用 owl 系列(`owl-flat.tsx` / `OwlIcon`);功能用 lucide;plugin/agent 实体标默认 GitHub 头像(`uploaded_by`),可改闭包彩色标或另一个 GitHub login。闭包 SVG/PNG 在 `apps/hub/src/lib/brand-marks/assets/`,彩色,不把第三方 logo 组件库当运行时依赖。文件树仍用 `material-icon-theme`(既有例外)。
 10. 深度感不用硬投影;blur 分档封顶,不为单个组件发明新档。
 
@@ -98,6 +108,7 @@ landing 的 oklch 系(`oklch(15.4% 0.018 264)` 底等)是本表的 oklch 等值�
 | --- | --- | --- |
 | `OwlFlatMark` / `Icon` / `Peek` / `Plate` / `Lockup` / `Watermark` | `website/src/components/owl-flat.tsx` | landing 水印、导航、docs lockup、备用底板。字形是面标(Figma cubic),不是全身立姿 |
 | `OwlIcon`(面标) | `apps/hub/src/components/owl-icon.tsx`、`apps/viewer/src/components/owl-icon.tsx` | 两 SPA 导航品牌位。与 website `OwlFlatIcon` 同一 path |
+| `ThinkingLogo` | `apps/hub/src/components/thinking-logo.tsx`、`apps/viewer/src/components/thinking-logo.tsx` | Hub / Viewer 拉取中的工作态点云(owl 面标烘焙点,canvas 2D)。empty 与导航 logo 仍用静态 SVG |
 | favicon | `website/src/app/favicon.ico` + `website/public/favicon.svg`；`apps/{hub,viewer}/public/favicon.{ico,svg}` | 黑方底板 + 白面标。只用 ico（浏览器默认 `/favicon.ico`）和 svg，不另备 png |
 | 实体/机制标 | `apps/hub/src/lib/brand-marks/` | plugin / agent 卡片与详情、Leaderboard。默认 uploader GitHub 头像;闭包为彩色真实标。ink 标固定白底，paper 标固定黑底 |
 

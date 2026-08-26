@@ -21,6 +21,12 @@
   --color-warning-soft: var(--viewer-warning-soft);
   --color-link-soft: var(--viewer-link-soft);
   --color-star: var(--viewer-star);
+  --color-nav-home: var(--viewer-nav-home);
+  --color-nav-datasets: var(--viewer-nav-datasets);
+  --color-nav-plugins: var(--viewer-nav-plugins);
+  --color-nav-agents: var(--viewer-nav-agents);
+  --color-nav-inbox: var(--viewer-nav-inbox);
+  --color-nav-orgs: var(--viewer-nav-orgs);
   --color-row-hover: var(--viewer-row-hover);
   --color-code-bg: var(--viewer-code-bg);
   --color-shell-cmd: var(--viewer-shell-cmd);
@@ -59,6 +65,12 @@
   --viewer-warning-soft: #f4ecde;
   --viewer-link-soft: #dae2f6;
   --viewer-star: #e3b341;
+  --viewer-nav-home: #2f6e4a;
+  --viewer-nav-datasets: #187a8c;
+  --viewer-nav-plugins: #9a5c16;
+  --viewer-nav-agents: #5a4aa8;
+  --viewer-nav-inbox: #b34a3c;
+  --viewer-nav-orgs: #3e5f7a;
   --viewer-row-hover: #eeeff4;
   --viewer-code-bg: #f4f5f8;
   --viewer-shell-cmd: #1b54e8;
@@ -89,6 +101,12 @@
   --viewer-warning-soft: #3a2e1d;
   --viewer-link-soft: #1e2645;
   --viewer-star: #f5c84c;
+  --viewer-nav-home: #6fbf93;
+  --viewer-nav-datasets: #5ec4d4;
+  --viewer-nav-plugins: #d4924a;
+  --viewer-nav-agents: #a898e8;
+  --viewer-nav-inbox: #e08a7a;
+  --viewer-nav-orgs: #8aa8c0;
   --viewer-row-hover: #161a24;
   --viewer-code-bg: #0c0e14;
   --viewer-shell-cmd: #5b7bff;
@@ -117,6 +135,12 @@
     --viewer-warning-soft: #3a2e1d;
     --viewer-link-soft: #1e2645;
     --viewer-star: #f5c84c;
+  --viewer-nav-home: #6fbf93;
+  --viewer-nav-datasets: #5ec4d4;
+  --viewer-nav-plugins: #d4924a;
+  --viewer-nav-agents: #a898e8;
+  --viewer-nav-inbox: #e08a7a;
+  --viewer-nav-orgs: #8aa8c0;
     --viewer-row-hover: #161a24;
     --viewer-code-bg: #0c0e14;
     --viewer-shell-cmd: #5b7bff;
@@ -148,6 +172,12 @@
     --viewer-warning-soft: #f4ecde;
     --viewer-link-soft: #dae2f6;
     --viewer-star: #e3b341;
+  --viewer-nav-home: #2f6e4a;
+  --viewer-nav-datasets: #187a8c;
+  --viewer-nav-plugins: #9a5c16;
+  --viewer-nav-agents: #5a4aa8;
+  --viewer-nav-inbox: #b34a3c;
+  --viewer-nav-orgs: #3e5f7a;
     --viewer-row-hover: #eeeff4;
     --viewer-code-bg: #f4f5f8;
     --viewer-shell-cmd: #1b54e8;
@@ -339,4 +369,19 @@ tbody tr.group:focus-within [data-job-actions],
 [data-job-actions][data-has-note],
 [data-job-actions][data-pinned] {
   opacity: 1;
+}
+
+[data-nav-glyph="home"] { --nav-glyph-ink: var(--color-nav-home); }
+[data-nav-glyph="datasets"] { --nav-glyph-ink: var(--color-nav-datasets); }
+[data-nav-glyph="plugins"] { --nav-glyph-ink: var(--color-nav-plugins); }
+[data-nav-glyph="agents"] { --nav-glyph-ink: var(--color-nav-agents); }
+[data-nav-glyph="inbox"] { --nav-glyph-ink: var(--color-nav-inbox); }
+[data-nav-glyph="orgs"] { --nav-glyph-ink: var(--color-nav-orgs); }
+
+[data-nav-glyph] {
+  color: color-mix(in srgb, var(--nav-glyph-ink) 82%, var(--viewer-mute));
+}
+[aria-current="page"] [data-nav-glyph],
+[data-nav-glyph][data-active="true"] {
+  color: var(--nav-glyph-ink);
 }
