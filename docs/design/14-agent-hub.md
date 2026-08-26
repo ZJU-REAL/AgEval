@@ -16,6 +16,8 @@ format `ageval.agent/1`。不要 `ageval.harness/1`，不要第二套 `package_k
 
 ## CLI
 
+`ageval agent install …` 写入 `~/.ageval/agents` 之后，按 `binding.extensions[].plugin` 安装尚未在本机的插件（复用 `ageval plugin install`；只写 `~/.ageval/plugins`）。contrib（如 `acp`）跳过。缺插件或 `host_requires` 不满足则整条 install fail-closed，不把「agent 已装、插件跳过」当成功。不新增 `ageval.agent/1` 字段，不改 profiles / task.yaml。
+
 `--agent pi` 解析仓内机制树（不必 `agent install`）。`--agent org/name@version` 仍是 upload 包。`--agent` 与 `--profiles` 互斥。`--model` 是 run 参数（`lock` / `run` / `campaign`）：先投影 `--agent`，再改已绑角色的 `binding.model`。省略则用包缺省（机制卡可以没有缺省）。不要 `--api-key` / `--base-url`。`ageval results --model` 仍是上传观测标签。不要把 Agent 包当成第二套 lock 权威。
 
 ## 溯源与可比性
