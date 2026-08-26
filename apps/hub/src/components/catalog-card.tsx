@@ -89,9 +89,17 @@ export function CatalogCard({
     >
       <p className="inline-flex min-w-0 items-end gap-2 font-medium leading-none text-ink">
         <BrandMark
-          mark={builtin ? markFromGithubRepoLink() : markFromPackage(row)}
+          mark={
+            builtin && kind === "plugin"
+              ? markFromGithubRepoLink()
+              : markFromPackage(row)
+          }
           size={24}
-          title={builtin ? githubRepoUrl() || undefined : undefined}
+          title={
+            builtin && kind === "plugin"
+              ? githubRepoUrl() || undefined
+              : undefined
+          }
         />
         <span className="truncate leading-none">{title}</span>
         {builtin ? <BuiltinMark /> : row.official ? <OfficialMark /> : null}

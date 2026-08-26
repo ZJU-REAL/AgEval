@@ -543,8 +543,12 @@ export async function setPackageFavorite(
 export async function listPackageVersionsWithAppearances(
   datasetId: string,
   token: string | null,
+  opts?: { packageKind?: "dataset" | "plugin" | "agent" },
 ): Promise<{ items: PackageRelease[]; appearances: AgentAppearance[] }> {
-  const path = `/v1/packages/${datasetId.split("/").map(encodeURIComponent).join("/")}`;
+  const id = datasetId.split("/").map(encodeURIComponent).join("/");
+  const q = new URLSearchParams();
+  if (opts?.packageKind) q.set("package_kind", opts.packageKind);
+  const path = q.toString() ? `/v1/packages/${id}?${q.toString()}` : `/v1/packages/${id}`;
   const data = await requestJson<{
     items?: PackageRelease[];
     appearances?: AgentAppearance[];
@@ -699,9 +703,13 @@ export async function listPackageTasks(
 export async function listBuiltinPackageFiles(
   datasetId: string,
   token: string | null,
+  opts?: { packageKind?: "plugin" | "agent" },
 ): Promise<{ items: FileItem[] }> {
   const id = packageIdPath(datasetId);
-  return requestJson(`/v1/packages/${id}/files`, { token });
+  const q = new URLSearchParams();
+  if (opts?.packageKind) q.set("package_kind", opts.packageKind);
+  const suffix = q.toString() ? `?${q.toString()}` : "";
+  return requestJson(`/v1/packages/${id}/files${suffix}`, { token });
 }
 
 export async function getPackageFile(
@@ -723,13 +731,17 @@ export async function getBuiltinPackageFile(
   datasetId: string,
   filePath: string,
   token: string | null,
+  opts?: { packageKind?: "plugin" | "agent" },
 ): Promise<FileContent> {
   const id = packageIdPath(datasetId);
   const fp = filePath
     .split("/")
     .map((s) => encodeURIComponent(s))
     .join("/");
-  return requestJson(`/v1/packages/${id}/files/${fp}`, { token });
+  const q = new URLSearchParams();
+  if (opts?.packageKind) q.set("package_kind", opts.packageKind);
+  const suffix = q.toString() ? `?${q.toString()}` : "";
+  return requestJson(`/v1/packages/${id}/files/${fp}${suffix}`, { token });
 }
 
 export async function listSuites(

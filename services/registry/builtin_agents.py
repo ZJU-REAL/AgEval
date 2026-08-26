@@ -19,6 +19,15 @@ from ageval.agents.reserved import (
     reserved_harness_leaf,
 )
 
+_ICON_KEY = {
+    "pi": "pi",
+    "opencode": "opencode",
+    "codex": "codex",
+    "claude-code": "claude-code",
+    "grok-build": "grok",
+    "openai-http": "openai",
+}
+
 
 def is_builtin_agent_id(dataset_id: str) -> bool:
     return canonical_harness_id(dataset_id) is not None
@@ -74,6 +83,9 @@ def _overlay_item(row: dict[str, str]) -> dict[str, Any]:
         "display_name": str(preview.get("label") or row["label"]),
         "agent_preview": preview,
     }
+    icon = _ICON_KEY.get(harness_id)
+    if icon:
+        item["icon_key"] = icon
     return item
 
 

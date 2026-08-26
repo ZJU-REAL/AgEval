@@ -83,6 +83,8 @@ def test_explore_unions_builtin_with_store(tmp_path: Path) -> None:
     assert "acme/pi-default" in ids
     opencode = next(i for i in listed["items"] if i["dataset_id"] == "opencode")
     assert opencode["builtin"] is True
+    assert opencode["icon_key"] == "opencode"
+    assert opencode["display_name"] == "OpenCode"
     assert opencode["official"] is False
     assert "org_id" not in opencode
     assert "package_digest" not in opencode
