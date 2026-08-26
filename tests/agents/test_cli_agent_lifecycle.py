@@ -28,10 +28,12 @@ def env(tmp_path: Path) -> dict[str, str]:
     }
 
 
-def _cli(env: dict[str, str], *args: str) -> subprocess.CompletedProcess[str]:
+def _cli(
+    env: dict[str, str], *args: str, cwd: Path | None = None
+) -> subprocess.CompletedProcess[str]:
     return subprocess.run(
         [sys.executable, "-m", "ageval.cli.main", *args],
-        cwd=ROOT,
+        cwd=str(cwd or ROOT),
         capture_output=True,
         text=True,
         env=env,
@@ -176,3 +178,133 @@ def test_lock_model_override_requires_agent_and_writes_overlay(
     missing = _cli(env, "lock", str(DATABASE), "--task", "terminal-jsonl-agg", "--model", "glm-4.7")
     assert missing.returncode == 2
     assert "invalid_override: --model requires --agent" in missing.stderr
+
+
+def _write_plugin(root: Path, plugin_id: str, *, host_import: str | None = None) -> Path:
+    root.mkdir(parents=True, exist_ok=True)
+    requires = ""
+    if host_import:
+        requires = f"host_requires:\n  - import: {host_import}\n    hint: missing on purpose\n"
+    (root / "plugin.yaml").write_text(
+        (
+            "format: ageval.plugin/1\n"
+            f"plugin_id: {plugin_id}\n"
+            "version: 0.1.0\n"
+            f"{requires}"
+            "slots:\n"
+            "  chain:\n"
+            "    - id: after_environment_ready\n"
+            "      priority: 120\n"
+            "      entry: demo.hooks:build\n"
+        ),
+        encoding="utf-8",
+    )
+    src = root / "src" / "demo"
+    src.mkdir(parents=True)
+    (src / "__init__.py").write_text("", encoding="utf-8")
+    (src / "hooks.py").write_text(
+        "def build(**_k):\n"
+        "    async def h(ctx, value, nxt):\n"
+        "        return await nxt(value)\n"
+        "    return h\n",
+        encoding="utf-8",
+    )
+    return root
+
+
+def _write_agent(root: Path, *, plugin: str) -> Path:
+    root.mkdir(parents=True, exist_ok=True)
+    (root / "agent.yaml").write_text(
+        (
+            "format: ageval.agent/1\n"
+            "agent_id: uses-plugin\n"
+            "version: '0.1.0'\n"
+            "binding:\n"
+            "  executor: openai-http\n"
+            "  model: none\n"
+            "  extensions:\n"
+            f"    - plugin: {plugin}\n"
+        ),
+        encoding="utf-8",
+    )
+    return root
+
+
+def test_agent_install_installs_declared_plugin(env: dict[str, str], tmp_path: Path) -> None:
+    _write_plugin(tmp_path / "plugins" / "need-me", "need-me")
+    agent = _write_agent(tmp_path / "agents" / "uses-need-me", plugin="need-me")
+    profiles = tmp_path / "profiles.yaml"
+    original = "format: ageval.profiles/1\nenvironment: local\nagent_profiles: {}\n"
+    profiles.write_text(original, encoding="utf-8")
+
+    proc = _cli(env, "agent", "install", str(agent), cwd=tmp_path)
+    assert proc.returncode == 0, proc.stderr
+    data = json.loads(proc.stdout)
+    assert data["ok"] is True
+    assert data["plugins"][0]["plugin_id"] == "need-me"
+    assert data["plugins"][0]["status"] == "installed"
+
+    home = Path(env["AGEVAL_HOME"])
+    plugin_index = json.loads((home / "plugins" / "index.json").read_text(encoding="utf-8"))
+    assert any(p["plugin_id"] == "need-me" for p in plugin_index["plugins"])
+    assert profiles.read_text(encoding="utf-8") == original
+
+    again = _cli(env, "agent", "install", str(agent), cwd=tmp_path)
+    assert again.returncode == 0, again.stderr
+    repeated = json.loads(again.stdout)
+    assert repeated["ok"] is True
+    assert repeated["plugins"][0]["status"] == "already_present"
+
+
+def test_pi_default_does_not_install_acp(env: dict[str, str]) -> None:
+    proc = _cli(env, "agent", "install", str(EXAMPLE_AGENT))
+    assert proc.returncode == 0, proc.stderr
+    data = json.loads(proc.stdout)
+    assert data["ok"] is True
+    assert data.get("plugins") == []
+    home = Path(env["AGEVAL_HOME"])
+    index = home / "plugins" / "index.json"
+    assert not index.is_file() or "acp" not in index.read_text(encoding="utf-8")
+
+
+def test_agent_install_missing_plugin_fail_closes(env: dict[str, str], tmp_path: Path) -> None:
+    agent = _write_agent(tmp_path / "agents" / "uses-missing", plugin="definitely-missing-plugin")
+    proc = _cli(env, "agent", "install", str(agent), cwd=tmp_path)
+    assert proc.returncode == 2
+    payload = json.loads(proc.stderr or proc.stdout)
+    assert payload.get("ok") is False
+    assert payload.get("error") == "plugin_requires_unsatisfied"
+
+
+def test_agent_install_host_requires_fail_closes(env: dict[str, str], tmp_path: Path) -> None:
+    _write_plugin(
+        tmp_path / "plugins" / "needs-host",
+        "needs-host",
+        host_import="definitely_not_a_real_module",
+    )
+    agent = _write_agent(tmp_path / "agents" / "uses-needs-host", plugin="needs-host")
+    proc = _cli(env, "agent", "install", str(agent), cwd=tmp_path)
+    assert proc.returncode == 2
+    payload = json.loads(proc.stderr or proc.stdout)
+    assert payload.get("ok") is False
+    assert payload.get("error") == "host_requires_unsatisfied"
+
+
+def test_dsh_default_installs_plugin_or_fail_closes(env: dict[str, str]) -> None:
+    import importlib.util
+
+    proc = _cli(env, "agent", "install", str(ROOT / "examples/agents/dsh-default"))
+    has_sdk = importlib.util.find_spec("deepseek_harness") is not None
+    if has_sdk:
+        assert proc.returncode == 0, proc.stderr
+        data = json.loads(proc.stdout)
+        assert data["ok"] is True
+        assert any(p["plugin_id"] == "dsh" for p in data["plugins"])
+        home = Path(env["AGEVAL_HOME"])
+        plugin_index = json.loads((home / "plugins" / "index.json").read_text(encoding="utf-8"))
+        assert any(p["plugin_id"] == "dsh" for p in plugin_index["plugins"])
+        return
+    assert proc.returncode == 2
+    payload = json.loads(proc.stderr or proc.stdout)
+    assert payload.get("ok") is False
+    assert payload.get("error") in {"host_requires_unsatisfied", "plugin_requires_unsatisfied"}

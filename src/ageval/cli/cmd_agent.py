@@ -86,36 +86,26 @@ def agent_install(
         ),
     ],
 ) -> None:
-    """Install an agent into the local cache (never edits profiles)."""
+    """Install an agent (and its declared plugins) into the local cache."""
+    from ageval.application.composition import build_agent_commands
     from ageval.config.errors import ConfigError
 
+    cmds = build_agent_commands()
     src_path = Path(source)
-    if "@" in source and not src_path.exists():
-        from ageval.application.composition import build_agent_commands
-
-        cmds = build_agent_commands()
-        try:
-            summary = cmds.install_agent_from_registry(source)
-        except ConfigError as exc:
-            emit({"ok": False, "error": exc.error_code, "message": str(exc)}, err=True)
-            raise typer.Exit(code=2) from exc
-        emit(summary)
-        return
-
-    from ageval.agents.store import install_from_path
-
     try:
-        entry = install_from_path(src_path)
+        if "@" in source and not src_path.exists():
+            summary = cmds.install_agent_from_registry(source)
+        else:
+            summary = cmds.install_agent_from_path(src_path)
     except ConfigError as exc:
         emit({"ok": False, "error": exc.error_code, "message": str(exc)}, err=True)
         raise typer.Exit(code=2) from exc
     except OSError as exc:
         emit({"ok": False, "error": "io_error", "message": str(exc)}, err=True)
         raise typer.Exit(code=2) from exc
-    payload = entry.as_dict()
-    payload["ok"] = True
-    payload["ref"] = f"{entry.agent_id}@{entry.version}"
-    emit(payload)
+    finally:
+        cmds.cleanup_agent_tmp()
+    emit(summary)
 
 
 @agent_app.command("publish")
