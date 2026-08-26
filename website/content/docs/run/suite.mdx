@@ -81,7 +81,7 @@ Hub 的 **Dataset → Leaderboard** 和 **Task → Jobs** 读的是 Registry 的
 | --- | --- |
 | 1. 跑 suite | `uv run ageval run <dataset>`（**不要**加 `--task`；可用 `--profiles`） |
 | 2. 记下 id | 输出 / `summary.json` 里的 `suite_run_id`（默认 8 位 hex） |
-| 3. 上传 suite | `uv run ageval results upload-suite <dataset> --suite-run <id> --public` |
+| 3. 上传 suite | `uv run ageval results upload-suite <dataset|id@version> --suite-run <id> --public` |
 | 4. 需要点开轨迹时 | 加上 `--with-attempts` |
 
 ```bash

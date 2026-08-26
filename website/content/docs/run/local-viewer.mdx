@@ -18,6 +18,8 @@ cd apps/viewer && pnpm install && pnpm build && cd ../..
 uv run ageval view examples/journeys
 # 或
 uv run ageval view examples/journeys --no-browser --port 8765
+# 已缓存的 Hub ref（唯一命中不打 Hub）
+uv run ageval view official/demo@0.1.0
 
 # 开发：一条命令（能起 Vite 就起；否则打印两行 fallback）
 uv run ageval view examples/journeys --dev --port 8765

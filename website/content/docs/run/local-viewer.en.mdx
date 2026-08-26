@@ -16,6 +16,8 @@ cd apps/viewer && pnpm install && pnpm build && cd ../..
 uv run ageval view examples/journeys
 # or
 uv run ageval view examples/journeys --no-browser --port 8765
+# Cached Hub ref (a unique hit does not contact Hub)
+uv run ageval view official/demo@0.1.0
 
 # Dev: one command (starts Vite when possible; otherwise prints fallback)
 uv run ageval view examples/journeys --dev --port 8765

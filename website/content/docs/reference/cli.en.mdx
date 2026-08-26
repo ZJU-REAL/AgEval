@@ -12,6 +12,7 @@ uv run ageval lock <dataset> --task <id> --probe
 uv run ageval run <dataset> --task <id>
 uv run ageval run <dataset> --task <id> --probe
 uv run ageval run <dataset>
+uv run ageval run official/demo@0.1.0 --dir tmp --task <id>
 uv run ageval run <dataset> --max-concurrent-tasks 2
 uv run ageval run <dataset> -k 5
 uv run ageval run <dataset> --resume-suite <suite_run_id> --task <id> -k 5
@@ -32,10 +33,11 @@ uv run ageval jobs delete --local <dataset> --job <id> --yes
 uv run ageval publish <dataset> --org <org> [--draft] [--public] [--replace]
 uv run ageval release <dataset_id> [--public] [--replace]
 uv run ageval registry list|show|set-visibility|delete|org-create|org-list|org-add-member|org-set-role|org-transfer|org-remove-member …
-uv run ageval results upload|upload-suite|attach-agent|request|inbox|decide|share|unshare|set-visibility|delete …
+uv run ageval results upload-suite <dataset|id@version> --suite-run <8-hex>
+uv run ageval results upload|attach-agent|request|inbox|decide|share|unshare|set-visibility|delete …
 ```
 
-Path = dataset root. `--agent` and `--profiles` are mutually exclusive. Destructive commands require `--yes`; overwrite same identity requires `--replace` (default 409).
+Path = dataset root. `run` / `lock` / `view` / `upload-suite` also accept a Hub ref (`id@version`); `--dir` only with a Hub ref. `tasks` / `campaign` stay local directories. `--agent` and `--profiles` are mutually exclusive. Destructive commands require `--yes`; overwrite same identity requires `--replace` (default 409).
 
 ## Common `ageval run` flags
 
@@ -48,6 +50,8 @@ Path = dataset root. `--agent` and `--profiles` are mutually exclusive. Destruct
 | `--replace-slot` | With `--resume-suite --task`: re-run that finished slot; new Attempt; old row stays in `previous[]` |
 | `--attempt-index N` | Always-k slot to replace (default 0). Only with `--replace-slot` |
 | `--keep-workspace` | Keep the environment work root after cleanup (default: delete). Uploads never pack it. Docker volumes are still removed |
+| `--keep-vendor-raw` | After seal, keep vendor raw / layer B. Default: drop. Independent of `--keep-workspace` |
+| `--dir <path>` | Hub ref only. Looks at `<path>/<dataset_id>/`; reuses a matching child |
 | `--agent` | Bind an installed `ageval.agent/1` package; mutually exclusive with `--profiles` |
 | `--set` / `--profiles` | Overrides / alternate job binding |
 | `--probe` | Feasibility only: plan + readiness for this binding/`environment`. No Agent, no bake, no lock digest change. Exit 1 if the selected path is unsatisfied. |

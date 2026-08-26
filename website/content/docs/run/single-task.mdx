@@ -25,7 +25,7 @@ uv run ageval lock examples/journeys --task terminal-jsonl-agg
 ```
 
 `--task` 必须等于成员目录名和 `task.yaml` 里的 `task_id`。  
-`k=1` 且无 `--resume-suite` 时，stdout 仍是单次 Attempt 的 JSON（兼容旧脚本）；`k>1` 走 suite job，写 `.ageval/suite-runs/`。更多见 [Suite](/docs/run/suite)。
+TTY 下 stdout 是短 recap（单题含 `logs` 路径）；管道或 `--json` 仍是完整文档。`k>1` 走 suite job，写 `.ageval/suite-runs/`。更多见 [Suite](/docs/run/suite)。
 
 ## 跑完你会看到什么
 
