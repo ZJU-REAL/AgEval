@@ -30,6 +30,7 @@ import {
   type PackageRelease,
   type SuiteRow,
 } from "@/lib/api";
+import { agentPackageHref } from "@/lib/agent-models";
 import { getGithubUser, getToken } from "@/lib/auth";
 import { ResultOwnerOps } from "@/components/result-owner-ops";
 import {
@@ -551,7 +552,7 @@ export function LeaderboardTable({
                           {runtimeLinks.map((ref) => (
                             <Link
                               key={ref.package_id}
-                              to={`/agents/${encodeDatasetId(ref.package_id)}`}
+                              to={agentPackageHref(ref.package_id)}
                               onClick={(e) => e.stopPropagation()}
                               className="inline-flex max-w-full text-link hover:text-link-deep hover:underline underline-offset-2"
                             >
@@ -566,10 +567,23 @@ export function LeaderboardTable({
                       </TableCell>
                     )}
                     <TableCell className={COL_TEXT}>
-                      <ModelLabel
-                        value={modelText}
-                        effort={reasoningEffortFromOverlay(s.job_overlay)}
-                      />
+                      {runtimeLinks.length && modelText ? (
+                        <Link
+                          to={agentPackageHref(runtimeLinks[0].package_id, modelText)}
+                          onClick={(e) => e.stopPropagation()}
+                          className="inline-flex max-w-full text-link hover:text-link-deep hover:underline underline-offset-2"
+                        >
+                          <ModelLabel
+                            value={modelText}
+                            effort={reasoningEffortFromOverlay(s.job_overlay)}
+                          />
+                        </Link>
+                      ) : (
+                        <ModelLabel
+                          value={modelText}
+                          effort={reasoningEffortFromOverlay(s.job_overlay)}
+                        />
+                      )}
                     </TableCell>
                     <TableCell
                       className={`${COL_METRIC}`}
