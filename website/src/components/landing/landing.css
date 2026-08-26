@@ -333,9 +333,26 @@ html:has(.ageval-landing) body {
     var(--ink);
 }
 
+.ageval-landing .hero-signal {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  overflow: hidden;
+  mix-blend-mode: screen;
+  opacity: 0.78;
+}
+
+.ageval-landing .hero-signal canvas {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
 .ageval-landing .hero-grid {
   position: absolute;
   inset: 0;
+  z-index: 0;
   pointer-events: none;
   background-image:
     linear-gradient(oklch(95.2% 0.012 264 / 0.045) 1px, transparent 1px),

@@ -4,6 +4,7 @@ import { BookOpen } from "lucide-react";
 import { DshWhale } from "@/components/landing/dsh-whale";
 import { landingCopy } from "@/components/landing/copy";
 import { LandingNav } from "@/components/landing/landing-nav";
+import { HeroSignal } from "@/components/landing/hero-signal";
 import { OwlPixelMark } from "@/components/landing/owl-pixel";
 import { StartCode } from "@/components/landing/start-code";
 import { isSiteLocale } from "@/lib/i18n";
@@ -57,6 +58,7 @@ export default async function HomePage({ params }: { params: Promise<HomeParams>
 
       <main id="main">
         <section className="hero" id="top">
+          <HeroSignal />
           <div className="hero-grid" aria-hidden="true" />
           <OwlPixelMark className="owl-wash" />
           <div className="wrap-wide hero-layout">

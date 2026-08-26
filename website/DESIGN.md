@@ -18,7 +18,7 @@
 | 参数 | 值 | 含义 |
 | --- | --- | --- |
 | Design variance | 5/10 | 允许非对称构图，保持工程秩序 |
-| Motion intensity | 5/10 | Hero 进场 + 像素标 assemble/hover 推散/透明度呼吸 + 短距章节揭示 + FAQ 开合；SPA 允许 toast / squish / pill glide / star burst |
+| Motion intensity | 5/10 | Hero 进场 + ThreeUI signal-particles 背景 + 像素标 assemble/hover 推散/透明度呼吸 + 短距章节揭示 + FAQ 开合；SPA 允许 toast / squish / pill glide / star burst |
 | Visual density | 4/10 | 技术信息清晰，保留足够留白 |
 
 ## 颜色
@@ -128,6 +128,7 @@ SPA 第二档曲线见 `docs/design/13`（`--ease-spring` / `--ease-glide`）。
 - Landing 卡片 hover 最多 `translateY(-1px)`。
 - 按钮 Squish：`:active` `scale(0.97)`、80ms 按下；松开用 `--ease` 回弹。不要 6px 实体底边。
 - Landing 像素标（`OwlPixelMark`，canvas 2D）：hero 一次性从散点 assemble（约 1.4s）；指针在 hero 内时，邻近方块径向推开。assemble 完成后整标一起做透明度呼吸（6s 一周期，最暗 35%，最亮 80%），并带轻微整体起伏。导航 logo 用静态 SVG。无磁吸、无光标拖尾。`prefers-reduced-motion` 为静止像素标。
+- Landing hero 背景允许 ThreeUI `signal-particles` 点阵场（本地 canvas；`speed` 是原步进倍率，`1` 为库默认）。只铺 hero、不接收指针、`prefers-reduced-motion` 不挂载。
 
 ### 禁止
 
