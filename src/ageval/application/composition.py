@@ -145,8 +145,8 @@ def build_plugin_commands() -> Any:
     )()
 
 
-def build_agent_projection() -> Callable[[list[str]], Any]:
-    """``--agent`` specs → synthesized job document path."""
+def build_agent_projection() -> Callable[..., Any]:
+    """``--agent`` specs (+ optional ``--model``) → synthesized job document path."""
     from ageval.application.agent_ops.resolve import resolve_agent_specs
 
     return resolve_agent_specs

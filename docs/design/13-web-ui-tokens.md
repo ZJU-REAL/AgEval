@@ -22,7 +22,10 @@
 | link | `#1B54E8` | `#5B7BFF` | 链接 / 主色 / 焦点(IKB) | `link` | `primary`、`ring` |
 | link-deep | `#001F73` | `#8AA0FF` | hover(浅色加深 / 深色提亮) | `link-deep` | — |
 | error | `#D40000` | `#FF5C5C` | 错误 | `error` | — |
+| error-soft | `#F7D4D6` | `#3B1414` | 错误次底(toast 等实色洗底,非透明) | `error-soft` | — |
 | warning | `#F5A623` | `#F5A623` | 警告 | `warning` | — |
+| warning-soft | `#F4ECDE` | `#3A2E1D` | 警告次底 | `warning-soft` | — |
+| link-soft | `#DAE2F6` | `#1E2645` | IKB 次底(成功 / tip toast) | `link-soft` | — |
 | star | `#E3B341` | `#F5C84C` | Star 填实金 | `star` | — |
 | code-bg | `#F4F5F8` | `#0C0E14` | 代码底 | `code-bg` | — |
 | accent(landing) | `#5B7BFF`(亮)/ `#002FA7`(深) | 同左 | landing `--accent` / `--accent-deep` | — | — |
@@ -66,7 +69,7 @@ landing 的 oklch 系(`oklch(15.4% 0.018 264)` 底等)是本表的 oklch 等值�
 | 主按钮(SPA Button `default`) | IKB 填充 + `rounded-[6px]` + `font-mono text-[13px] font-semibold` + `focus-visible:ring-2 ring-link/70`,hover `link-deep`。`:active` 为 Squish(`scale` 约 0.94、80ms 按下 / spring 松开) |
 | 下划线 tab | `UnderlineTabs`:sans `text-sm font-medium` + 滑动 IKB 条(`transform`/`width` 200ms)。不要再复制 `border-b-2` 手写条 |
 | 分段 pill | `PillTabs`:测量目标宽后 glide 指示条。文件树 Local / Shared / Overlays 与同类分段切换用这个,不要手写 `bg-canvas-soft` 硬切 |
-| Toast | 底中 Overshoot 进场;只用于没有本地成功态的写操作。Copy / star 等控件自身已有反馈的不要再 toast。hairline + `--viewer-shadow-pop`,无第三方面包 |
+| Toast | 底中 Overshoot 进场;只用于没有本地成功态的写操作。Copy / star 等控件自身已有反馈的不要再 toast。实色 `*-soft` 次底 + `--viewer-shadow-pop`,无描边、无第三方面包。图标走对应功能色,正文走 `body` |
 | Select / 下拉 | `Select` / `DropdownMenu` 用 `data-ageval-menu` 进场(220ms smooth, 随 `data-side` 上下),触发器 chevron 旋转 + squish;选项 `data-highlighted` 色过渡,选中勾 `ease-spring` pop |
 | Floating Label | 描述填写框(plugin / org 等):placeholder 在 focus 或有值时抬成 label;焦点色走 `link` |
 | Catalog 卡 | plugin / agent 市场包用 `CatalogCard`:12px 圆角、hairline、hover `canvas-soft`。标题为 20px 实体标 + `org/name`(+ official)。**first-party contrib overlay** 走短 id（无 `org/` 前缀）；左侧用侧栏 GitHub 链同一地址（默认 `https://github.com/ZJU-REAL/ageval`）的 GitHub 头像（`BrandMark`），名称右侧 lucide `HousePlug` 走 `link`（IKB，不复用 OfficialMark / BadgeCheck）。描述固定两行高。卡上不画 slot/binding tag。底行同一排：左侧 `download_count` 与 star 数（lucide `Download` / `Star` + 数字，卡上不可点 star），右侧更新日期。无 `created_at` 就不要画日期。Star 操作只在详情页头右侧无描边 icon;填实用 `star` 金。Datasets / jobs / leaderboard / members 用表 |

@@ -78,6 +78,24 @@ def test_missing_cache_ref_fails_closed() -> None:
         bindings_from_agent_specs(["ghost@1.0"])
 
 
+def test_bindings_from_builtin_short_id() -> None:
+    agent_profiles = bindings_from_agent_specs(["pi"])
+    row = agent_profiles["*"]
+    assert row["executor"] == "acp"
+    assert "model" not in row
+    assert row["agent_ref"].startswith("pi@0.1.0+sha256:")
+    opencode = bindings_from_agent_specs(["opencode"])["*"]
+    assert opencode["overlays"] == ["overlays/opencode.litellm.json"]
+    assert opencode["agent_ref"].startswith("opencode@0.1.0+sha256:")
+
+
+def test_builtin_model_override() -> None:
+    out = resolve_agent_specs(["pi"], model="glm-4.7")
+    doc = yaml.safe_load(out.read_text(encoding="utf-8"))
+    assert {row["model"] for row in doc["agent_profiles"].values()} == {"glm-4.7"}
+    assert {row["agent_ref"].split("@", 1)[0] for row in doc["agent_profiles"].values()} == {"pi"}
+
+
 def test_duplicate_role_fails_closed(tmp_path: Path) -> None:
     pkg = _make_pkg(tmp_path)
     with pytest.raises(ConfigError):
@@ -95,3 +113,14 @@ def test_resolve_writes_parseable_profiles_document(tmp_path: Path) -> None:
     assert set(doc["agent_profiles"]) == {"*", "critic"}
     # Content-addressed: same specs → same path.
     assert resolve_agent_specs([str(pkg), f"critic={pkg}"]) == out
+
+
+def test_resolve_model_overrides_bound_roles(tmp_path: Path) -> None:
+    pkg = _make_pkg(tmp_path)
+    default = resolve_agent_specs([str(pkg), f"critic={pkg}"])
+    overridden = resolve_agent_specs([str(pkg), f"critic={pkg}"], model="glm-4.7")
+    assert overridden != default
+    doc = yaml.safe_load(overridden.read_text(encoding="utf-8"))
+    assert {row["model"] for row in doc["agent_profiles"].values()} == {"glm-4.7"}
+    base = yaml.safe_load(default.read_text(encoding="utf-8"))
+    assert {row["model"] for row in base["agent_profiles"].values()} == {"none"}

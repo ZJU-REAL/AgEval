@@ -1,4 +1,4 @@
-export type ToastTone = "ok" | "error";
+export type ToastTone = "ok" | "error" | "warn" | "tip";
 
 export type ToastInput = {
   message: string;

@@ -56,10 +56,11 @@ export function AgentsPage() {
         title="Agent hub"
         sub={
           <>
-            Browse <code className="font-mono text-xs">ageval.agent/1</code>{" "}
-            definitions (one job binding: executor × model × options). Install
-            is CLI-only and never edits profiles; bind at run time with{" "}
-            <code className="font-mono text-xs">--agent</code>.
+            Mechanism cards ship with ageval. Custom overlay packs are uploaded{" "}
+            <code className="font-mono text-xs">org/name@version</code>.{" "}
+            <code className="font-mono text-xs">binding.model</code> is the
+            default; override a run with{" "}
+            <code className="font-mono text-xs">--model</code>.
           </>
         }
       />

@@ -1,37 +1,111 @@
-import { useEffect, useState } from "react";
+import { CircleAlert, CircleCheck, Info, TriangleAlert } from "lucide-react";
+import { useEffect, useRef, useState, type ComponentType } from "react";
 
-import { bindToast, type ToastInput } from "@/components/ui/toast";
+import { bindToast, type ToastInput, type ToastTone } from "@/components/ui/toast";
 import { cn } from "@/lib/utils";
 
-type ToastItem = ToastInput & { id: number; leaving?: boolean };
+type ToastItem = ToastInput & { id: number };
+
+const TONE: Record<
+  ToastTone,
+  { Icon: ComponentType<{ className?: string }>; icon: string; bg: string }
+> = {
+  ok: { Icon: CircleCheck, icon: "text-link", bg: "bg-link-soft" },
+  tip: { Icon: Info, icon: "text-link", bg: "bg-link-soft" },
+  warn: { Icon: TriangleAlert, icon: "text-warning", bg: "bg-warning-soft" },
+  error: { Icon: CircleAlert, icon: "text-error", bg: "bg-error-soft" },
+};
+
+const LEAVE_MS = 200;
+const MIN_RESUME_MS = 800;
 
 let seed = 0;
+
+function holdMs(item: ToastItem): number {
+  const tone = item.tone ?? "ok";
+  return item.duration ?? (tone === "error" || tone === "warn" ? 4800 : 2400);
+}
+
+function ToastCard({
+  item,
+  onGone,
+}: {
+  item: ToastItem;
+  onGone: (id: number) => void;
+}) {
+  const [leaving, setLeaving] = useState(false);
+  const remaining = useRef(holdMs(item));
+  const armedAt = useRef(0);
+  const paused = useRef(false);
+  const hideTimer = useRef(0);
+  const goneTimer = useRef(0);
+  const onGoneRef = useRef(onGone);
+  onGoneRef.current = onGone;
+
+  function clearTimers() {
+    window.clearTimeout(hideTimer.current);
+    window.clearTimeout(goneTimer.current);
+  }
+
+  function arm(ms: number) {
+    clearTimers();
+    paused.current = false;
+    remaining.current = ms;
+    armedAt.current = Date.now();
+    hideTimer.current = window.setTimeout(() => {
+      setLeaving(true);
+      goneTimer.current = window.setTimeout(() => onGoneRef.current(item.id), LEAVE_MS);
+    }, ms);
+  }
+
+  useEffect(() => {
+    arm(holdMs(item));
+    return clearTimers;
+  }, [item.id]);
+
+  function pause() {
+    if (paused.current) return;
+    paused.current = true;
+    clearTimers();
+    if (leaving) setLeaving(false);
+    remaining.current = Math.max(0, remaining.current - (Date.now() - armedAt.current));
+  }
+
+  function resume() {
+    if (!paused.current) return;
+    arm(Math.max(MIN_RESUME_MS, remaining.current));
+  }
+
+  const tone = item.tone ?? "ok";
+  const { Icon, icon, bg } = TONE[tone];
+
+  return (
+    <div
+      role={tone === "error" || tone === "warn" ? "alert" : "status"}
+      data-ageval-toast=""
+      data-leaving={leaving ? "" : undefined}
+      onPointerEnter={pause}
+      onPointerLeave={resume}
+      className={cn(
+        "pointer-events-auto flex max-w-sm items-start gap-2.5 rounded-[12px] px-3 py-2 shadow-[var(--viewer-shadow-pop)]",
+        bg,
+      )}
+    >
+      <Icon className={cn("mt-0.5 size-4 shrink-0", icon)} aria-hidden />
+      <p className="min-w-0 text-sm text-pretty text-body">{item.message}</p>
+    </div>
+  );
+}
 
 export function Toaster() {
   const [items, setItems] = useState<ToastItem[]>([]);
 
   useEffect(() => {
-    const timers = new Map<number, number>();
     bindToast((input) => {
       const id = ++seed;
       setItems((prev) => [...prev.slice(-2), { ...input, id }]);
-      const hold = input.duration ?? 2400;
-      const hide = window.setTimeout(() => {
-        setItems((prev) =>
-          prev.map((item) => (item.id === id ? { ...item, leaving: true } : item)),
-        );
-        const gone = window.setTimeout(() => {
-          setItems((prev) => prev.filter((item) => item.id !== id));
-          timers.delete(id);
-        }, 200);
-        timers.set(id, gone);
-      }, hold);
-      timers.set(id, hide);
     });
-    return () => {
-      bindToast(null);
-      for (const timer of timers.values()) window.clearTimeout(timer);
-    };
+    return () => bindToast(null);
   }, []);
 
   if (items.length === 0) return null;
@@ -43,18 +117,11 @@ export function Toaster() {
       aria-relevant="additions"
     >
       {items.map((item) => (
-        <div
+        <ToastCard
           key={item.id}
-          role="status"
-          data-ageval-toast=""
-          data-leaving={item.leaving ? "" : undefined}
-          className={cn(
-            "pointer-events-auto max-w-sm rounded-[12px] border border-hairline bg-canvas px-3 py-2 text-sm shadow-[var(--viewer-shadow-pop)]",
-            item.tone === "error" ? "text-error" : "text-ink",
-          )}
-        >
-          {item.message}
-        </div>
+          item={item}
+          onGone={(id) => setItems((prev) => prev.filter((row) => row.id !== id))}
+        />
       ))}
     </div>
   );

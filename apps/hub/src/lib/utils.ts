@@ -111,6 +111,32 @@ function acpEntryFromProfile(profile: Record<string, unknown>): string {
   return "";
 }
 
+/** Product id: ACP entry, else a non-transport executor. Empty for transport-only acp. */
+export function resolveHarnessId(profile: unknown): string {
+  if (!profile || typeof profile !== "object") return "";
+  const rec = profile as Record<string, unknown>;
+  const executor = String(rec.executor || "").trim();
+  if (executor === "acp") return acpEntryFromProfile(rec);
+  return executor;
+}
+
+/** Unique overlay harness ids, in profile order. */
+export function overlayHarnessIds(overlay: unknown): string[] {
+  if (!overlay || typeof overlay !== "object") return [];
+  const profiles = (overlay as Record<string, unknown>).agent_profiles;
+  if (!profiles || typeof profiles !== "object") return [];
+  const seen = new Set<string>();
+  const out: string[] = [];
+  for (const raw of Object.values(profiles as Record<string, unknown>)) {
+    const id = resolveHarnessId(raw);
+    const key = id.toLowerCase();
+    if (!id || seen.has(key)) continue;
+    seen.add(key);
+    out.push(id);
+  }
+  return out;
+}
+
 /** Jobs Agent axis from job_overlay.agent_profiles (label → ACP entry → executor). */
 export function displayAgentName(profile: unknown): string {
   if (!profile || typeof profile !== "object") return "";

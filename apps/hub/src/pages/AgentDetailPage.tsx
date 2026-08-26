@@ -1,14 +1,16 @@
 import { useEffect, useMemo, useState } from "react";
-import { Link, useNavigate, useParams } from "react-router-dom";
+import { Link, useNavigate, useParams, useSearchParams } from "react-router-dom";
 
 import { BindingPreview } from "@/components/binding-preview";
+import { BrandMark } from "@/components/brand-mark";
+import { BuiltinMark } from "@/components/builtin-mark";
 import { MarketplaceCounts } from "@/components/marketplace-counts";
 import { CatalogHead } from "@/components/page-head";
 import { PackageStarButton } from "@/components/star-toggle";
 import { CommandStrip } from "@/components/command-strip";
 import { DisplayNameEditor } from "@/components/display-name-editor";
 import { EntityMarkControl } from "@/components/entity-mark-control";
-import { entityHintFromPackage } from "@/lib/brand-marks";
+import { entityHintFromPackage, markFromPackage } from "@/lib/brand-marks";
 import { OfficialMark } from "@/components/official-mark";
 import { FileSplitPanel } from "@/components/file-split-panel";
 import { PackageOwnerOps } from "@/components/package-owner-ops";
@@ -25,10 +27,13 @@ import {
   decodeDatasetId,
   decodeFileContent,
   encodeDatasetId,
+  getBuiltinPackageFile,
   getOrg,
   getPackageByDigest,
   getPackageFile,
+  isBuiltinPackage,
   isDraftRelease,
+  listBuiltinPackageFiles,
   listPackageFiles,
   listPackageVersions,
   listPackageVersionsWithAppearances,
@@ -39,6 +44,13 @@ import {
   type PackageRelease,
   RegistryHttpError,
 } from "@/lib/api";
+import {
+  agentPackageHref,
+  bindingModel,
+  formatAgentRunCommand,
+  modelSourceLabel,
+  registeredModels,
+} from "@/lib/agent-models";
 import { getToken } from "@/lib/auth";
 import { buildNestedTree, type TreeNode } from "@/lib/file-tree";
 import { formatScore } from "@/lib/utils";
@@ -46,6 +58,8 @@ import { formatScore } from "@/lib/utils";
 export function AgentDetailPage() {
   const { agentId: rawId } = useParams();
   const agentId = decodeDatasetId(rawId || "");
+  const [searchParams] = useSearchParams();
+  const selectedModel = (searchParams.get("model") || "").trim();
   const token = getToken();
   const navigate = useNavigate();
   const [reloadAt, setReloadAt] = useState(0);
@@ -71,7 +85,9 @@ export function AgentDetailPage() {
       setTreeLoading(true);
       setError(null);
       try {
-        const listed = await listPackageVersionsWithAppearances(agentId, token);
+        const listed = await listPackageVersionsWithAppearances(agentId, token, {
+          packageKind: "agent",
+        });
         const versions = listed.items;
         if (!versions.length) {
           throw new RegistryHttpError(404, "not_found", "agent not found");
@@ -81,6 +97,25 @@ export function AgentDetailPage() {
           (a, b) => (b.created_at ?? 0) - (a.created_at ?? 0),
         )[0];
         if (cancelled) return;
+
+        if (isBuiltinPackage(latest)) {
+          setRelease(latest);
+          setPreview(latest.agent_preview || null);
+          setCanEditName(false);
+          const files = await listBuiltinPackageFiles(agentId, token, {
+            packageKind: "agent",
+          });
+          if (cancelled) return;
+          const nested = buildNestedTree(files.items);
+          setTree(nested);
+          setFilePaths(files.items.filter((e) => e.type !== "dir").map((e) => e.path));
+          const prefer =
+            files.items.find((e) => e.path === "agent.yaml") ||
+            files.items.find((e) => e.path === "README.md") ||
+            files.items.find((e) => e.type !== "dir");
+          if (prefer) setSelectedPath(prefer.path);
+          return;
+        }
 
         let meta: PackageRelease = latest;
         try {
@@ -149,9 +184,10 @@ export function AgentDetailPage() {
   }, [agentId, token, reloadAt]);
 
   const packageDigest = release?.package_digest;
+  const builtin = isBuiltinPackage(release);
 
   useEffect(() => {
-    if (!packageDigest || !selectedPath) {
+    if (!selectedPath || (!builtin && !packageDigest)) {
       setFileContent(null);
       setFileNote(null);
       return;
@@ -159,7 +195,12 @@ export function AgentDetailPage() {
     let cancelled = false;
     setFileLoading(true);
     setFileNote(null);
-    getPackageFile(agentId, packageDigest, selectedPath, token)
+    const pending = builtin
+      ? getBuiltinPackageFile(agentId, selectedPath, token, {
+          packageKind: "agent",
+        })
+      : getPackageFile(agentId, packageDigest || "", selectedPath, token);
+    pending
       .then((f) => {
         if (cancelled) return;
         try {
@@ -184,17 +225,23 @@ export function AgentDetailPage() {
     return () => {
       cancelled = true;
     };
-  }, [agentId, packageDigest, selectedPath, token]);
+  }, [agentId, packageDigest, selectedPath, token, builtin]);
 
   const installCmd = useMemo(() => {
     if (!release) return `ageval agent install ${agentId}@<version>`;
     return `ageval agent install ${agentId}@${release.version}`;
   }, [agentId, release]);
 
-  const runCmd = useMemo(() => {
-    const ver = release?.version || "<version>";
-    return `ageval run <dataset> --agent ${agentId}@${ver}`;
-  }, [agentId, release]);
+  const runCmd = useMemo(
+    () =>
+      formatAgentRunCommand(
+        agentId,
+        release?.version || "<version>",
+        selectedModel,
+        { builtin },
+      ),
+    [agentId, release, selectedModel, builtin],
+  );
 
   const formatBadge =
     preview?.format || (release?.package_kind === "agent" ? "ageval.agent/1" : null);
@@ -203,6 +250,22 @@ export function AgentDetailPage() {
 
   const binding = (preview?.binding || {}) as Record<string, unknown>;
   const hasBinding = Object.keys(binding).length > 0;
+  const defaultModel = bindingModel(binding);
+  const models = useMemo(
+    () =>
+      registeredModels(
+        defaultModel,
+        appearances.map((row) => row.model),
+        selectedModel,
+      ),
+    [appearances, defaultModel, selectedModel],
+  );
+  const visibleAppearances = useMemo(() => {
+    if (!selectedModel) return appearances;
+    return appearances.filter(
+      (row) => (row.model || "").trim() === selectedModel,
+    );
+  }, [appearances, selectedModel]);
 
   function openOverlayPath(declared: string) {
     const prefix = declared.endsWith("/") ? declared : `${declared}/`;
@@ -218,14 +281,14 @@ export function AgentDetailPage() {
 
   const appearancesByVersion = useMemo(() => {
     const groups = new Map<string, AgentAppearance[]>();
-    for (const row of appearances) {
+    for (const row of visibleAppearances) {
       const key = row.agent_version || "unknown";
       const list = groups.get(key) ?? [];
       list.push(row);
       groups.set(key, list);
     }
     return [...groups.entries()].sort(([a], [b]) => b.localeCompare(a));
-  }, [appearances]);
+  }, [visibleAppearances]);
 
   return (
     <>
@@ -247,10 +310,12 @@ export function AgentDetailPage() {
                 packageParts.name
               }
               prefix={packageParts.org ? `${packageParts.org}/` : null}
-              canEdit={Boolean(token && canEditName && release)}
+              canEdit={Boolean(token && canEditName && release && !builtin)}
               headingClassName="text-xl font-semibold tracking-tight text-ink"
               beforeTitle={
-                release ? (
+                builtin && release ? (
+                  <BrandMark mark={markFromPackage(release)} size={24} />
+                ) : release ? (
                   <EntityMarkControl
                     hint={entityHintFromPackage({
                       ...release,
@@ -273,7 +338,13 @@ export function AgentDetailPage() {
                   />
                 ) : null
               }
-              afterTitle={release?.official ? <OfficialMark /> : null}
+              afterTitle={
+                builtin ? (
+                  <BuiltinMark />
+                ) : release?.official ? (
+                  <OfficialMark />
+                ) : null
+              }
               onSave={async (next) => {
                 const updated = await updatePackageDisplayName(agentId, next, token);
                 setRelease((prev) =>
@@ -290,15 +361,19 @@ export function AgentDetailPage() {
           {release ? (
             <div className="mt-1 flex flex-wrap items-center gap-x-1.5 gap-y-1 text-xs text-mute">
               <span>@{agentId}</span>
-              <span aria-hidden>·</span>
-              <span>
-                {isDraftRelease(release) ? "draft" : `v${release.version}`}
-              </span>
-              <span aria-hidden>·</span>
-              <MarketplaceCounts
-                downloadCount={release.download_count}
-                favoriteCount={release.favorite_count}
-              />
+              {builtin ? null : (
+                <>
+                  <span aria-hidden>·</span>
+                  <span>
+                    {isDraftRelease(release) ? "draft" : `v${release.version}`}
+                  </span>
+                  <span aria-hidden>·</span>
+                  <MarketplaceCounts
+                    downloadCount={release.download_count}
+                    favoriteCount={release.favorite_count}
+                  />
+                </>
+              )}
               {release.org_id ? (
                 <>
                   <span aria-hidden>·</span>
@@ -317,7 +392,7 @@ export function AgentDetailPage() {
             </div>
           ) : null}
         </div>
-        {release ? (
+        {release && !builtin ? (
           <div className="flex flex-wrap items-center justify-end gap-2">
             <PackageStarButton
               packageId={agentId}
@@ -372,14 +447,26 @@ export function AgentDetailPage() {
           ) : null}
 
           <section className="space-y-2">
-            <h2 className="text-sm font-medium text-ink">Install &amp; run (CLI)</h2>
-            <CommandStrip command={installCmd} />
+            <h2 className="text-sm font-medium text-ink">
+              {builtin ? "Run (CLI)" : "Install & run (CLI)"}
+            </h2>
+            {builtin ? null : <CommandStrip command={installCmd} />}
             <CommandStrip command={runCmd} />
             <p className="text-xs text-mute">
-              Install writes only the local cache; the binding applies per run via{" "}
-              <span>--agent</span> and lands in the lock&apos;s
-              job_overlay as <span>agent_ref</span> (provenance,
-              not fingerprint identity).
+              {builtin ? (
+                <>
+                  Ships with ageval; no install. Bind a run with{" "}
+                  <span>--agent</span>. Optional <span>--model</span>{" "}
+                  overrides this run&apos;s model.
+                </>
+              ) : (
+                <>
+                  Install writes only the local cache; the harness binds per run
+                  via <span>--agent</span>. Optional <span>--model</span>{" "}
+                  overrides this run&apos;s model. <span>agent_ref</span> is
+                  provenance, not fingerprint identity.
+                </>
+              )}
             </p>
           </section>
 
@@ -393,17 +480,102 @@ export function AgentDetailPage() {
           </section>
 
           <section className="space-y-3">
-            <h2 className="text-sm font-medium text-ink">Appearances</h2>
+            <div className="flex flex-wrap items-baseline justify-between gap-2">
+              <h2 className="text-sm font-medium text-ink">Registered models</h2>
+              {selectedModel ? (
+                <Link
+                  to={agentPackageHref(agentId)}
+                  replace
+                  className="text-xs text-link hover:text-link-deep hover:underline underline-offset-2"
+                >
+                  Clear model focus
+                </Link>
+              ) : null}
+            </div>
             <p className="text-xs text-mute">
-              Official public complete release-bound suites with this Agent org’s
-              consent (direct attach or an approved appearance request).
-              Observational metrics only — PASS stays on the independent evaluator.
+              {builtin
+                ? "Models from plaza overlay runs of this harness. Selecting one is query state on this page, not a second package."
+                : "Package default plus models that appeared on consented plaza suites. Selecting one is query state on this harness page, not a second package."}
+            </p>
+            {models.length === 0 ? (
+              <p className="text-sm text-mute">
+                No registered model yet. The package default is empty.
+              </p>
+            ) : (
+              <div className="rounded-[8px] border border-hairline overflow-hidden">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Model</TableHead>
+                      <TableHead>Source</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {models.map((model) => {
+                      const selected = model === selectedModel;
+                      const appearanceCount = appearances.filter(
+                        (row) => (row.model || "").trim() === model,
+                      ).length;
+                      return (
+                        <TableRow
+                          key={model}
+                          data-state={selected ? "selected" : undefined}
+                        >
+                          <TableCell>
+                            <Link
+                              to={agentPackageHref(
+                                agentId,
+                                selected ? null : model,
+                              )}
+                              replace
+                              aria-current={selected ? "page" : undefined}
+                              className="text-link hover:text-link-deep hover:underline underline-offset-2"
+                            >
+                              {model}
+                            </Link>
+                          </TableCell>
+                          <TableCell className="text-mute">
+                            {modelSourceLabel({
+                              model,
+                              defaultModel,
+                              appearanceCount,
+                            })}
+                          </TableCell>
+                        </TableRow>
+                      );
+                    })}
+                  </TableBody>
+                </Table>
+              </div>
+            )}
+          </section>
+
+          <section className="space-y-3">
+            <h2 className="text-sm font-medium text-ink">
+              {selectedModel
+                ? `Appearances · ${selectedModel}`
+                : "Appearances"}
+            </h2>
+            <p className="text-xs text-mute">
+              {builtin
+                ? "Official public complete release-bound suites whose overlay harness matches this card. Observational metrics only — PASS stays on the independent evaluator."
+                : "Official public complete release-bound suites with this Agent org’s consent (direct attach or an approved appearance request). Observational metrics only — PASS stays on the independent evaluator."}
             </p>
             {appearancesByVersion.length === 0 ? (
               <p className="text-sm text-mute">
-                No Hub appearances yet. Attach a published{" "}
-                <span>org/name@version</span> as this
-                Agent’s org owner, or approve an appearance request.
+                {selectedModel
+                  ? builtin
+                    ? "No plaza appearances for this model yet."
+                    : "No consented appearances for this model yet."
+                  : builtin
+                    ? "No plaza appearances yet. Upload a public complete suite on an official Dataset that ran this harness."
+                    : (
+                      <>
+                        No Hub appearances yet. Attach a published{" "}
+                        <span>org/name@version</span> as this
+                        Agent’s org owner, or approve an appearance request.
+                      </>
+                    )}
               </p>
             ) : (
               appearancesByVersion.map(([version, rows]) => (

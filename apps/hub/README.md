@@ -5,8 +5,9 @@ files, browse Task Jobs, and Leaderboard.
 
 Also covers the **Plugin marketplace** (`/plugins` — `ageval.plugin/1` browse +
 CLI install copy; no browser-side install), **Agents** (`/agents` —
-published `ageval.agent/1` plus derived appearances from official public
-Leaderboards that carry `agent_ref`; not a stored Runtime and not suite PASS),
+published `ageval.agent/1` harness packages plus derived appearances from
+official public Leaderboards that carry `agent_ref`; `?model=` focuses a
+registered model on the package page; not a stored Runtime and not suite PASS),
 **organizations** (members, org
 datasets and plugins, shared suite results, invite keys, member add / role /
 transfer, leave / dissolve), **GitHub

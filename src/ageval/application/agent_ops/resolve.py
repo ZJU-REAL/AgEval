@@ -6,12 +6,15 @@ Spec forms (repeatable):
 * ``<role>=<ref>``     — bind one role; exact role wins over wildcard
 * ``<path>``           — local dir or ``agent.yaml`` (dev loop; ref = ``file:…@dev``)
 
-``<ref>`` is a pinned local-cache id: ``local/<id>@<version>`` or
-``org/name@<version>`` (short ``<id>@<version>`` falls back to ``local/<id>``).
+``<ref>`` is a short builtin id (``pi``), a pinned local-cache id
+``local/<id>@<version>``, or ``org/name@<version>`` (short ``<id>@<version>``
+falls back to ``local/<id>``).
 The synthesized document enters the existing ``profiles_path`` lane, so lock /
 job_overlay / fingerprint behave exactly as with a hand-written profiles file.
 ``agent_ref`` (``<id>@<version>+sha256:<digest12>``) is injected per binding as
-provenance; it never enters suite fingerprint identity.
+provenance; it never enters suite fingerprint identity. Optional ``model``
+patches ``binding.model`` on every role this ``--agent`` bound (package default
+otherwise).
 """
 
 from __future__ import annotations
@@ -63,6 +66,28 @@ def _load_from_path(ref: str) -> tuple[AgentManifest, str]:
     return manifest, f"file:{path}@dev+{_short_digest(digest)}"
 
 
+def _load_from_builtin(ref: str) -> tuple[AgentManifest, str] | None:
+    from ageval.agents.reserved import builtin_harness_root, canonical_harness_id
+
+    hit = canonical_harness_id(ref)
+    if hit is None:
+        return None
+    root = builtin_harness_root(hit)
+    manifest = load_agent_manifest(root)
+    digest = compute_tree_digest(root)
+    return manifest, f"{hit}@{manifest.version}+{_short_digest(digest)}"
+
+
+def _load_ref(ref: str) -> tuple[AgentManifest, str]:
+    if _looks_like_path(ref):
+        return _load_from_path(ref)
+    if "@" not in ref and "/" not in ref:
+        loaded = _load_from_builtin(ref)
+        if loaded is not None:
+            return loaded
+    return _load_from_cache(ref)
+
+
 def _load_from_cache(ref: str) -> tuple[AgentManifest, str]:
     agent_id, _, version = ref.rpartition("@")
     if not agent_id or not version:
@@ -110,23 +135,25 @@ def bindings_from_agent_specs(specs: list[str]) -> dict[str, dict[str, Any]]:
                 f"duplicate --agent for role {role!r}",
                 location=raw,
             )
-        manifest, agent_ref = (
-            _load_from_path(ref) if _looks_like_path(ref) else _load_from_cache(ref)
-        )
+        manifest, agent_ref = _load_ref(ref)
         binding = copy.deepcopy(manifest.binding)
         binding["agent_ref"] = agent_ref
         bindings[role] = binding
     return bindings
 
 
-def resolve_agent_specs(specs: list[str]) -> Path:
+def resolve_agent_specs(specs: list[str], model: str | None = None) -> Path:
     """Synthesize a ``ageval.profiles/1`` file for the profiles lane; return its path.
 
     Written content-addressed under ``$AGEVAL_HOME/agents/.projections`` so the
     exact document a run used stays inspectable and re-runnable (also works
     when the Dataset itself is a registry ref with no local root).
+    ``model`` (from ``--model``) overrides ``binding.model`` on bound roles.
     """
     bindings = bindings_from_agent_specs(specs)
+    if model:
+        for binding in bindings.values():
+            binding["model"] = model
     document = {"format": PROFILES_FORMAT, "agent_profiles": bindings}
     # Re-parse for shape safety before anything reads the file.
     parse_job_mapping(document, location="--agent")

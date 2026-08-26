@@ -38,6 +38,7 @@ export function HubRoutes({
       <Route path="/plugins/:pluginId" element={<PluginDetailPage />} />
       <Route path="/agents" element={<AgentsPage />} />
       <Route path="/agents/:agentId" element={<AgentDetailPage />} />
+      {/* Model focus is ?model= on the package page, not a nested route. */}
       <Route path="/organizations" element={<OrganizationsPage />} />
       <Route path="/organizations/:orgId" element={<OrganizationDetailPage />} />
       <Route path="/users/:login" element={<UserPage />} />

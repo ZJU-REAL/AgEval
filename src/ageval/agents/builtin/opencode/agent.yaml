@@ -1,0 +1,23 @@
+format: ageval.agent/1
+agent_id: opencode
+version: "0.1.0"
+label: "OpenCode"
+description: >-
+  OpenCode via ACP. Bundles overlays/opencode.litellm.json into
+  $HOME/.config/opencode. Locators stay names until invoke. No default
+  model; pass --model on the run.
+tags: [coding, acp, opencode]
+binding:
+  executor: acp
+  overlays:
+    - overlays/opencode.litellm.json
+  extensions:
+    - plugin: acp
+      options:
+        entry: opencode
+    - plugin: home-files
+      options:
+        files:
+          - src: overlays/opencode.litellm.json
+            dest: .config/opencode/opencode.json
+            dest_root: home

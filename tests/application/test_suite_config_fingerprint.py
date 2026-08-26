@@ -272,6 +272,24 @@ def test_overlays_do_not_change_config_fingerprint() -> None:
     assert fingerprint_for_job_overlay(base) == fingerprint_for_job_overlay(with_overlays)
 
 
+def test_model_change_changes_fingerprint() -> None:
+    base = {
+        "agent_profiles": {
+            "solver": {
+                "executor": "acp",
+                "extensions": [{"plugin": "acp", "options": {"entry": "pi"}}],
+                "model": "entry-default",
+            }
+        }
+    }
+    other = {
+        "agent_profiles": {
+            "solver": {**base["agent_profiles"]["solver"], "model": "glm-4.7"},
+        }
+    }
+    assert fingerprint_for_job_overlay(base) != fingerprint_for_job_overlay(other)
+
+
 @pytest.mark.asyncio
 async def test_suite_summary_includes_homogeneous_config() -> None:
     plan = plan_suite_run(SUITE, max_concurrent_tasks=2)

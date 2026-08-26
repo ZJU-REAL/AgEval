@@ -55,7 +55,7 @@ agent_profiles:
 
 Gold lives in `evaluation/` and is uploaded at evaluate, not before. `setup.sh` is the last environment slot.
 
-`--profiles` swaps the job. `--agent` is mutually exclusive with `--profiles`.
+`--profiles` swaps the job. `--agent` is mutually exclusive with `--profiles`. `--model` requires `--agent`.
 
 Hub comparability still uses suite fingerprint / `upload-suite`. Do not add `n_attempts` to yaml.
 

@@ -98,6 +98,7 @@ ROUTES: tuple[Route, ...] = (
         pattern=r"/v1/packages/([^/]+(?:/[^/]+)*)",
         groups=("dataset_id",),
         predicate=_package_id_list_ok,
+        pass_qs=True,
     ),
     Route(
         "GET",
@@ -165,6 +166,7 @@ ROUTES: tuple[Route, ...] = (
         pattern=r"/v1/packages/(.+)/files",
         groups=("dataset_id",),
         predicate=_package_root_files_ok,
+        pass_qs=True,
     ),
     Route(
         "GET",
@@ -172,6 +174,7 @@ ROUTES: tuple[Route, ...] = (
         access="bearer",
         pattern=r"/v1/packages/(.+)/files/(.+)",
         groups=("dataset_id", "file_path"),
+        pass_qs=True,
         predicate=_package_root_files_ok,
     ),
     Route(

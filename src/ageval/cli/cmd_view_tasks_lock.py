@@ -8,7 +8,7 @@ from typing import Annotated
 import typer
 
 from ageval.application.composition import build_lock_command
-from ageval.cli.cmd_agent import AGENT_OPTION_HELP
+from ageval.cli.cmd_agent import AGENT_OPTION_HELP, MODEL_OPTION_HELP
 from ageval.cli.present import emit
 from ageval.config.errors import ConfigError
 
@@ -167,6 +167,10 @@ def register(app: typer.Typer) -> None:
             list[str] | None,
             typer.Option("--agent", help=AGENT_OPTION_HELP),
         ] = None,
+        model: Annotated[
+            str | None,
+            typer.Option("--model", help=MODEL_OPTION_HELP),
+        ] = None,
     ) -> None:
         """Resolve a Dataset member, lock its task.yaml; print a deterministic JSON summary."""
         if task is None or not str(task).strip():
@@ -178,7 +182,7 @@ def register(app: typer.Typer) -> None:
             raise typer.Exit(code=2)
         from ageval.cli.cmd_agent import resolve_agent_option
 
-        profiles = resolve_agent_option(agent, profiles)
+        profiles = resolve_agent_option(agent, profiles, model=model)
         try:
             summary = build_lock_command().run(
                 dataset_root=package,

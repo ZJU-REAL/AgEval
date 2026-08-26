@@ -51,6 +51,14 @@ def test_install_idempotent(tmp_path: Path) -> None:
     assert len(store.list_installed()) == 1
 
 
+def test_install_reserved_short_id_fails_closed(tmp_path: Path) -> None:
+    pkg = _make_pkg(tmp_path, agent_id="pi")
+    with pytest.raises(ConfigError, match="ships with ageval"):
+        store.install_from_path(pkg)
+    with pytest.raises(ConfigError, match="ships with ageval"):
+        store.install_from_path(_make_pkg(tmp_path), agent_id="official/openai-http")
+
+
 def test_hub_id_override(tmp_path: Path) -> None:
     pkg = _make_pkg(tmp_path)
     entry = store.install_from_path(pkg, agent_id="acme/http-default")

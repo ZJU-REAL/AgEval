@@ -28,6 +28,7 @@ import {
   RegistryHttpError,
 } from "@/lib/api";
 import { getToken } from "@/lib/auth";
+import { toastError } from "@/lib/toast-error";
 
 export function OrganizationsPage() {
   const navigate = useNavigate();
@@ -43,14 +44,12 @@ export function OrganizationsPage() {
   const [joinOpen, setJoinOpen] = useState(false);
   const [inviteKey, setInviteKey] = useState("");
   const [joinBusy, setJoinBusy] = useState(false);
-  const [joinError, setJoinError] = useState<string | null>(null);
 
   const [createOpen, setCreateOpen] = useState(false);
   const [orgName, setOrgName] = useState("");
   const [orgDisplayName, setOrgDisplayName] = useState("");
   const [orgDescription, setOrgDescription] = useState("");
   const [createBusy, setCreateBusy] = useState(false);
-  const [createError, setCreateError] = useState<string | null>(null);
 
   const orgNameOk = /^[a-z0-9]([a-z0-9_-]{0,62}[a-z0-9])?$/.test(
     orgName.trim().toLowerCase(),
@@ -164,11 +163,10 @@ export function OrganizationsPage() {
     if (!token) return;
     const name = orgName.trim().toLowerCase();
     if (!/^[a-z0-9]([a-z0-9_-]{0,62}[a-z0-9])?$/.test(name)) {
-      setCreateError("Slug must be lowercase [a-z0-9][a-z0-9_-]*");
+      toastError("Slug must be lowercase [a-z0-9][a-z0-9_-]*");
       return;
     }
     setCreateBusy(true);
-    setCreateError(null);
     try {
       const created = await createOrg(
         {
@@ -184,11 +182,7 @@ export function OrganizationsPage() {
       setOrgDescription("");
       navigate(`/organizations/${encodeURIComponent(created.org_id || name)}`);
     } catch (err: unknown) {
-      if (err instanceof RegistryHttpError) {
-        setCreateError(`${err.code}: ${err.message}`);
-      } else {
-        setCreateError(err instanceof Error ? err.message : String(err));
-      }
+      toastError(err);
     } finally {
       setCreateBusy(false);
     }
@@ -198,11 +192,10 @@ export function OrganizationsPage() {
     if (!token) return;
     const key = inviteKey.trim();
     if (!key) {
-      setJoinError("Invite key is required");
+      toastError("Invite key is required");
       return;
     }
     setJoinBusy(true);
-    setJoinError(null);
     try {
       const joined = await joinOrgWithInvite(key, token);
       setJoinOpen(false);
@@ -212,11 +205,7 @@ export function OrganizationsPage() {
         navigate(`/organizations/${encodeURIComponent(joined.org_id)}`);
       }
     } catch (err: unknown) {
-      if (err instanceof RegistryHttpError) {
-        setJoinError(`${err.code}: ${err.message}`);
-      } else {
-        setJoinError(err instanceof Error ? err.message : String(err));
-      }
+      toastError(err);
     } finally {
       setJoinBusy(false);
     }
@@ -262,7 +251,6 @@ export function OrganizationsPage() {
               aria-label="Join organization with invite key"
               onClick={() => {
                 setJoinOpen(true);
-                setJoinError(null);
               }}
             >
               <Plus className="h-4 w-4" />
@@ -274,7 +262,6 @@ export function OrganizationsPage() {
               className="shrink-0"
               onClick={() => {
                 setCreateOpen(true);
-                setCreateError(null);
               }}
             >
               New org
@@ -296,7 +283,6 @@ export function OrganizationsPage() {
                   type="button"
                   onClick={() => {
                     setCreateOpen(true);
-                    setCreateError(null);
                   }}
                 >
                   Create organization
@@ -454,9 +440,6 @@ export function OrganizationsPage() {
               disabled={createBusy}
               maxLength={500}
             />
-            {createError ? (
-              <p className="text-sm text-error">{createError}</p>
-            ) : null}
             <div className="flex justify-end gap-2">
               <Button
                 type="button"
@@ -520,9 +503,6 @@ export function OrganizationsPage() {
                 }}
               />
             </div>
-            {joinError ? (
-              <p className="text-sm text-error">{joinError}</p>
-            ) : null}
             <div className="flex justify-end gap-2">
               <Button
                 type="button"

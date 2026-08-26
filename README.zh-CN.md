@@ -78,7 +78,7 @@ ageval 把 **Harness** 作为一等评测维度。
 **组合**
 
 - **同一份 `run.py`，更换绑定。** Environment 与 Agent 经插件组合。默认 [ACP](https://agentclientprotocol.com)；[nooa](https://github.com/NVIDIA-NeMo/labs-OO-Agents)、[dsh](https://github.com/deepseek-ai/deepseek-harness)、[miniswe](https://github.com/SWE-agent/mini-swe-agent) 等异构 harness 同样经插件接入。开放 slot 以补充和替换 harness，并走同一套 Attempt 与榜单。
-- **Agent 包。** 将一次 job 的 Agent 绑定封装为 `ageval.agent/1`，安装后即可绑定。
+- **Agent 包。** harness（`ageval.agent/1`：executor、entry、overlays）安装后绑定。`binding.model` 是缺省；`--model` 改这次 run。
 - **多角色与多 session。** 题包拥有对话、工具与 handoff；runtime 提供环境与 Agent 入口。
 - **调用前校验。** 能力与凭证在 Agent 调用之前核验；缺失则失败，不进入 invoke。
 
@@ -120,7 +120,7 @@ uv run ageval executors -v
 uv run ageval view examples/journeys --no-browser
 ```
 
-`examples/journeys` 的默认环境为 docker。先执行 `ageval agent install examples/agents/pi-default`，再使用 `--agent` 绑定。
+`examples/journeys` 的默认环境为 docker。内置 harness 用 `--agent pi`（不必 install）。可选 `--model` 改这次 run。定制 overlays 包仍先 `ageval agent install`，再 `--agent org/name@version`。
 
 仓库内示例见 [`examples/README.md`](examples/README.md)：journeys、`tau3-airline`，以及 Agent 目录包。
 

@@ -1,4 +1,4 @@
-"""Delayed published agent_ref attach compares _binding_role_key only."""
+"""Delayed published agent_ref attach compares harness identity, not model."""
 
 from __future__ import annotations
 
@@ -35,8 +35,11 @@ def test_parse_published_spec_and_reject_local_file() -> None:
         parse_published_agent_spec("local/http-default@0.1.0")
     with pytest.raises(AttachAgentRefError, match="published"):
         parse_published_agent_spec("file:/tmp/agent@dev")
-    with pytest.raises(AttachAgentRefError, match="org/name@version"):
+    with pytest.raises(AttachAgentRefError, match="builtin harness id"):
         parse_published_agent_spec("acme/http-default")
+    assert parse_published_agent_spec("pi") == (None, "pi", "0.1.0")
+    assert parse_published_agent_spec("solver=opencode")[1:] == ("opencode", "0.1.0")
+    assert parse_published_agent_spec("pi@0.1.0") == (None, "pi", "0.1.0")
 
 
 def test_inject_matches_all_roles_and_keeps_fingerprint() -> None:
@@ -49,20 +52,27 @@ def test_inject_matches_all_roles_and_keeps_fingerprint() -> None:
     ref = format_published_agent_ref("acme/http-default", "0.1.0", "sha256:" + "a" * 64)
     before = fingerprint_for_job_overlay(overlay)
     result = inject_published_agent_ref(overlay, published_binding=GROK, agent_ref=ref)
-    assert result.roles == ("solver",)
+    assert result.roles == ("solver", "user")
     assert result.changed is True
     assert result.overlay["agent_profiles"]["solver"]["agent_ref"] == ref
-    assert "agent_ref" not in result.overlay["agent_profiles"]["user"]
+    assert result.overlay["agent_profiles"]["user"]["agent_ref"] == ref
     assert fingerprint_for_job_overlay(result.overlay) == before
+    assert before != fingerprint_for_job_overlay(
+        {"agent_profiles": {"solver": dict(GROK), "user": dict(GROK)}}
+    )
 
 
 def test_inject_named_role_mismatch_writes_nothing() -> None:
     overlay = {"agent_profiles": {"solver": dict(GROK)}}
     ref = "acme/http-default@0.1.0"
+    mismatch = {
+        **GROK,
+        "extensions": [{"plugin": "acp", "options": {"entry": "codex"}}],
+    }
     with pytest.raises(AttachAgentRefError, match="does not match"):
         inject_published_agent_ref(
             overlay,
-            published_binding={**GROK, "model": "other"},
+            published_binding=mismatch,
             agent_ref=ref,
             role="solver",
         )

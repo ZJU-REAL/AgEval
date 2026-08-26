@@ -7,7 +7,8 @@
 | **ageval** | 产品名（agent eval）。CLI / 包 / format 硬切 |
 | **dataset** | 规范交付单位：根 `ageval.yaml`（`ageval.dataset/1`）+ `tasks/<id>/`。不是 SQL |
 | **task** | dataset 成员：`task.yaml` + `run.py` + `evaluator.py` + 可选 `environment/` |
-| **profiles.yaml** | job 文档：`environment` 赢家 + 角色绑定。`--agent` 与 `--profiles` 互斥 |
+| **profiles.yaml** | job 文档：`environment` 赢家 + 角色绑定。`--agent` 与 `--profiles` 互斥。`--model` 改这次 run 的 `binding.model` |
+| **Agent 包** | format `ageval.agent/1`。身份是 harness（executor / entry / overlays）；`binding.model` 是缺省 |
 | **Run / Trial / Attempt** | Run = 一次 CLI 顶层；Trial = 一题 × 一套 profile（lock digest）；Attempt = 一次外层执行（失败重试 = 新 Attempt） |
 | **Campaign** | 矩阵展开的多 Trial（`ageval campaign`） |
 | **suite** | 一份 dataset 去掉 `--task` 的全成员跑。suite 指标是观测，不是 suite PASS |
@@ -45,6 +46,7 @@
 | `ageval.task/1` |
 | `ageval.plugin/1` |
 | `ageval.profiles/1` |
+| `ageval.agent/1` |
 | `ageval.trajectory.event/1` |
 
 未知 format：一个错误，停。

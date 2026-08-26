@@ -129,12 +129,15 @@ from upstream tasks JSON: `python examples/tau3-airline/scripts/generate_package
 
 ## `agents/` (`ageval.agent/1`)
 
-Catalog Agent packages. Install into the local cache, then bind with `--agent`
-(mutually exclusive with `--profiles`):
+Catalog Agent **harness** packages (`binding.model` is the default, not identity).
+Mechanism cards (`pi`, `opencode`, …) ship with ageval. These trees are custom
+overlay examples: install, then bind with `--agent` (mutually exclusive with
+`--profiles`). Optional `--model` overrides this run:
 
 ```bash
+uv run ageval run examples/journeys --task terminal-jsonl-agg --agent pi --model glm-4.7
 uv run ageval agent install examples/agents/pi-default
-uv run ageval run examples/journeys --task terminal-jsonl-agg --agent pi-default
+uv run ageval run examples/journeys --task terminal-jsonl-agg --agent local/pi-default@0.1.0
 ```
 
 ## Hub-only conversions

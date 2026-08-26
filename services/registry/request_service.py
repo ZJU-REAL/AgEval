@@ -128,13 +128,25 @@ class RequestService:
 
         from ageval.application.suite.attach_agent_ref import (
             AttachAgentRefError,
+            load_builtin_attach,
             parse_published_agent_spec,
         )
 
         try:
             _role, package_id, version = parse_published_agent_spec(agent)
+            builtin = load_builtin_attach(package_id, version)
         except AttachAgentRefError as exc:
             raise RegistryAppError(exc.error_code, exc.message, http_status=400) from exc
+        if builtin is not None:
+            attached = self.results.attach_agent(
+                suite_run_id=suite.suite_run_id,
+                agent=agent,
+                auth=auth,
+                grant_consent=False,
+            )
+            attached["request"] = None
+            attached["direct_attach"] = True
+            return attached
         release = self.meta.get_by_version(package_id, version)
         if release is None or not self.access.visible_package(release, auth):
             raise RegistryAppError("not_found", "agent package not found", http_status=404)

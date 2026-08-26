@@ -140,6 +140,35 @@ def _upload(
     )
 
 
+def test_attach_builtin_harness(tmp_path: Path) -> None:
+    packages, results, runtimes = _services(tmp_path)
+    _publish_dataset(packages, tmp_path, dataset_id="official/gaia", org_id="official")
+    _upload(
+        results,
+        tmp_path,
+        suite_run_id="suite_builtin",
+        dataset_id="official/gaia",
+        agent_profiles={"solver": dict(PI)},
+    )
+    auth = TokenInfo(scopes=frozenset({"results:upload"}), user_id="alice")
+    attached = results.attach_agent(
+        suite_run_id="suite_builtin",
+        agent="pi",
+        auth=auth,
+    )
+    assert attached["attached"] is True
+    overlay = attached["job_overlay"]["agent_profiles"]["solver"]
+    assert str(overlay["agent_ref"]).startswith("pi@0.1.0+")
+    rows = runtimes.appearances_for_agent("pi", auth)
+    assert [r["suite_run_id"] for r in rows] == ["suite_builtin"]
+    again = results.attach_agent(
+        suite_run_id="suite_builtin",
+        agent="pi@0.1.0",
+        auth=auth,
+    )
+    assert again["idempotent"] is True
+
+
 def test_attach_plaza_suite_then_appearances(tmp_path: Path) -> None:
     packages, results, runtimes = _services(tmp_path)
     _publish_dataset(packages, tmp_path, dataset_id="official/gaia", org_id="official")
@@ -200,6 +229,29 @@ def test_attach_private_suite_is_metadata_only(tmp_path: Path) -> None:
     assert "agent_refs" not in meta
 
 
+def test_attach_succeeds_when_only_model_differs(tmp_path: Path) -> None:
+    packages, results, _runtimes = _services(tmp_path)
+    _publish_dataset(packages, tmp_path, dataset_id="official/gaia", org_id="official")
+    _publish_agent(packages, tmp_path, package_id="official/pi-default", org_id="official")
+    _upload(
+        results,
+        tmp_path,
+        suite_run_id="suite_model",
+        dataset_id="official/gaia",
+        agent_profiles={"solver": {**PI, "model": "glm-4.7"}},
+    )
+    owner = TokenInfo(scopes=frozenset({"results:upload"}), user_id="alice")
+    attached = results.attach_agent(
+        suite_run_id="suite_model",
+        agent="official/pi-default@0.1.0",
+        auth=owner,
+    )
+    assert attached["attached"] is True
+    overlay = attached["job_overlay"]["agent_profiles"]["solver"]
+    assert overlay["model"] == "glm-4.7"
+    assert str(overlay["agent_ref"]).startswith("official/pi-default@0.1.0+")
+
+
 def test_attach_mismatch_and_unauthorized(tmp_path: Path) -> None:
     packages, results, _runtimes = _services(tmp_path)
     _publish_dataset(packages, tmp_path, dataset_id="official/gaia", org_id="official")
@@ -209,7 +261,12 @@ def test_attach_mismatch_and_unauthorized(tmp_path: Path) -> None:
         tmp_path,
         suite_run_id="suite_mis",
         dataset_id="official/gaia",
-        agent_profiles={"solver": {**PI, "model": "other"}},
+        agent_profiles={
+            "solver": {
+                **PI,
+                "extensions": [{"plugin": "acp", "options": {"entry": "codex"}}],
+            }
+        },
     )
     owner = TokenInfo(scopes=frozenset({"results:upload"}), user_id="alice")
     with pytest.raises(RegistryAppError, match="does not match"):
