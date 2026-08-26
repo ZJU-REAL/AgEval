@@ -20,6 +20,7 @@ import {
   X,
 } from "lucide-react";
 
+import type { NavGlyph } from "@/components/empty-state";
 import { GitHubIcon } from "@/components/github-icon";
 import { HoverTip } from "@/components/hover-tip";
 import { OfficialMark } from "@/components/official-mark";
@@ -45,7 +46,7 @@ const SIDEBAR_COLLAPSED_KEY = "ageval-hub-sidebar-collapsed";
 type Glyph = ComponentType<{ className?: string; strokeWidth?: number }>;
 
 const navItemClass =
-  "flex h-8 w-full items-center rounded-[6px] text-sm font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-link/70";
+  "flex h-8 w-full items-center rounded-[6px] font-mono text-[13px] motion-safe:transition-[color,background-color,font-weight] motion-safe:duration-200 motion-safe:ease-smooth focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-link/70";
 
 function useDesktopNav(): boolean {
   const [desktop, setDesktop] = useState(
@@ -87,11 +88,26 @@ function useSidebarCollapsed(): [boolean, () => void] {
   return [collapsed, toggle];
 }
 
+function SidebarGlyph({
+  icon: Icon,
+  glyph,
+}: {
+  icon: Glyph;
+  glyph: NavGlyph;
+}) {
+  return (
+    <span data-nav-glyph={glyph} className="inline-flex shrink-0">
+      <Icon className="h-4 w-4" />
+    </span>
+  );
+}
+
 function SidebarLink({
   to,
   end,
-  icon: Icon,
+  icon,
   label,
+  glyph,
   onNavigate,
   collapsed,
 }: {
@@ -99,6 +115,7 @@ function SidebarLink({
   end?: boolean;
   icon: Glyph;
   label: string;
+  glyph: NavGlyph;
   onNavigate?: () => void;
   collapsed: boolean;
 }) {
@@ -112,10 +129,10 @@ function SidebarLink({
           aria-label={label}
           className={cn(
             buttonVariants({ variant: "ghost", size: "icon" }),
-            "aria-[current=page]:bg-canvas-soft aria-[current=page]:text-link",
+            "hover:bg-canvas aria-[current=page]:bg-canvas",
           )}
         >
-          <Icon className="h-4 w-4" strokeWidth={2.5} />
+          <SidebarGlyph icon={icon} glyph={glyph} />
         </NavLink>
       </HoverTip>
     );
@@ -132,20 +149,13 @@ function SidebarLink({
           navItemClass,
           "gap-2 px-2",
           isActive
-            ? "bg-canvas-soft text-link"
-            : "text-body hover:bg-canvas-soft hover:text-ink",
+            ? "bg-canvas font-semibold text-ink"
+            : "font-normal text-body hover:bg-canvas hover:text-ink",
         )
       }
     >
-      {({ isActive }) => (
-        <>
-          <Icon
-            className={cn("h-4 w-4 shrink-0", isActive ? "text-link" : "text-mute")}
-            strokeWidth={2.5}
-          />
-          {label}
-        </>
-      )}
+      <SidebarGlyph icon={icon} glyph={glyph} />
+      {label}
     </NavLink>
   );
 }
@@ -183,7 +193,7 @@ function SidebarExternal({
       target="_blank"
       rel="noreferrer"
       aria-label={label}
-      className={cn(navItemClass, "gap-2 px-2 text-body hover:bg-canvas-soft hover:text-ink")}
+      className={cn(navItemClass, "gap-2 px-2 text-body hover:bg-canvas hover:text-ink")}
     >
       <Icon className="h-4 w-4 shrink-0 text-mute" strokeWidth={2.5} />
       <span className="min-w-0 flex-1 truncate">{label}</span>
@@ -242,6 +252,7 @@ function SidebarNav({
           <SidebarLink
             to="/datasets"
             icon={Database}
+            glyph="datasets"
             label="Datasets"
             onNavigate={onNavigate}
             collapsed={collapsed}
@@ -249,6 +260,7 @@ function SidebarNav({
           <SidebarLink
             to="/plugins"
             icon={Puzzle}
+            glyph="plugins"
             label="Plugins"
             onNavigate={onNavigate}
             collapsed={collapsed}
@@ -256,6 +268,7 @@ function SidebarNav({
           <SidebarLink
             to="/agents"
             icon={Bot}
+            glyph="agents"
             label="Agents"
             onNavigate={onNavigate}
             collapsed={collapsed}
@@ -268,6 +281,7 @@ function SidebarNav({
                 to="/home"
                 end
                 icon={House}
+                glyph="home"
                 label="Home"
                 onNavigate={onNavigate}
                 collapsed={collapsed}
@@ -275,6 +289,7 @@ function SidebarNav({
               <SidebarLink
                 to="/inbox"
                 icon={Inbox}
+                glyph="inbox"
                 label="Inbox"
                 onNavigate={onNavigate}
                 collapsed={collapsed}
@@ -284,6 +299,7 @@ function SidebarNav({
           <SidebarLink
             to="/organizations"
             icon={Building2}
+            glyph="orgs"
             label="Organizations"
             onNavigate={onNavigate}
             collapsed={collapsed}
@@ -383,7 +399,7 @@ export function Shell({
           inert={!sidebarOpen ? true : undefined}
           aria-hidden={!sidebarOpen}
           className={cn(
-            "flex shrink-0 flex-col overflow-hidden border-r border-hairline bg-canvas",
+            "flex shrink-0 flex-col overflow-hidden border-r border-hairline bg-canvas-soft",
             "max-lg:fixed max-lg:inset-y-0 max-lg:left-0 max-lg:z-50 max-lg:w-56",
             "transition-[width] duration-200 ease-[cubic-bezier(0.22,1,0.36,1)]",
             mobileOpen ? "max-lg:translate-x-0" : "max-lg:-translate-x-full",
@@ -445,7 +461,7 @@ export function Shell({
         </aside>
 
         <div className="flex min-h-0 min-w-0 flex-1 flex-col">
-          <header className="sticky top-0 z-30 flex h-[4.5rem] shrink-0 items-center gap-3 border-b border-hairline bg-canvas/95 px-4 backdrop-blur supports-[backdrop-filter]:bg-canvas/80 sm:px-6">
+          <header className="sticky top-0 z-30 flex h-[4.5rem] shrink-0 items-center gap-3 border-b border-hairline bg-canvas-soft px-4 sm:px-6">
             <Button
               type="button"
               variant="outline"
@@ -510,7 +526,7 @@ export function Shell({
           <main
             id="main"
             tabIndex={-1}
-            className="min-h-0 flex-1 overflow-auto px-4 pb-5 pt-5 sm:px-6"
+            className="flex min-h-0 flex-1 flex-col overflow-auto px-4 pb-5 pt-5 sm:px-6"
           >
             {children}
           </main>
