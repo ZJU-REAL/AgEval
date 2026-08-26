@@ -77,6 +77,12 @@ def _available_tabs(evidence: Path) -> list[str]:
 _TRANSPORT_ACP = "acp"
 
 
+def _nonempty_str(value: Any) -> str | None:
+    if isinstance(value, str) and value.strip():
+        return value.strip()
+    return None
+
+
 def _overlay_bindings(lock: dict[str, Any]) -> dict[str, dict[str, Any]]:
     overlay = lock.get("job_overlay")
     if not isinstance(overlay, dict):
@@ -193,7 +199,7 @@ def _agent_surface(
     invoke_count: dict[str, int] = {}
     last_usage: dict[str, dict[str, Any]] = {}
     overlay_by_id = _overlay_bindings(lock)
-    from ageval.config.profiles import reasoning_effort_from_profile
+    from ageval.config.profiles import effective_profile, reasoning_effort_from_profile
 
     inv_root = evidence / "agent" / "invocations"
     if inv_root.is_dir():
@@ -247,13 +253,22 @@ def _agent_surface(
     executors: list[str] = []
     for pid in ordered_ids:
         p = by_id.get(pid, {"id": pid})
-        ex = p.get("executor") if isinstance(p.get("executor"), str) else None
-        if not ex:
-            ex = inv_executor.get(pid)
+        overlay = effective_profile(overlay_by_id, pid)
+        ex = (
+            _nonempty_str(p.get("executor"))
+            or inv_executor.get(pid)
+            or _nonempty_str((overlay or {}).get("executor"))
+        )
         if isinstance(ex, str) and ex and ex not in executors:
             executors.append(ex)
-        model = inv_model.get(pid) or (p.get("model") if isinstance(p.get("model"), str) else None)
-        overlay = overlay_by_id.get(pid)
+        # Invocation (actual) → lock profiles → sealed job_overlay.
+        # Evidence lock.json is often overlay-only; vendor metadata.json is
+        # dropped by default, so overlay is the declared model for this run.
+        model = (
+            inv_model.get(pid)
+            or _nonempty_str(p.get("model"))
+            or _nonempty_str((overlay or {}).get("model"))
+        )
         effort = (
             inv_effort.get(pid)
             or reasoning_effort_from_profile(overlay)
