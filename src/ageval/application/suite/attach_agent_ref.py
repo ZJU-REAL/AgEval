@@ -1,8 +1,8 @@
 """Inject a published ``agent_ref`` onto matching overlay roles (design/12, /14).
 
-Compare uses ``_binding_role_key`` (executor, ACP entry, model, secret-free
-plugin options). The write is provenance only: it must not change fingerprint
-identity, lock bytes, or PASS.
+Compare uses ``_appearance_role_key`` (executor, ACP entry, secret-free plugin
+options). Model is observational and must not block attach. The write is
+provenance only: it must not change fingerprint identity, lock bytes, or PASS.
 """
 
 from __future__ import annotations
@@ -13,7 +13,7 @@ from dataclasses import dataclass
 from typing import Any
 
 from ageval.agents.refs import published_agent_ref_parts
-from ageval.application.suite.suite_config_fingerprint import _binding_role_key
+from ageval.application.suite.suite_config_fingerprint import _appearance_role_key
 from ageval.config.errors import ERROR_INVALID_SCHEMA, ConfigError
 
 _ROLE_RE = re.compile(r"^[A-Za-z_][A-Za-z0-9_-]*$")
@@ -122,7 +122,7 @@ def inject_published_agent_ref(
             location="/job_overlay/agent_profiles",
         )
 
-    want_key = _binding_role_key(published_binding)
+    want_key = _appearance_role_key(published_binding)
     want_role = role.strip() if isinstance(role, str) and role.strip() else None
     if want_role is not None and want_role not in profiles:
         raise AttachAgentRefError(
@@ -143,7 +143,7 @@ def inject_published_agent_ref(
         if want_role is not None and rid != want_role:
             new_profiles[rid] = row
             continue
-        if _binding_role_key(row) != want_key:
+        if _appearance_role_key(row) != want_key:
             if want_role is not None:
                 raise AttachAgentRefError(
                     ERROR_INVALID_SCHEMA,

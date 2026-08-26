@@ -684,7 +684,7 @@ class ResultService:
         """Write published ``agent_ref`` onto the stored suite overlay.
 
         Compare/write is this method only. Callers (CLI, Hub, appearance
-        approve) must not reimplement ``_binding_role_key``. Lock bytes and
+        approve) must not reimplement appearance alignment. Lock bytes and
         ``config_fingerprint`` stay as uploaded. Agent-org owners also grant
         appearance consent; other uploaders only stamp provenance.
         """

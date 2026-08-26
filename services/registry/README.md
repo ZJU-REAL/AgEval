@@ -274,7 +274,7 @@ files (no `..`, 2 MiB cap, **413** when larger):
 | GET | `/v1/results/suites/{suite_run_id}` | same visibility rules as attempts |
 | DELETE | `/v1/results/suites/{suite_run_id}` | uploader (or `admin`); `?with_attempts=1` cascades owned attempts |
 | PATCH | `/v1/results/suites/{suite_run_id}` | uploader (or `admin`); `{ "visibility" }` |
-| PATCH | `/v1/results/suites/{suite_run_id}/agent-ref` | uploader (or `admin`); `{ "agent", "role?" }` after `_binding_role_key` match |
+| PATCH | `/v1/results/suites/{suite_run_id}/agent-ref` | uploader (or `admin`); `{ "agent", "role?" }` after harness match (executor, ACP entry, secret-free options; not model) |
 | GET | `/v1/results/suites/{suite_run_id}/content` | same |
 | GET | `/v1/requests` | Inbox (`?inbox=1`) or suite (`?suite_run_id=`) |
 | POST | `/v1/requests` | `{ "kind", "suite_run_id", "agent?" }` |

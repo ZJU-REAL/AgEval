@@ -240,6 +240,7 @@ def fingerprint_for_job_overlay(overlay: Mapping[str, Any] | None) -> str:
 
 
 def _binding_role_key(binding: Mapping[str, Any]) -> tuple[str, str, str, str]:
+    """Suite comparability: executor, ACP entry, **model**, secret-free options."""
     opts = _profile_options(binding)
     return (
         str(binding.get("executor") or "").strip(),
@@ -247,6 +248,12 @@ def _binding_role_key(binding: Mapping[str, Any]) -> tuple[str, str, str, str]:
         str(binding.get("model") or "").strip(),
         json.dumps(opts, sort_keys=True, separators=(",", ":"), default=str),
     )
+
+
+def _appearance_role_key(binding: Mapping[str, Any]) -> tuple[str, str, str]:
+    """Harness identity for delayed attach (design/12, /14). Model is observational."""
+    executor, entry, _model, opts = _binding_role_key(binding)
+    return (executor, entry, opts)
 
 
 def job_overlays_compatible(
