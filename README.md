@@ -78,7 +78,7 @@ ageval treats **Harness** as a first-class evaluation axis.
 **Composition**
 
 - **One `run.py` under each binding.** Environment and Agent combine through plugins. Default is [ACP](https://agentclientprotocol.com); heterogeneous harnesses such as [nooa](https://github.com/NVIDIA-NeMo/labs-OO-Agents), [dsh](https://github.com/deepseek-ai/deepseek-harness), and [miniswe](https://github.com/SWE-agent/mini-swe-agent) join through the same plugin path. Open slots extend or replace a harness and participate in the same Attempt path and leaderboard.
-- **Agent packages.** A job's Agent binding is packaged as `ageval.agent/1` and bound after install.
+- **Agent packages.** A harness (`ageval.agent/1`: executor, entry, overlays) is bound after install. `binding.model` is the default; `--model` overrides this run.
 - **Multiple roles and sessions.** The task owns dialog, tools, and handoff; the runtime supplies the environment and the Agent inlet.
 - **Validate before invoke.** Capabilities and credentials are checked before the Agent is called; absence fails and invoke does not start.
 
@@ -120,7 +120,7 @@ uv run ageval executors -v
 uv run ageval view examples/journeys --no-browser
 ```
 
-Default `examples/journeys` profiles use `environment: docker`. Install an Agent package with `ageval agent install examples/agents/pi-default`, then bind it with `--agent`.
+Default `examples/journeys` profiles use `environment: docker`. Install an Agent package with `ageval agent install examples/agents/pi-default`, then bind it with `--agent`. Optional `--model` overrides this run.
 
 In-repo examples: [`examples/README.md`](examples/README.md) — journeys, `tau3-airline`, and catalog Agents.
 

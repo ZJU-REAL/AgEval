@@ -34,7 +34,7 @@ src/ageval/
     suite/
     plugin_ops/
     registry_ops/
-    agent_ops/              # --agent 投影进 profiles
+    agent_ops/              # --agent（+ 可选 --model）投影进 profiles
     local_jobs/
   attempt/                  # 深模块：一次 Attempt 的可见流水线
     __init__.py             # run_attempt — 五行相位

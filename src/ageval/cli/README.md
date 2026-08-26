@@ -328,6 +328,7 @@ or draft-bound rows stay on Task Jobs.
 ```bash
 uv run ageval results upload-suite official/demo@0.1.0 --suite-run <suite_run_id> \
   --agent codex --model gpt-test
+# --agent/--model here are observational upload labels, not run --agent/--model.
 # Optional full Attempt evidence (Hub Jobs deep-link / evidence browser):
 uv run ageval results upload-suite official/demo@0.1.0 --suite-run <suite_run_id> \
   --with-attempts

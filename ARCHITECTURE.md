@@ -121,7 +121,7 @@ ageval/                              # GitHub: ZJU-REAL/ageval
 │   │   ├── suite/                   # suite_run, fingerprint, suite_metrics
 │   │   ├── registry_ops/            # results / publish / login / org / list
 │   │   ├── plugin_ops/
-│   │   ├── agent_ops/               # --agent projects into profiles
+│   │   ├── agent_ops/               # --agent (+ optional --model) projects into profiles
 │   │   └── local_jobs/              # local Job delete
 │   ├── attempt/                     # deep module: one Attempt’s visible pipeline
 │   │   ├── __init__.py              # run_attempt five-phase lines

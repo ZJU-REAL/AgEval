@@ -1,6 +1,6 @@
 ---
 title: 切换 Agent 与模型
-description: 用 profile、--agent 或 --set 切换 coding-agent 入口。
+description: 用 profile、--agent、--model 或 --set 切换 coding-agent 入口。
 ---
 
 同一题可以声明多个 `agent_profiles`，运行时换「用谁」。
@@ -33,12 +33,13 @@ ACP 的 `entry` 写在 `- plugin: acp` / `options.entry`。
 
 ## Agent 包（`--agent`）
 
-`ageval.agent/1` 是独立包。先装进本机缓存，再用 `--agent` 绑定一次 job。`--agent` 与 `--profiles` **互斥**。
+`ageval.agent/1` 是 harness 包（executor、entry、overlays）。`binding.model` 是缺省，不是身份。先装进本机缓存，再用 `--agent` 绑定一次 job。`--agent` 与 `--profiles` **互斥**。`--model` 改这次 run 已绑角色的模型；省略则用包缺省。不要和 `ageval results upload-suite --model`（上传观测标签）搞混。
 
 ```bash
 uv run ageval agent install examples/agents/pi-default
 uv run ageval agent list
 uv run ageval run examples/journeys --task terminal-jsonl-agg --agent pi-default
+uv run ageval run examples/journeys --task terminal-jsonl-agg --agent pi-default --model glm-4.7
 ```
 
 ## 临时切换（不用改文件）

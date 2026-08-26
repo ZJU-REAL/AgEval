@@ -66,7 +66,7 @@ apps/* / services/* README  ← SPA / 服务开发细节；非产品教程权威
 | 交付跟踪 | **GitHub Issues** |
 | 文档站 | [`website/`](website/) 读者向 Fumadocs；机制权威仍在 `docs/` |
 | ACP | `executor: acp` + `options.entry`；parent 唯一 JSON-RPC client |
-| Agent Hub | [docs/design/14](docs/design/14-agent-hub.md)：`ageval.agent/1`、`--agent` 与 `--profiles` 互斥 |
+| Agent Hub | [docs/design/14](docs/design/14-agent-hub.md)：`ageval.agent/1` harness；`--agent` 与 `--profiles` 互斥；`--model` 是 run 参数 |
 
 **禁止**从文档存在、Issue 存在、`ageval lock` 成功或设计示意推导 `runnable-mvp` / `isolated` / `real-benchmark-verified`。
 

@@ -37,7 +37,7 @@ uv run ageval results upload-suite <dataset|id@version> --suite-run <8-hex>
 uv run ageval results upload|attach-agent|request|inbox|decide|share|unshare|set-visibility|delete …
 ```
 
-Path = dataset root. `run` / `lock` / `view` / `upload-suite` also accept a Hub ref (`id@version`); `--dir` only with a Hub ref. `tasks` / `campaign` stay local directories. `--agent` and `--profiles` are mutually exclusive. Destructive commands require `--yes`; overwrite same identity requires `--replace` (default 409).
+Path = dataset root. `run` / `lock` / `view` / `upload-suite` also accept a Hub ref (`id@version`); `--dir` only with a Hub ref. `tasks` / `campaign` stay local directories. `--agent` and `--profiles` are mutually exclusive. `--model` requires `--agent`. Destructive commands require `--yes`; overwrite same identity requires `--replace` (default 409).
 
 ## Common `ageval run` flags
 
@@ -52,7 +52,8 @@ Path = dataset root. `run` / `lock` / `view` / `upload-suite` also accept a Hub 
 | `--keep-workspace` | Keep the environment work root after cleanup (default: delete). Uploads never pack it. Docker volumes are still removed |
 | `--keep-vendor-raw` | After seal, keep vendor raw / layer B. Default: drop. Independent of `--keep-workspace` |
 | `--dir <path>` | Hub ref only. Looks at `<path>/<dataset_id>/`; reuses a matching child |
-| `--agent` | Bind an installed `ageval.agent/1` package; mutually exclusive with `--profiles` |
+| `--agent` | Bind an installed `ageval.agent/1` harness; mutually exclusive with `--profiles` |
+| `--model` | Override this run’s `binding.model` on roles `--agent` bound. Requires `--agent`. Not `results upload-suite --model` |
 | `--set` / `--profiles` | Overrides / alternate job binding |
 | `--probe` | Feasibility only: plan + readiness for this binding/`environment`. No Agent, no bake, no lock digest change. Exit 1 if the selected path is unsatisfied. |
 | `--json` | Write the full result document on stdout. A TTY defaults to a short recap (suite: `summary` path plus `ageval view` / `upload-suite`); a pipe still defaults to JSON. |
