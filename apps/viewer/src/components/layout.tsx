@@ -36,7 +36,7 @@ export function Shell({
       <main
         id="main"
         tabIndex={-1}
-        className="flex-1 w-full max-w-[1400px] mx-auto px-6 py-5"
+        className="flex flex-1 w-full max-w-[1400px] mx-auto flex-col px-6 py-5"
       >
         {children}
       </main>

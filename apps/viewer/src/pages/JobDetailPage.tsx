@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { Navigate, useNavigate, useParams } from "react-router-dom";
 
 import { BreadcrumbNav } from "@/components/breadcrumb";
+import { LoadingState } from "@/components/empty-state";
 import { Shell } from "@/components/layout";
 import {
   compareValues,
@@ -196,6 +197,9 @@ export function JobDetailPage() {
           )}
         </div>
 
+        {loading ? (
+          <LoadingState label="Loading tasks" />
+        ) : (
         <div className="rounded-[8px] border border-hairline overflow-hidden">
           <Table>
             <TableHeader>
@@ -212,13 +216,6 @@ export function JobDetailPage() {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {loading && (
-                <TableRow>
-                  <TableCell colSpan={9} className="text-center text-mute py-10">
-                    Loading tasks...
-                  </TableCell>
-                </TableRow>
-              )}
               {error && (
                 <TableRow>
                   <TableCell colSpan={9} className="text-center text-error py-10">
@@ -298,6 +295,7 @@ export function JobDetailPage() {
             </TableBody>
           </Table>
         </div>
+        )}
 
         {overlayPrefixes.length ? (
           <section className="space-y-2">

@@ -3,6 +3,7 @@ import { Navigate, useNavigate, useParams } from "react-router-dom";
 
 import { BreadcrumbNav } from "@/components/breadcrumb";
 import { CommandStrip } from "@/components/command-strip";
+import { LoadingState } from "@/components/empty-state";
 import { Shell } from "@/components/layout";
 import {
   Table,
@@ -110,7 +111,7 @@ export function TaskDetailPage() {
 
         {runCommand ? <CommandStrip command={runCommand} /> : null}
 
-        {loading && <p className="text-sm text-mute">Loading trial details...</p>}
+        {loading && <LoadingState label="Loading trial details" />}
         {error && <p className="text-sm text-error">{error}</p>}
 
         {!loading && !error && (

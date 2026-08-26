@@ -2,6 +2,7 @@ import { Link, useNavigate, useParams } from "react-router-dom";
 
 import { BreadcrumbNav } from "@/components/breadcrumb";
 import { CommandStrip } from "@/components/command-strip";
+import { LoadingState } from "@/components/empty-state";
 import { Shell } from "@/components/layout";
 import { ActorsTable } from "@/components/trial/actors-table";
 import { EvidenceTabs } from "@/components/trial/evidence-tabs";
@@ -88,7 +89,7 @@ export function TrialDetailPage() {
 
         {runCommand ? <CommandStrip command={runCommand} /> : null}
 
-        {loading && <p className="text-sm text-mute">Loading trial…</p>}
+        {loading && <LoadingState label="Loading trial" />}
         {error && <p className="text-sm text-error">{error}</p>}
 
         {!loading && !error && trial && (

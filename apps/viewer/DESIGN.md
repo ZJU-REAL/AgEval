@@ -179,6 +179,9 @@ segment is clickable.
 - Evidence tabs use `UnderlineTabs` (sliding IKB bar). Do not copy per-page `border-b-2` tabs.
 - Toast after key writes that have no local success state (save note, delete job), overshoot from below. Copy stays on the control. Select / dropdown lists enter with `data-ageval-menu`. Confirm dialog / tooltip enter with `data-ageval-pop` / `data-ageval-scrim`. Honor `prefers-reduced-motion`.
 - Jobs / tasks stay hairline tables. No catalog cards, GSAP, Motion, magnetic hover, cursor trail, 3D tilt, or scroll hijack on Viewer.
+- Named canvas exception: `ThinkingLogo` on list/detail fetch (`LoadingState` + one caption). Empty is a centered static stack (icon → title → caption **or** one control), never the thinking mark. `prefers-reduced-motion: reduce` freezes the canvas. Viewer has no Hub sidebar; existing chrome glyphs stay `mute` and do not invent extra destination colors.
+
+Viewer has no Hub-style sidebar. Header brand is the owl lockup; page-action icons stay functional (`mute`).
 
 ### Don't
 - Don't invent a second accent palette (no purple AI glow)
