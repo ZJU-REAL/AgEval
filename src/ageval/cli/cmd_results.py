@@ -2,11 +2,12 @@
 
 from __future__ import annotations
 
-import json
 from pathlib import Path
 from typing import Annotated
 
 import typer
+
+from ageval.cli.present import emit
 
 
 def register(app: typer.Typer) -> None:
@@ -65,7 +66,7 @@ def register(app: typer.Typer) -> None:
         except OSError as exc:
             typer.echo(f"invalid_package: {exc}", err=True)
             raise typer.Exit(code=2) from exc
-        typer.echo(json.dumps(summary, ensure_ascii=False, separators=(",", ":"), sort_keys=True))
+        emit(summary)
 
     @sub.command("get")
     def results_get_command(
@@ -93,7 +94,7 @@ def register(app: typer.Typer) -> None:
         except ConfigError as exc:
             typer.echo(str(exc), err=True)
             raise typer.Exit(code=2) from exc
-        typer.echo(json.dumps(summary, ensure_ascii=False, separators=(",", ":"), sort_keys=True))
+        emit(summary)
 
     @sub.command("list")
     def results_list_command(
@@ -120,7 +121,7 @@ def register(app: typer.Typer) -> None:
         except ConfigError as exc:
             typer.echo(str(exc), err=True)
             raise typer.Exit(code=2) from exc
-        typer.echo(json.dumps(summary, ensure_ascii=False, separators=(",", ":"), sort_keys=True))
+        emit(summary)
 
     @sub.command("upload-suite")
     def results_upload_suite_command(
@@ -244,7 +245,7 @@ def register(app: typer.Typer) -> None:
         except OSError as exc:
             typer.echo(f"invalid_package: {exc}", err=True)
             raise typer.Exit(code=2) from exc
-        typer.echo(json.dumps(summary, ensure_ascii=False, separators=(",", ":"), sort_keys=True))
+        emit(summary)
 
     @sub.command("get-suite")
     def results_get_suite_command(
@@ -284,7 +285,7 @@ def register(app: typer.Typer) -> None:
         except ConfigError as exc:
             typer.echo(str(exc), err=True)
             raise typer.Exit(code=2) from exc
-        typer.echo(json.dumps(summary, ensure_ascii=False, separators=(",", ":"), sort_keys=True))
+        emit(summary)
 
     @sub.command("export-profiles")
     def results_export_profiles_command(
@@ -334,7 +335,7 @@ def register(app: typer.Typer) -> None:
         except OSError as exc:
             typer.echo(f"invalid_package: {exc}", err=True)
             raise typer.Exit(code=2) from exc
-        typer.echo(json.dumps(summary, ensure_ascii=False, separators=(",", ":"), sort_keys=True))
+        emit(summary)
 
     @sub.command("list-suites")
     def results_list_suites_command(
@@ -369,7 +370,7 @@ def register(app: typer.Typer) -> None:
         except ConfigError as exc:
             typer.echo(str(exc), err=True)
             raise typer.Exit(code=2) from exc
-        typer.echo(json.dumps(summary, ensure_ascii=False, separators=(",", ":"), sort_keys=True))
+        emit(summary)
 
     @sub.command("share")
     def results_share_command(
@@ -417,7 +418,7 @@ def register(app: typer.Typer) -> None:
         except ConfigError as exc:
             typer.echo(str(exc), err=True)
             raise typer.Exit(code=2) from exc
-        typer.echo(json.dumps(summary, ensure_ascii=False, separators=(",", ":"), sort_keys=True))
+        emit(summary)
 
     @sub.command("unshare")
     def results_unshare_command(
@@ -465,7 +466,7 @@ def register(app: typer.Typer) -> None:
         except ConfigError as exc:
             typer.echo(str(exc), err=True)
             raise typer.Exit(code=2) from exc
-        typer.echo(json.dumps(summary, ensure_ascii=False, separators=(",", ":"), sort_keys=True))
+        emit(summary)
 
     @sub.command("delete")
     def results_delete_command(
@@ -515,7 +516,7 @@ def register(app: typer.Typer) -> None:
         except ConfigError as exc:
             typer.echo(str(exc), err=True)
             raise typer.Exit(code=2) from exc
-        typer.echo(json.dumps(summary, ensure_ascii=False, separators=(",", ":"), sort_keys=True))
+        emit(summary)
 
     @sub.command("set-visibility")
     def results_set_visibility_command(
@@ -558,7 +559,7 @@ def register(app: typer.Typer) -> None:
         except ConfigError as exc:
             typer.echo(str(exc), err=True)
             raise typer.Exit(code=2) from exc
-        typer.echo(json.dumps(summary, ensure_ascii=False, separators=(",", ":"), sort_keys=True))
+        emit(summary)
 
     @sub.command("attach-agent")
     def results_attach_agent_command(
@@ -598,7 +599,7 @@ def register(app: typer.Typer) -> None:
         except ConfigError as exc:
             typer.echo(str(exc), err=True)
             raise typer.Exit(code=2) from exc
-        typer.echo(json.dumps(summary, ensure_ascii=False, separators=(",", ":"), sort_keys=True))
+        emit(summary)
 
     @sub.command("request")
     def results_request_command(
@@ -635,7 +636,7 @@ def register(app: typer.Typer) -> None:
         except ConfigError as exc:
             typer.echo(str(exc), err=True)
             raise typer.Exit(code=2) from exc
-        typer.echo(json.dumps(summary, ensure_ascii=False, separators=(",", ":"), sort_keys=True))
+        emit(summary)
 
     @sub.command("inbox")
     def results_inbox_command(
@@ -655,7 +656,7 @@ def register(app: typer.Typer) -> None:
         except ConfigError as exc:
             typer.echo(str(exc), err=True)
             raise typer.Exit(code=2) from exc
-        typer.echo(json.dumps(summary, ensure_ascii=False, separators=(",", ":"), sort_keys=True))
+        emit(summary)
 
     @sub.command("decide")
     def results_decide_command(
@@ -687,6 +688,6 @@ def register(app: typer.Typer) -> None:
         except ConfigError as exc:
             typer.echo(str(exc), err=True)
             raise typer.Exit(code=2) from exc
-        typer.echo(json.dumps(summary, ensure_ascii=False, separators=(",", ":"), sort_keys=True))
+        emit(summary)
 
     app.add_typer(sub, name="results")

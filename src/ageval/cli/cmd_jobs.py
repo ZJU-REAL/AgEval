@@ -2,11 +2,12 @@
 
 from __future__ import annotations
 
-import json
 from pathlib import Path
 from typing import Annotated
 
 import typer
+
+from ageval.cli.present import emit
 
 
 def register(app: typer.Typer) -> None:
@@ -30,7 +31,7 @@ def register(app: typer.Typer) -> None:
         from ageval.viewer.jobs import list_jobs
 
         summary = list_jobs(dataset)
-        typer.echo(json.dumps(summary, ensure_ascii=False, sort_keys=True, separators=(",", ":")))
+        emit(summary)
 
     @sub.command("delete")
     def jobs_delete_command(
@@ -55,15 +56,13 @@ def register(app: typer.Typer) -> None:
         try:
             if not yes:
                 preview = cmds.preview_delete_job(local, job_id=job)
-                typer.echo(
-                    json.dumps(preview, ensure_ascii=False, separators=(",", ":"), sort_keys=True)
-                )
+                emit(preview)
                 typer.echo("refusing to delete without --yes", err=True)
                 raise typer.Exit(code=2)
             summary = cmds.delete_job(local, job_id=job, yes=True)
         except ConfigError as exc:
             typer.echo(str(exc), err=True)
             raise typer.Exit(code=2) from exc
-        typer.echo(json.dumps(summary, ensure_ascii=False, separators=(",", ":"), sort_keys=True))
+        emit(summary)
 
     app.add_typer(sub, name="jobs")

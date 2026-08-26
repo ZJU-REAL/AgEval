@@ -24,7 +24,6 @@ from rich.progress import (
 _STATUS_STYLE = {"PASS": "green", "FAIL": "red", "ERROR": "yellow"}
 _STATUS_RE = re.compile(r"\b(PASS|FAIL|ERROR)\b")
 _RECAP_RULE = "─" * 40
-_VALUE_PREFIXES = ("summary  ", "next     ", "logs     ", "error    ")
 
 
 def use_json_stdout(*, force_json: bool = False, stream: TextIO | None = None) -> bool:
@@ -370,13 +369,23 @@ def _status_markup(line: str) -> str:
 
 
 def _recap_markup(line: str) -> str:
-    """Status color plus dim on recap values (paths / next commands)."""
+    """Status color plus dim on secondary columns and kv values."""
     if line == _RECAP_RULE or (line and set(line) <= {"─"}):
         return f"[dim]{line}[/]"
-    styled = _status_markup(line)
-    for prefix in _VALUE_PREFIXES:
-        if styled.startswith(prefix) and len(styled) > len(prefix):
-            return f"{prefix}[dim]{styled[len(prefix) :]}[/]"
-    if styled.startswith("         ") and styled.strip():
-        return f"         [dim]{styled[9:]}[/]"
-    return styled
+    if line.startswith("         ") and line.strip():
+        return f"         [dim]{line[9:]}[/]"
+    if re.match(r"^\d", line):
+        return _status_markup(line)
+    kv = re.match(r"^(\S+)(\s{2,})(.+)$", line)
+    if kv and not line.startswith(" "):
+        return f"{kv.group(1)}{kv.group(2)}[dim]{_status_markup(kv.group(3))}[/]"
+    indented = re.match(r"^(  \S+)(\s{2,})(.+)$", line)
+    if indented:
+        rest = indented.group(3)
+        dim_rest = f"[dim]{rest}[/]"
+        dim_rest = _STATUS_RE.sub(
+            lambda m: f"[/dim][{_STATUS_STYLE.get(m.group(1), 'dim')}]{m.group(1)}[/][dim]",
+            dim_rest,
+        )
+        return f"{indented.group(1)}{indented.group(2)}{dim_rest}"
+    return _status_markup(line)

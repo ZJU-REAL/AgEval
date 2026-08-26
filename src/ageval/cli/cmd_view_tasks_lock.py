@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import json
 from pathlib import Path
 from typing import Annotated
 
@@ -10,6 +9,7 @@ import typer
 
 from ageval.application.composition import build_lock_command
 from ageval.cli.cmd_agent import AGENT_OPTION_HELP
+from ageval.cli.present import emit
 from ageval.config.errors import ConfigError
 
 
@@ -110,7 +110,7 @@ def register(app: typer.Typer) -> None:
             "tasks": ids,
             "count": len(ids),
         }
-        typer.echo(json.dumps(payload, ensure_ascii=False, separators=(",", ":"), sort_keys=True))
+        emit(payload)
 
     @app.command("lock")
     def lock_command(
@@ -190,5 +190,4 @@ def register(app: typer.Typer) -> None:
             typer.echo(f"invalid_package: {exc}", err=True)
             raise typer.Exit(code=2) from exc
 
-        # Success: exactly one JSON object on stdout (stable key order via model).
-        typer.echo(json.dumps(summary, ensure_ascii=False, separators=(",", ":"), sort_keys=True))
+        emit(summary)

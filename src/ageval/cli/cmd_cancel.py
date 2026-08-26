@@ -2,11 +2,12 @@
 
 from __future__ import annotations
 
-import json
 from pathlib import Path
 from typing import Annotated
 
 import typer
+
+from ageval.cli.present import emit
 
 
 def register(app: typer.Typer) -> None:
@@ -65,20 +66,16 @@ def register(app: typer.Typer) -> None:
             cancel_file = str(request_suite_cancel(db_root, run_id))
 
         if rec is None and not is_suite:
-            typer.echo(json.dumps({"ok": False, "error": "unknown_run", "run_id": run_id}))
+            emit({"ok": False, "error": "unknown_run", "run_id": run_id})
             raise typer.Exit(code=2)
         if rec is None and is_suite and cancel_file is None:
-            typer.echo(
-                json.dumps(
-                    {
-                        "ok": False,
-                        "error": "unknown_suite",
-                        "run_id": run_id,
-                        "hint": "pass --dataset <root> or cancel while suite is registered",
-                    },
-                    sort_keys=True,
-                    separators=(",", ":"),
-                )
+            emit(
+                {
+                    "ok": False,
+                    "error": "unknown_suite",
+                    "run_id": run_id,
+                    "hint": "pass --dataset <root> or cancel while suite is registered",
+                }
             )
             raise typer.Exit(code=2)
 
@@ -104,18 +101,14 @@ def register(app: typer.Typer) -> None:
                     "cancel_file": cancel_file,
                 },
             )
-        typer.echo(
-            json.dumps(
-                {
-                    "ok": True,
-                    "run_id": run_id,
-                    "status": "cancelled",
-                    "kind": "suite" if is_suite else "run",
-                    "version": version,
-                    "sigterm_sent": killed,
-                    "cancel_file": cancel_file,
-                },
-                sort_keys=True,
-                separators=(",", ":"),
-            )
+        emit(
+            {
+                "ok": True,
+                "run_id": run_id,
+                "status": "cancelled",
+                "kind": "suite" if is_suite else "run",
+                "version": version,
+                "sigterm_sent": killed,
+                "cancel_file": cancel_file,
+            }
         )

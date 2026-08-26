@@ -5,11 +5,12 @@ Install updates local cache only — never project profiles (constitution §7.5)
 
 from __future__ import annotations
 
-import json
 from pathlib import Path
 from typing import Annotated
 
 import typer
+
+from ageval.cli.present import emit
 
 plugin_app = typer.Typer(
     name="plugin",
@@ -46,17 +47,13 @@ def plugin_install(
     from ageval.plugins.plugin_requires import PluginRequiresError
     from ageval.plugins.reserved import reject_reserved_plugin_id
 
-    # Registry locator: contains @ and does not exist as a local path.
     src_path = Path(source)
     plugin_dir = src_path.is_dir() and any((src_path / name).is_file() for name in MANIFEST_NAMES)
     if not plugin_dir:
         try:
             reject_reserved_plugin_id(source)
         except PluginManifestError as exc:
-            typer.echo(
-                json.dumps({"ok": False, "error": exc.kind, "message": exc.message}),
-                err=True,
-            )
+            emit({"ok": False, "error": exc.kind, "message": exc.message}, err=True)
             raise typer.Exit(code=2) from exc
     if "@" in source and not src_path.exists():
         from ageval.application.composition import build_plugin_commands
@@ -66,12 +63,9 @@ def plugin_install(
         try:
             summary = install_plugin_from_registry(source)
         except ConfigError as exc:
-            typer.echo(
-                json.dumps({"ok": False, "error": exc.error_code, "message": str(exc)}),
-                err=True,
-            )
+            emit({"ok": False, "error": exc.error_code, "message": str(exc)}, err=True)
             raise typer.Exit(code=2) from exc
-        typer.echo(json.dumps(summary, sort_keys=True))
+        emit(summary)
         return
 
     from ageval.application.composition import build_plugin_commands
@@ -84,23 +78,20 @@ def plugin_install(
     try:
         result = install_from_local(src_path, hub_fetch=_hub_fetch)
     except PluginRequiresError as exc:
-        typer.echo(json.dumps({"ok": False, "error": exc.kind, "message": exc.message}), err=True)
+        emit({"ok": False, "error": exc.kind, "message": exc.message}, err=True)
         raise typer.Exit(code=2) from exc
     except PluginManifestError as exc:
-        typer.echo(json.dumps({"ok": False, "error": exc.kind, "message": exc.message}), err=True)
+        emit({"ok": False, "error": exc.kind, "message": exc.message}, err=True)
         raise typer.Exit(code=2) from exc
     except ConfigError as exc:
-        typer.echo(
-            json.dumps({"ok": False, "error": exc.error_code, "message": str(exc)}),
-            err=True,
-        )
+        emit({"ok": False, "error": exc.error_code, "message": str(exc)}, err=True)
         raise typer.Exit(code=2) from exc
     except OSError as exc:
-        typer.echo(json.dumps({"ok": False, "error": "io_error", "message": str(exc)}), err=True)
+        emit({"ok": False, "error": "io_error", "message": str(exc)}, err=True)
         raise typer.Exit(code=2) from exc
     finally:
         cmds.cleanup_plugin_tmp()
-    typer.echo(json.dumps(result.as_cli_dict(), sort_keys=True))
+    emit(result.as_cli_dict())
 
 
 @plugin_app.command("publish")
@@ -125,12 +116,9 @@ def plugin_publish(
     try:
         summary = publish_plugin(source, public=public, org=org, replace=replace)
     except ConfigError as exc:
-        typer.echo(
-            json.dumps({"ok": False, "error": exc.error_code, "message": str(exc)}),
-            err=True,
-        )
+        emit({"ok": False, "error": exc.error_code, "message": str(exc)}, err=True)
         raise typer.Exit(code=2) from exc
-    typer.echo(json.dumps(summary, sort_keys=True))
+    emit(summary)
 
 
 @plugin_app.command("list")
@@ -140,7 +128,7 @@ def plugin_list() -> None:
     from ageval.plugins.store import list_installed
 
     rows = [list_row_with_requires(e) for e in list_installed()]
-    typer.echo(json.dumps({"ok": True, "plugins": rows}, sort_keys=True))
+    emit({"ok": True, "plugins": rows})
 
 
 @plugin_app.command("uninstall")
@@ -152,14 +140,9 @@ def plugin_uninstall(
 
     ok = uninstall(plugin_id)
     if not ok:
-        typer.echo(
-            json.dumps(
-                {"ok": False, "error": "plugin_not_installed", "plugin_id": plugin_id},
-            ),
-            err=True,
-        )
+        emit({"ok": False, "error": "plugin_not_installed", "plugin_id": plugin_id}, err=True)
         raise typer.Exit(code=2)
-    typer.echo(json.dumps({"ok": True, "uninstalled": plugin_id}, sort_keys=True))
+    emit({"ok": True, "uninstalled": plugin_id})
 
 
 @plugin_app.command("materialize-docs")
@@ -176,11 +159,6 @@ def plugin_materialize_docs(
     try:
         copied = materialize_docs(plugin_id, target)
     except MaterializeError as exc:
-        typer.echo(json.dumps({"ok": False, "error": exc.kind, "message": exc.message}), err=True)
+        emit({"ok": False, "error": exc.kind, "message": exc.message}, err=True)
         raise typer.Exit(code=2) from exc
-    typer.echo(
-        json.dumps(
-            {"ok": True, "plugin_id": plugin_id, "target": str(target), "copied": copied},
-            sort_keys=True,
-        )
-    )
+    emit({"ok": True, "plugin_id": plugin_id, "target": str(target), "copied": copied})

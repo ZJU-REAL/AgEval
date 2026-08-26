@@ -92,6 +92,8 @@ def list_row_with_requires(entry: IndexEntry) -> dict[str, Any]:
         row["plugin_requires"] = []
         return row
     manifest, _root = found
+    if manifest.description:
+        row["description"] = " ".join(str(manifest.description).split())
     checks = evaluate_plugin_requires(manifest.plugin_requires, plugin_id=entry.plugin_id)
     ok = all(bool(c.get("ok")) for c in checks) if checks else True
     row["plugin_requires_ok"] = ok

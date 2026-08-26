@@ -2,10 +2,11 @@
 
 from __future__ import annotations
 
-import json
 from typing import Annotated
 
 import typer
+
+from ageval.cli.present import emit
 
 
 def register(app: typer.Typer) -> None:
@@ -26,7 +27,7 @@ def register(app: typer.Typer) -> None:
         cache_list = build_registry_list_commands().cache_list
 
         summary = cache_list()
-        typer.echo(json.dumps(summary, ensure_ascii=False, separators=(",", ":"), sort_keys=True))
+        emit(summary)
 
     @sub.command("path")
     def cache_path_command(
@@ -46,7 +47,7 @@ def register(app: typer.Typer) -> None:
         except ConfigError as exc:
             typer.echo(str(exc), err=True)
             raise typer.Exit(code=2) from exc
-        typer.echo(json.dumps(summary, ensure_ascii=False, separators=(",", ":"), sort_keys=True))
+        emit(summary)
 
     @sub.command("purge")
     def cache_purge_command(
@@ -70,6 +71,6 @@ def register(app: typer.Typer) -> None:
         except ConfigError as exc:
             typer.echo(str(exc), err=True)
             raise typer.Exit(code=2) from exc
-        typer.echo(json.dumps(summary, ensure_ascii=False, separators=(",", ":"), sort_keys=True))
+        emit(summary)
 
     app.add_typer(sub, name="cache")

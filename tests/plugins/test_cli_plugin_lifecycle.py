@@ -111,7 +111,8 @@ def test_cli_install_list_json(ageval_home: Path) -> None:
     )
     assert proc2.returncode == 0
     listed = json.loads(proc2.stdout)
-    assert any(p["plugin_id"] == "sample-echo" for p in listed["plugins"])
+    echo = next(p for p in listed["plugins"] if p["plugin_id"] == "sample-echo")
+    assert echo.get("description")
 
 
 def test_load_installed_into_registry(ageval_home: Path) -> None:

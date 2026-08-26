@@ -2,13 +2,13 @@
 
 from __future__ import annotations
 
-import json
 from pathlib import Path
 from typing import Annotated, Any
 
 import typer
 
 from ageval.cli.cmd_agent import AGENT_OPTION_HELP, resolve_agent_option
+from ageval.cli.present import emit
 from ageval.cli.run_output import (
     RunProgress,
     dataset_label,
@@ -88,7 +88,7 @@ def register(app: typer.Typer) -> None:
         except ConfigError as exc:
             typer.echo(str(exc), err=True)
             raise typer.Exit(code=2) from exc
-        typer.echo(json.dumps(summary, ensure_ascii=False, sort_keys=True, separators=(",", ":")))
+        emit(summary)
         code = 0 if summary.get("all_pass") else 1
         raise typer.Exit(code=code)
 
@@ -461,5 +461,5 @@ def _probe_one(
     except ConfigError as exc:
         typer.echo(str(exc), err=True)
         raise typer.Exit(code=2) from exc
-    typer.echo(json.dumps(answer, ensure_ascii=False, sort_keys=True, separators=(",", ":")))
+    emit(answer)
     raise typer.Exit(code=0 if answer.get("ready") else 2)

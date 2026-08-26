@@ -3,7 +3,7 @@ title: CLI reference
 description: Commands, --task, Always-k, --set allowlist.
 ---
 
-Trust `uv run ageval --help`.
+Trust `uv run ageval --help`. On a TTY, commands print a short recap (no digest / sha256); a pipe still writes JSON. `ageval run --json` forces the full document.
 
 ```bash
 uv run ageval tasks <dataset>

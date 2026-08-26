@@ -2,10 +2,11 @@
 
 from __future__ import annotations
 
-import json
 from typing import Annotated
 
 import typer
+
+from ageval.cli.present import emit
 
 
 def register(app: typer.Typer) -> None:
@@ -50,7 +51,7 @@ def register(app: typer.Typer) -> None:
         except ConfigError as exc:
             typer.echo(str(exc), err=True)
             raise typer.Exit(code=2) from exc
-        typer.echo(json.dumps(summary, ensure_ascii=False, separators=(",", ":"), sort_keys=True))
+        emit(summary)
 
     @sub.command("org-list")
     def registry_org_list(
@@ -70,7 +71,7 @@ def register(app: typer.Typer) -> None:
         except ConfigError as exc:
             typer.echo(str(exc), err=True)
             raise typer.Exit(code=2) from exc
-        typer.echo(json.dumps(summary, ensure_ascii=False, separators=(",", ":"), sort_keys=True))
+        emit(summary)
 
     @sub.command("org-add-member")
     def registry_org_add_member(
@@ -101,7 +102,7 @@ def register(app: typer.Typer) -> None:
         except ConfigError as exc:
             typer.echo(str(exc), err=True)
             raise typer.Exit(code=2) from exc
-        typer.echo(json.dumps(summary, ensure_ascii=False, separators=(",", ":"), sort_keys=True))
+        emit(summary)
 
     @sub.command("org-remove-member")
     def registry_org_remove_member(
@@ -127,7 +128,7 @@ def register(app: typer.Typer) -> None:
         except ConfigError as exc:
             typer.echo(str(exc), err=True)
             raise typer.Exit(code=2) from exc
-        typer.echo(json.dumps(summary, ensure_ascii=False, separators=(",", ":"), sort_keys=True))
+        emit(summary)
 
     @sub.command("org-set-role")
     def registry_org_set_role(
@@ -158,7 +159,7 @@ def register(app: typer.Typer) -> None:
         except ConfigError as exc:
             typer.echo(str(exc), err=True)
             raise typer.Exit(code=2) from exc
-        typer.echo(json.dumps(summary, ensure_ascii=False, separators=(",", ":"), sort_keys=True))
+        emit(summary)
 
     @sub.command("org-transfer")
     def registry_org_transfer(
@@ -184,7 +185,7 @@ def register(app: typer.Typer) -> None:
         except ConfigError as exc:
             typer.echo(str(exc), err=True)
             raise typer.Exit(code=2) from exc
-        typer.echo(json.dumps(summary, ensure_ascii=False, separators=(",", ":"), sort_keys=True))
+        emit(summary)
 
     @sub.command("list")
     def registry_list_command(
@@ -216,7 +217,7 @@ def register(app: typer.Typer) -> None:
         except ConfigError as exc:
             typer.echo(str(exc), err=True)
             raise typer.Exit(code=2) from exc
-        typer.echo(json.dumps(summary, ensure_ascii=False, separators=(",", ":"), sort_keys=True))
+        emit(summary)
 
     @sub.command("show")
     def registry_show_command(
@@ -240,7 +241,7 @@ def register(app: typer.Typer) -> None:
         except ConfigError as exc:
             typer.echo(str(exc), err=True)
             raise typer.Exit(code=2) from exc
-        typer.echo(json.dumps(summary, ensure_ascii=False, separators=(",", ":"), sort_keys=True))
+        emit(summary)
 
     @sub.command("delete")
     def registry_delete_command(
@@ -271,7 +272,7 @@ def register(app: typer.Typer) -> None:
         except ConfigError as exc:
             typer.echo(str(exc), err=True)
             raise typer.Exit(code=2) from exc
-        typer.echo(json.dumps(summary, ensure_ascii=False, separators=(",", ":"), sort_keys=True))
+        emit(summary)
 
     @sub.command("set-visibility")
     def registry_set_visibility_command(
@@ -302,6 +303,6 @@ def register(app: typer.Typer) -> None:
         except ConfigError as exc:
             typer.echo(str(exc), err=True)
             raise typer.Exit(code=2) from exc
-        typer.echo(json.dumps(summary, ensure_ascii=False, separators=(",", ":"), sort_keys=True))
+        emit(summary)
 
     app.add_typer(sub, name="registry")

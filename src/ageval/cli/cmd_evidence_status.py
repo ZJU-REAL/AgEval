@@ -3,11 +3,12 @@
 from __future__ import annotations
 
 import contextlib
-import json
 from pathlib import Path
 from typing import Annotated
 
 import typer
+
+from ageval.cli.present import emit
 
 
 def register(app: typer.Typer) -> None:
@@ -28,18 +29,14 @@ def register(app: typer.Typer) -> None:
         from ageval.evidence.export import export_trajectory
 
         result = export_trajectory(evidence_root, out)
-        typer.echo(
-            json.dumps(
-                {
-                    "ok": result.ok,
-                    "export_path": result.export_path,
-                    "invocation_count": result.invocation_count,
-                    "error": result.error,
-                    "schema": "ageval.trajectory.export/1",
-                },
-                sort_keys=True,
-                separators=(",", ":"),
-            )
+        emit(
+            {
+                "ok": result.ok,
+                "export_path": result.export_path,
+                "invocation_count": result.invocation_count,
+                "error": result.error,
+                "schema": "ageval.trajectory.export/1",
+            }
         )
         raise typer.Exit(code=0 if result.ok else 2)
 
@@ -78,7 +75,7 @@ def register(app: typer.Typer) -> None:
             db_root = Path(str(payload["dataset_root"]))
         is_suite = is_suite_run_locator(run_id, dataset_root=db_root, control_kind=kind)
         if rec is None and not is_suite:
-            typer.echo(json.dumps({"ok": False, "error": "unknown_run", "run_id": run_id}))
+            emit({"ok": False, "error": "unknown_run", "run_id": run_id})
             raise typer.Exit(code=2)
 
         out: dict = {"ok": True, "run_id": run_id}
@@ -100,6 +97,6 @@ def register(app: typer.Typer) -> None:
             cancel_p = prog.parent / "cancel.requested"
             out["cancel_requested"] = cancel_p.is_file()
         if rec is None and "progress" not in out and not (db_root is not None and is_suite):
-            typer.echo(json.dumps({"ok": False, "error": "unknown_run", "run_id": run_id}))
+            emit({"ok": False, "error": "unknown_run", "run_id": run_id})
             raise typer.Exit(code=2)
-        typer.echo(json.dumps(out, sort_keys=True, separators=(",", ":")))
+        emit(out)

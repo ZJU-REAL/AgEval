@@ -31,7 +31,7 @@ uv sync --extra registry
 | Dataset path | Root with `ageval.yaml` (`ageval.dataset/1`) |
 | Registry ref | `<dataset_id>@<version>` or `<dataset_id>@sha256:<64hex>` |
 | `--task` | Member `task_id` under `tasks/<id>/task.yaml` |
-| Success output | Most commands print **one JSON object** on stdout (`sort_keys`). `ageval run` on a TTY prints a short recap instead; `--json` or a pipe keeps the document. |
+| Success output | TTY: short recap (no digest / sha256). Pipe or `ageval run --json`: one JSON object (`sort_keys`). |
 | Failure | Human message on stderr + stable `error_code`; often exit **2** |
 | Secrets | Never written into lock / evidence; Registry uses `~/.ageval/credentials` or env |
 

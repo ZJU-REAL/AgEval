@@ -2,11 +2,12 @@
 
 from __future__ import annotations
 
-import json
 from pathlib import Path
 from typing import Annotated
 
 import typer
+
+from ageval.cli.present import emit
 
 
 def register(app: typer.Typer) -> None:
@@ -32,7 +33,7 @@ def register(app: typer.Typer) -> None:
         from ageval.plugins.executor_inventory import build_executor_inventory
 
         summary = build_executor_inventory(verbose=verbose)
-        typer.echo(json.dumps(summary, ensure_ascii=False, sort_keys=True, separators=(",", ":")))
+        emit(summary)
 
     @app.command("publish")
     def publish_command(
@@ -97,7 +98,7 @@ def register(app: typer.Typer) -> None:
         except OSError as exc:
             typer.echo(f"invalid_package: {exc}", err=True)
             raise typer.Exit(code=2) from exc
-        typer.echo(json.dumps(summary, ensure_ascii=False, separators=(",", ":"), sort_keys=True))
+        emit(summary)
 
     @app.command("release")
     def release_command(
@@ -153,7 +154,7 @@ def register(app: typer.Typer) -> None:
         except OSError as exc:
             typer.echo(f"invalid_package: {exc}", err=True)
             raise typer.Exit(code=2) from exc
-        typer.echo(json.dumps(summary, ensure_ascii=False, separators=(",", ":"), sort_keys=True))
+        emit(summary)
 
     @app.command("login")
     def login_command(
@@ -176,4 +177,4 @@ def register(app: typer.Typer) -> None:
         except ConfigError as exc:
             typer.echo(str(exc), err=True)
             raise typer.Exit(code=2) from exc
-        typer.echo(json.dumps(summary, ensure_ascii=False, separators=(",", ":"), sort_keys=True))
+        emit(summary)

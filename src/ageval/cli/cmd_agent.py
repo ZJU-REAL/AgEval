@@ -6,11 +6,12 @@ task.yaml. Run with ``ageval run <dataset> --agent <id>@<version>``.
 
 from __future__ import annotations
 
-import json
 from pathlib import Path
 from typing import Annotated
 
 import typer
+
+from ageval.cli.present import emit
 
 agent_app = typer.Typer(
     name="agent",
@@ -78,12 +79,9 @@ def agent_install(
         try:
             summary = cmds.install_agent_from_registry(source)
         except ConfigError as exc:
-            typer.echo(
-                json.dumps({"ok": False, "error": exc.error_code, "message": str(exc)}),
-                err=True,
-            )
+            emit({"ok": False, "error": exc.error_code, "message": str(exc)}, err=True)
             raise typer.Exit(code=2) from exc
-        typer.echo(json.dumps(summary, sort_keys=True))
+        emit(summary)
         return
 
     from ageval.agents.store import install_from_path
@@ -91,18 +89,15 @@ def agent_install(
     try:
         entry = install_from_path(src_path)
     except ConfigError as exc:
-        typer.echo(
-            json.dumps({"ok": False, "error": exc.error_code, "message": str(exc)}),
-            err=True,
-        )
+        emit({"ok": False, "error": exc.error_code, "message": str(exc)}, err=True)
         raise typer.Exit(code=2) from exc
     except OSError as exc:
-        typer.echo(json.dumps({"ok": False, "error": "io_error", "message": str(exc)}), err=True)
+        emit({"ok": False, "error": "io_error", "message": str(exc)}, err=True)
         raise typer.Exit(code=2) from exc
     payload = entry.as_dict()
     payload["ok"] = True
     payload["ref"] = f"{entry.agent_id}@{entry.version}"
-    typer.echo(json.dumps(payload, sort_keys=True))
+    emit(payload)
 
 
 @agent_app.command("publish")
@@ -118,12 +113,9 @@ def agent_publish(
     try:
         summary = build_agent_commands().publish_agent(source, public=public, org=org)
     except ConfigError as exc:
-        typer.echo(
-            json.dumps({"ok": False, "error": exc.error_code, "message": str(exc)}),
-            err=True,
-        )
+        emit({"ok": False, "error": exc.error_code, "message": str(exc)}, err=True)
         raise typer.Exit(code=2) from exc
-    typer.echo(json.dumps(summary, sort_keys=True))
+    emit(summary)
 
 
 @agent_app.command("list")
@@ -132,7 +124,7 @@ def agent_list() -> None:
     from ageval.agents.store import list_installed
 
     rows = [e.as_dict() for e in list_installed()]
-    typer.echo(json.dumps({"agents": rows, "ok": True}, sort_keys=True))
+    emit({"agents": rows, "ok": True})
 
 
 @agent_app.command("show")
@@ -155,16 +147,13 @@ def agent_show(
             root = resolve_package_root(entry)
         manifest = load_agent_manifest(root)
     except ConfigError as exc:
-        typer.echo(
-            json.dumps({"ok": False, "error": exc.error_code, "message": str(exc)}),
-            err=True,
-        )
+        emit({"ok": False, "error": exc.error_code, "message": str(exc)}, err=True)
         raise typer.Exit(code=2) from exc
     payload = manifest.as_dict()
     payload["ok"] = True
     payload["agent_id"] = entry.agent_id
     payload["digest"] = entry.digest
-    typer.echo(json.dumps(payload, sort_keys=True))
+    emit(payload)
 
 
 @agent_app.command("uninstall")
@@ -178,9 +167,6 @@ def agent_uninstall(
     from ageval.agents.store import uninstall
 
     if not uninstall(agent_id):
-        typer.echo(
-            json.dumps({"agent_id": agent_id, "error": "agent_not_installed", "ok": False}),
-            err=True,
-        )
+        emit({"agent_id": agent_id, "error": "agent_not_installed", "ok": False}, err=True)
         raise typer.Exit(code=2)
-    typer.echo(json.dumps({"ok": True, "uninstalled": agent_id}, sort_keys=True))
+    emit({"ok": True, "uninstalled": agent_id})
