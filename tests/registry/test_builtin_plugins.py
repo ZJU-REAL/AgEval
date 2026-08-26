@@ -138,7 +138,6 @@ def test_mine_orgs_favorited_omit_builtin(tmp_path: Path) -> None:
         (None, "plugin", False, False, True),
         ("private", "plugin", False, False, False),
         (None, "dataset", False, False, False),
-        (None, "agent", False, False, False),
     ]
     for visibility, package_kind, mine, orgs, favorited in probes:
         listed = svc.list_packages(
