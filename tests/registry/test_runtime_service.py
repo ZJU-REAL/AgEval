@@ -191,6 +191,10 @@ def test_builtin_harness_appearances_skip_consent(tmp_path: Path) -> None:
     assert by_suite["suite_builtin_ref"]["package_id"] == "pi"
     assert by_suite["suite_uploaded_ref"]["model"] == "dashscope/qwen"
     assert by_suite["suite_uploaded_ref"]["package_id"] == "pi"
+    listed = results.list_suites(auth=auth, dataset_id=None)
+    by_id = {i["suite_run_id"]: i for i in listed["items"]}
+    assert by_id["suite_builtin_ref"]["agent_refs"] == [{"role": "solver", "package_id": "pi"}]
+    assert "agent_refs" not in by_id["suite_uploaded_ref"]
 
 
 def test_official_public_suite_appears_community_does_not(tmp_path: Path) -> None:

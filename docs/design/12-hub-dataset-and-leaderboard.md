@@ -10,6 +10,8 @@
 
 机制卡（builtin 短 id）的已登记 model 从 plaza overlay 按 `resolve_agent_id` 归堆，**不**经 Agent org 同意。定制 upload 包的 Appearances 仍要该包 org 同意：owner 自己 attach，或批准 `agent_appearance` 请求。Leaderboard 上榜门（listing）不因此放宽。
 
+Leaderboard 两列保持 Harness / Model。plaza 行上的 `agent_refs` 变链：机制卡短 id（`--agent pi` / attach `pi`）不经 Agent org 同意；定制 `org/name` 仍要同意。Harness 打开 `/agents/{package_id}`，Model 打开同一 harness 页 `?model=`（overlay `model`）。无 ref 则两列都是观测文本，不要按 executor / overlay 文案猜包。不要 `/agents/…/models/…`。Environment 仍是机制标。行展开仍走整行点击；链 `stopPropagation`。
+
 Inbox：Registry 一等 request 行（`pending` / `approved` / `rejected`）。两种 kind：`leaderboard_list`（收件人 = Dataset org owner）、`agent_appearance`（收件人 = Agent 包 org owner）。批准只跑已有写入（listing 标记，或同一条 attach 路径）。申请人已是该 Agent org owner 时出场走 attach、不建请求。加入 org 仍是 invite key。
 
 ## 身份页

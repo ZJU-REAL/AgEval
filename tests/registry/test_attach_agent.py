@@ -159,6 +159,7 @@ def test_attach_builtin_harness(tmp_path: Path) -> None:
     assert attached["attached"] is True
     overlay = attached["job_overlay"]["agent_profiles"]["solver"]
     assert str(overlay["agent_ref"]).startswith("pi@0.1.0+")
+    assert attached["agent_refs"] == [{"role": "solver", "package_id": "pi"}]
     rows = runtimes.appearances_for_agent("pi", auth)
     assert [r["suite_run_id"] for r in rows] == ["suite_builtin"]
     again = results.attach_agent(

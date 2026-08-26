@@ -286,17 +286,18 @@ not visibility.
 ### Agent appearances (derived)
 
 Read-only. No Runtime table, no appearance table, and no upload. Source rows
-are **public**, **complete**, **release-bound** suites on an official Dataset
-**with Agent-org consent** (owner attach or an approved `agent_appearance`
-request). Group key is the published Hub id ``org/name`` parsed from
-``job_overlay.agent_profiles.*.agent_ref``. ``file:`` / ``local/`` refs and
+are **public**, **complete**, **release-bound** suites on an official Dataset.
+Uploaded packs group by ``org/name`` and need Agent-org consent (owner attach
+or an approved `agent_appearance` request). Builtin mechanism cards group by
+harness short id and skip consent. ``file:`` / ``local/`` refs and
 hand-written ``--profiles`` suites do not attach. ``GET /v1/runtimes`` is gone
 (404). Scores are the source suite's observational metrics.
 
 ``GET /v1/packages/{org/name}`` includes ``appearances`` for ``package_kind=agent``.
 Overlay bytes preview via the existing Agent package files API. Public official
-board suite JSON may include ``agent_refs`` (``role``, ``package_id``); other
-suites omit it.
+board suite JSON may include ``agent_refs`` (``role``, ``package_id``); builtin
+short ids are included without consent, uploaded ``org/name`` still needs it.
+Other suites omit the field.
 
 Row fields: `dataset_id`, `dataset_version`, `pass_rate`, `mean_score`, `metrics`,
 `task_refs`, optional `agent_label` / `model_label`, `exit_code`, and optional
