@@ -19,8 +19,13 @@ def register(app: typer.Typer) -> None:
     @app.command("view")
     def view_command(
         dataset: Annotated[
-            Path,
-            typer.Argument(help="Local Dataset root to open (ageval.dataset/1)."),
+            str,
+            typer.Argument(
+                help=(
+                    "Dataset root path or registry ref "
+                    "(<dataset_id>@<version> | <dataset_id>@sha256:<digest>)."
+                ),
+            ),
         ],
         host: Annotated[
             str,
@@ -56,7 +61,7 @@ def register(app: typer.Typer) -> None:
             typer.Option("--ui-port", help="Vite UI port used with --dev (default 5173)."),
         ] = 5173,
     ) -> None:
-        """Start local Jobs→Tasks→Attempt results UI for a dataset (no Registry)."""
+        """Start local Jobs→Tasks→Attempt results UI for a dataset path or ref."""
         from ageval.config.errors import ConfigError
         from ageval.viewer.server import serve_viewer
 

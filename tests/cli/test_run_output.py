@@ -61,6 +61,7 @@ def test_suite_recap_omits_json_payload(tmp_path: Path) -> None:
     assert "summary  " in text
     assert "ageval view " in text
     assert "ageval results upload-suite " in text
+    assert "sha256_" not in text.split("ageval view ", 1)[-1].splitlines()[0]
     assert "--suite-run 863b8ee9" in text
     assert "actors_summary" not in text
     assert "secret-looking" not in text
@@ -193,3 +194,28 @@ def test_unit_lines_align_status_right_duration_left() -> None:
     assert rows[1][time_at:].startswith("1m 08s")
     assert rows[0][pass_at - 1] == " "
     assert rows[1][pass_at - 1] == " "
+
+
+def test_suite_recap_view_uses_ref_for_cache_root(tmp_path: Path) -> None:
+    cache_root = (
+        tmp_path
+        / ".ageval"
+        / "cache"
+        / "datasets"
+        / "official"
+        / "demo"
+        / "sha256_3c22b6b13e68abba0238eba778762eef14136ac61f55a1a59cce8a14e8a8e231"
+    )
+    text = format_suite_recap(
+        {
+            "suite_run_id": "ca096a6f",
+            "dataset_id": "official/demo",
+            "dataset_version": "0.1.0",
+            "exit_code": 0,
+            "counts": {"pass": 2, "fail": 0, "error": 0, "skipped": 0},
+            "summary_path": str(cache_root / "summary.json"),
+        },
+        dataset_root=cache_root,
+    )
+    assert "ageval view official/demo@0.1.0" in text
+    assert "sha256_3c22" not in text.split("ageval view ", 1)[-1].splitlines()[0]

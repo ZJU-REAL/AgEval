@@ -102,7 +102,7 @@ Credentials file `~/.ageval/credentials` (mode `0600`):
 | `ageval results export-profiles` | Export suite `job_overlay` → re-runnable `profiles.yaml` (#59) |
 | `ageval results share\|unshare` | Share / revoke private result access (owner only) |
 | `ageval results delete\|set-visibility` | Delete or flip visibility (`--kind attempt\|suite`; delete needs `--yes`) |
-| `ageval view` | Local Dataset Web UI (no Registry). `--dev` starts API and Vite when possible; `--open` deep-links a job/task/run |
+| `ageval view` | Local Dataset Web UI. Path or registry ref (`id@version`); cache hit does not need Hub. `--dev` starts API and Vite when possible; `--open` deep-links a job/task/run |
 | `ageval jobs delete` | Delete a local Job under `--local` (suite always cascades Attempts). Requires `--yes` |
 
 Discover flags with `uv run ageval <cmd> -h`.
@@ -114,8 +114,9 @@ Discover flags with `uv run ageval <cmd> -h`.
 ```bash
 uv run ageval tasks examples/core
 
-# Local Web UI: Jobs → Tasks → Trial (suite-runs under .ageval/; no Registry)
+# Local Web UI: Jobs → Tasks → Trial (suite-runs under .ageval/)
 uv run ageval view examples/core
+# uv run ageval view official/demo@0.1.0
 # uv run ageval view tests/fixtures/datasets/suite-min --port 8765 --no-browser
 # uv run ageval view examples/core --dev --open /jobs/<id>
 # Preview local delete, then confirm (suite cascades Attempts; not Registry)

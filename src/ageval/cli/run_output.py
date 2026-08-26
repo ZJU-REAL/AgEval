@@ -48,6 +48,18 @@ def dataset_label(dataset_id: str, version: str | None = None) -> str:
     return f"{ds}@{ver}" if ds and ver else ds
 
 
+def recap_view_arg(dataset_root: Path | str, summary: Mapping[str, Any]) -> str:
+    """Short ``id@version`` when the run lived in the verified cache; else a path."""
+    label = dataset_label(
+        str(summary.get("dataset_id") or ""),
+        str(summary.get("dataset_version") or "") or None,
+    )
+    parts = Path(dataset_root).parts
+    if label and any(str(part).startswith("sha256_") for part in parts):
+        return label
+    return display_path(dataset_root)
+
+
 def display_path(path: Path | str) -> str:
     """Prefer a cwd-relative path for recap ``next`` / ``summary`` lines."""
     raw = Path(path)
@@ -129,12 +141,13 @@ def format_suite_recap(
     footer_bits.append(f"exit={int(summary.get('exit_code', 2))}")
     lines = [_RECAP_RULE, "   ".join(footer_bits)]
     summary_path = summary.get("summary_path")
-    root = display_path(dataset_root)
+    view_arg = recap_view_arg(dataset_root, summary)
+    upload_arg = display_path(dataset_root)
     if summary_path:
         lines.append(f"summary  {display_path(str(summary_path))}")
-    lines.append(f"next     ageval view {root}")
+    lines.append(f"next     ageval view {view_arg}")
     if sid:
-        lines.append(f"         ageval results upload-suite {root} --suite-run {sid}")
+        lines.append(f"         ageval results upload-suite {upload_arg} --suite-run {sid}")
     return "\n".join(lines) + "\n"
 
 
@@ -144,6 +157,8 @@ def format_attempt_recap(
     task_id: str,
     dataset_root: Path | str,
     duration: str = "",
+    dataset_id: str = "",
+    dataset_version: str = "",
 ) -> str:
     status = str(result.get("status") or "ERROR").upper()
     head = f"task {task_id}  {status}"
@@ -156,7 +171,11 @@ def format_attempt_recap(
     logs = result.get("logs") or result.get("evidence_path")
     if logs:
         lines.append(f"logs     {display_path(str(logs))}")
-    lines.append(f"next     ageval view {display_path(dataset_root)}")
+    view_arg = recap_view_arg(
+        dataset_root,
+        {"dataset_id": dataset_id, "dataset_version": dataset_version},
+    )
+    lines.append(f"next     ageval view {view_arg}")
     return "\n".join(lines) + "\n"
 
 

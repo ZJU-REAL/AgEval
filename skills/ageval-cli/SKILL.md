@@ -22,6 +22,7 @@ uv run ageval run  examples/core --task acp-local-min
 uv run ageval run  examples/core --task acp-docker-min --profiles examples/core/profiles.docker.yaml
 uv run ageval run  examples/journeys --task terminal-jsonl-agg
 uv run ageval run  official/demo@0.1.0 --dir tmp
+uv run ageval view official/demo@0.1.0
 uv run ageval run  … --probe          # lock + preflight, no Agent
 uv run ageval executors -v
 uv run ageval plugin install plugins/nooa

@@ -95,5 +95,5 @@ ageval results upload-suite <dataset> --suite-run <8-hex> --public [--with-attem
 
 ## `ageval view` / `ageval jobs delete`
 
-- Local dataset UI. No Registry.
+- Local dataset UI. Path or registry ref (`id@version` / `@sha256:…`). A unique verified cache hit does not contact Hub.
 - `jobs delete --local <dataset> --job <id> --yes` is local Job delete, not Registry `results delete`.

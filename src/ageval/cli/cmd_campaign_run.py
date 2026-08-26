@@ -352,6 +352,8 @@ def register(app: typer.Typer) -> None:
                             task_id=plan.task_ids[0],
                             dataset_root=plan.dataset_root,
                             duration=format_duration_ms((time.monotonic() - started) * 1000.0),
+                            dataset_id=plan.dataset_id,
+                            dataset_version=plan.dataset_version,
                         )
                     )
                 raise typer.Exit(code=code)

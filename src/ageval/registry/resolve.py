@@ -36,8 +36,12 @@ def resolve_dataset_root(
         hit = pkg_cache.lookup(ref.dataset_id, ref.package_digest)
         if hit is not None:
             return hit
-    # For version refs we need metadata first (or cache index). version→digest map
-    # lives on the registry; offline only works after a prior fetch.
+    elif ref.kind == "version" and ref.version:
+        hit = pkg_cache.lookup_version(ref.dataset_id, ref.version)
+        if hit is not None:
+            return hit
+    # Version → digest otherwise lives on the registry; a prior fetch that
+    # left a unique verified tree is enough for view / run without Hub.
 
     reg_client = client
     if reg_client is None:

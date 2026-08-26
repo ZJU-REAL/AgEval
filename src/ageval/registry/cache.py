@@ -47,6 +47,43 @@ class PackageCache:
         # Re-hash on lookup is optional; v1 trusts marker + present root after write-time verify.
         return entry
 
+    def lookup_version(self, dataset_id: str, version: str) -> Path | None:
+        """Return the unique verified cache root for ``dataset_id@version``.
+
+        Used so ``ageval view official/demo@0.1.0`` can open a prior fetch
+        without contacting the registry. Several matching digests → None
+        (caller falls through to Hub or a digest ref).
+        """
+        from ageval.config.dataset import load_dataset_manifest
+        from ageval.config.errors import ConfigError
+
+        want_id = str(dataset_id or "").strip()
+        want_ver = str(version or "").strip()
+        if not want_id or not want_ver:
+            return None
+        matches: list[Path] = []
+        for entry in self._iter_verified():
+            try:
+                man = load_dataset_manifest(entry)
+            except (ConfigError, OSError, UnicodeDecodeError):
+                continue
+            if man.dataset_id == want_id and man.version == want_ver:
+                matches.append(entry)
+        if len(matches) == 1:
+            return matches[0]
+        return None
+
+    def _iter_verified(self) -> list[Path]:
+        base = self.root / "datasets"
+        if not base.is_dir():
+            return []
+        rows: list[Path] = []
+        for marker in sorted(base.rglob(".ageval-verified")):
+            entry = marker.parent
+            if (entry / "ageval.yaml").is_file():
+                rows.append(entry)
+        return rows
+
     def publish_atomic(
         self,
         *,
