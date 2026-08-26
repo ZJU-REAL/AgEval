@@ -38,6 +38,57 @@ def test_missing_credential_fail_closed(monkeypatch: pytest.MonkeyPatch) -> None
     assert result.tool_calls == ()
 
 
+@pytest.mark.parametrize(
+    "base",
+    [
+        "http://192.168.1.10:8000/v1",
+        "http://10.0.0.1/v1",
+        "http://example.com/127.0.0.1",
+        "http://localhost.example.com/v1",
+    ],
+)
+def test_non_loopback_missing_credential_fail_closed(
+    monkeypatch: pytest.MonkeyPatch, base: str
+) -> None:
+    monkeypatch.delenv("OPENAI_API_KEY", raising=False)
+    result = OpenAIHTTPExecutor(base_url=base).invoke("hi")
+    assert result.ok is False
+    assert result.error == "missing_credential"
+
+
+def test_loopback_invokes_without_api_key(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.delenv("OPENAI_API_KEY", raising=False)
+    captured: dict[str, Any] = {}
+
+    class Handler(BaseHTTPRequestHandler):
+        def do_POST(self) -> None:  # noqa: N802
+            length = int(self.headers.get("Content-Length") or 0)
+            captured["authorization"] = self.headers.get("Authorization")
+            captured["body"] = json.loads(self.rfile.read(length).decode("utf-8"))
+            payload = {"choices": [{"message": {"role": "assistant", "content": "ok"}}]}
+            raw = json.dumps(payload).encode("utf-8")
+            self.send_response(200)
+            self.send_header("Content-Type", "application/json")
+            self.send_header("Content-Length", str(len(raw)))
+            self.end_headers()
+            self.wfile.write(raw)
+
+        def log_message(self, format: str, *args: object) -> None:  # noqa: A003
+            del format, args
+
+    server, base = _serve(Handler)
+    try:
+        result = OpenAIHTTPExecutor(model="mock", base_url=base).invoke("hi")
+    finally:
+        server.shutdown()
+        server.server_close()
+
+    assert result.ok is True
+    assert result.error is None
+    assert result.text == "ok"
+    assert captured.get("authorization") is None
+
+
 def test_tools_round_trip_on_loopback() -> None:
     captured: dict[str, Any] = {}
 

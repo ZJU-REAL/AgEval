@@ -11,6 +11,7 @@ from typing import Any
 
 from ageval.plugins.agent_result import AgentResult, parse_validated_text_structured
 from ageval.plugins.errors import ExtensionMaterializeError
+from ageval.plugins.http_loopback import is_http_loopback
 from miniswe_plugin import PLUGIN_ID
 from miniswe_plugin.env import ProtocolEnv
 from miniswe_plugin.trajectory import to_ageval_trajectory_events
@@ -287,6 +288,13 @@ class MinisweExecutorSPI:
         return ProtocolEnv(host=self.host, placement=self.placement, timeout=self.cmd_timeout)
 
     def _run_agent(self, prompt: str, *, timeout: float) -> dict[str, Any]:
+        key = resolve_api_key_value(self.api_key_env)
+        base = resolve_base_url(self.base_url)
+        if not key and not is_http_loopback(base):
+            raise ExtensionMaterializeError(
+                f"miniswe_missing_credential: env {self.api_key_env or 'OPENAI_API_KEY'!r} unset",
+                kind="extension_materialize_failed",
+            )
         try:
             from minisweagent.agents.default import DefaultAgent
             from minisweagent.models.litellm_model import LitellmModel
@@ -295,13 +303,6 @@ class MinisweExecutorSPI:
                 "miniswe_package_missing: install mini-swe-agent (uv sync --extra miniswe)",
                 kind="extension_materialize_failed",
             ) from exc
-        key = resolve_api_key_value(self.api_key_env)
-        base = resolve_base_url(self.base_url)
-        if not key and not (base and ("127.0.0.1" in base or "localhost" in base)):
-            raise ExtensionMaterializeError(
-                f"miniswe_missing_credential: env {self.api_key_env or 'OPENAI_API_KEY'!r} unset",
-                kind="extension_materialize_failed",
-            )
         model_kwargs: dict[str, Any] = {"drop_params": True}
         if key:
             model_kwargs["api_key"] = key

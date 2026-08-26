@@ -4,7 +4,8 @@ version: "0.1.0"
 label: "DeepSeek Harness (slim)"
 description: >-
   DeepSeek Harness JSON-RPC in the box (composition slim). Not ACP.
-  Install plugins/dsh first. Credentials stay locators until invoke.
+  ``ageval agent install`` also installs the ``dsh`` plugin. Credentials stay
+  locators until invoke.
 tags: [coding, dsh]
 binding:
   executor: dsh

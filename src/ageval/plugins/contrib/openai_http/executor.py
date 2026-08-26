@@ -17,6 +17,7 @@ from typing import Any
 
 from ageval.plugins.agent_result import AgentExecutor, AgentResult
 from ageval.plugins.contrib.openai_http.usage import normalize_openai_http_usage
+from ageval.plugins.http_loopback import is_http_loopback
 
 _DEFAULT_BASE = "https://api.openai.com/v1"
 _DEFAULT_KEY_ENV = "OPENAI_API_KEY"
@@ -118,8 +119,8 @@ class OpenAIHTTPExecutor(AgentExecutor):
         key_env = self.api_key_env or _DEFAULT_KEY_ENV
         key = os.environ.get(key_env, "")
         base = self.base_url or os.environ.get("AGEVAL_OPENAI_BASE_URL") or _DEFAULT_BASE
-        # Allow explicit empty-key local mock servers only when base_url is loopback.
-        if not key and "127.0.0.1" not in base and "localhost" not in base:
+        loopback = is_http_loopback(base)
+        if not key and not loopback:
             return AgentResult(
                 model=self.model,
                 text="",
@@ -129,7 +130,7 @@ class OpenAIHTTPExecutor(AgentExecutor):
             )
         from ageval.runtime.offline import is_offline_agent
 
-        if is_offline_agent() and "127.0.0.1" not in base and "localhost" not in base:
+        if is_offline_agent() and not loopback:
             return AgentResult(
                 model=self.model,
                 text="",
@@ -150,13 +151,13 @@ class OpenAIHTTPExecutor(AgentExecutor):
         if effort:
             payload["reasoning_effort"] = effort
         body = json.dumps(payload).encode("utf-8")
+        headers = {"Content-Type": "application/json"}
+        if key:
+            headers["Authorization"] = f"Bearer {key}"
         req = urllib.request.Request(
             url,
             data=body,
-            headers={
-                "Authorization": f"Bearer {key}",
-                "Content-Type": "application/json",
-            },
+            headers=headers,
             method="POST",
         )
         try:

@@ -1,6 +1,6 @@
 """CLI: ``ageval agent install|list|show|uninstall`` (design/14).
 
-Install writes only the local cache ($AGEVAL_HOME/agents) — never profiles /
+Install writes the agent cache and declared plugins — never profiles /
 task.yaml. Run with ``ageval run <dataset> --agent pi`` or ``--agent <id>@<version>``.
 """
 
@@ -17,8 +17,9 @@ agent_app = typer.Typer(
     name="agent",
     help=(
         "Manage local Agent definitions (ageval.agent/1).\n\n"
-        "install writes only ~/.ageval/agents (or $AGEVAL_HOME/agents) — it does "
-        "NOT modify profiles.yaml / task.yaml. Bind at run time with "
+        "install writes ~/.ageval/agents (or $AGEVAL_HOME/agents) and installs "
+        "plugins declared on binding.extensions[].plugin into ~/.ageval/plugins. "
+        "It does NOT modify profiles.yaml / task.yaml. Bind at run time with "
         "`ageval run <dataset> --agent pi` (builtin) or `--agent <id>@<version>`."
     ),
     no_args_is_help=True,
@@ -86,36 +87,26 @@ def agent_install(
         ),
     ],
 ) -> None:
-    """Install an agent into the local cache (never edits profiles)."""
+    """Install an agent (and its declared plugins) into the local cache."""
+    from ageval.application.composition import build_agent_commands
     from ageval.config.errors import ConfigError
 
+    cmds = build_agent_commands()
     src_path = Path(source)
-    if "@" in source and not src_path.exists():
-        from ageval.application.composition import build_agent_commands
-
-        cmds = build_agent_commands()
-        try:
-            summary = cmds.install_agent_from_registry(source)
-        except ConfigError as exc:
-            emit({"ok": False, "error": exc.error_code, "message": str(exc)}, err=True)
-            raise typer.Exit(code=2) from exc
-        emit(summary)
-        return
-
-    from ageval.agents.store import install_from_path
-
     try:
-        entry = install_from_path(src_path)
+        if "@" in source and not src_path.exists():
+            summary = cmds.install_agent_from_registry(source)
+        else:
+            summary = cmds.install_agent_from_path(src_path)
     except ConfigError as exc:
-        emit({"ok": False, "error": exc.error_code, "message": str(exc)}, err=True)
+        emit({"ok": False, "error": exc.error_code, "message": exc.message}, err=True)
         raise typer.Exit(code=2) from exc
     except OSError as exc:
         emit({"ok": False, "error": "io_error", "message": str(exc)}, err=True)
         raise typer.Exit(code=2) from exc
-    payload = entry.as_dict()
-    payload["ok"] = True
-    payload["ref"] = f"{entry.agent_id}@{entry.version}"
-    emit(payload)
+    finally:
+        cmds.cleanup_agent_tmp()
+    emit(summary)
 
 
 @agent_app.command("publish")

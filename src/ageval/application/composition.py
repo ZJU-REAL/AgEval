@@ -155,13 +155,20 @@ def build_agent_projection() -> Callable[..., Any]:
 def build_agent_commands() -> Any:
     from ageval.application.agent_ops.install_remote import AgentInstallCommand
     from ageval.application.agent_ops.publish import AgentPublishCommand
+    from ageval.application.plugin_ops.plugin_install_remote import PluginInstallCommand
 
-    install = AgentInstallCommand(client_factory=build_registry_client)
+    plugin_install = PluginInstallCommand(client_factory=build_registry_client)
+    install = AgentInstallCommand(
+        client_factory=build_registry_client,
+        hub_fetch=plugin_install.fetch_latest_plugin,
+        cleanup_plugin_tmp=plugin_install._cleanup_tmp,
+    )
     publish = AgentPublishCommand(client_factory=build_registry_client)
     return type(
         "AgentCommands",
         (),
         {
+            "install_agent_from_path": install.install_agent_from_path,
             "install_agent_from_registry": install.install_agent_from_registry,
             "cleanup_agent_tmp": install.cleanup_tmp,
             "publish_agent": publish.publish_agent,

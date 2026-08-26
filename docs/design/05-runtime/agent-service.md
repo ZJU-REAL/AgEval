@@ -93,7 +93,7 @@ kind 名仍是 `openai-http`（api-client）。没有第二套 dialect、没有 
 | 题包传入 `tools` | POST body 带 `tools`；读 `choices[0].message.tool_calls` → `AgentResult.tool_calls` |
 | `messages` | 若提供，作为 chat 历史（不再只包一轮 prompt） |
 | capability | `tools: native`，`session: new-only`（逻辑 session，无 provider resume） |
-| 凭证 | 一等字段 `model` / `base_url` / `api_key`（env locator）。缺钥 fail-closed（loopback 空钥仅用于本机 mock） |
+| 凭证 | 一等字段 `model` / `base_url` / `api_key`（env locator）。远程 URL 缺钥 fail-closed。loopback 空钥是 **HTTP executor 规则**（`openai-http` / `dsh` / `nooa` / `miniswe`），不是 openai-http 特例 |
 | `options.reasoning_effort` | 可选。有值则写入 Chat Completions 的 `reasoning_effort`；缺省不发该键。evidence：`locked_reasoning_effort` / `actual_reasoning_effort`（HTTP 200 时二者相同；4xx 时 actual 为 null） |
 
 tau2-class harness（journeys `tau2-dialog-min`、`examples/tau3-*`）把域 schema 传入 invoke；收到 `tool_calls` 后走 package `Environment.get_response` / `ToolSet.call`，再 `record_observation` 把回包挂到该 invoke。原生 `tool_calls` 是 **openai-http 的主动作通道**；「Return ONLY JSON」只留给没有 `tool_calls` 的文本 executor（ACP）。禁止在 Core 里 scrape vendor stdout 当工具通道。
@@ -113,7 +113,15 @@ tau2-class harness（journeys `tau2-dialog-min`、`examples/tau3-*`）把域 sch
 
 子进程环境只投影 allowlist（`PATH` / `HOME` / `LANG`、entry 声明的 credential 名、binding 的 `api_key` / `base_url`、`fixed_env`）。宿主里未声明的 token 进不了 entry。
 
-`--probe` / `ageval executors -v`：`credential_missing` 在需要密钥的 entry 上 fail-closed；keyless 只警告。
+`--probe` / `ageval executors -v`：`credential_missing` 在需要密钥的 entry 上 fail-closed；keyless 只警告。HTTP executor 在锁定 `base_url` 为 loopback 且钥省略 / locator 为空时 **不** 报 `credential_missing`。
+
+### HTTP loopback 空钥
+
+`openai-http` / `dsh` / `nooa` / `miniswe` 共用一条 host-only 判断（`src/ageval/plugins/http_loopback.py`）：host 仅为 `127.0.0.1` / `localhost` / `::1`。不含 RFC1918、不含名字里碰巧带这些子串的 URL。
+
+- loopback 且 `api_key` 省略或 locator env 为空 → invoke 继续（空 `Authorization` 或按该协议省略头）。
+- 非 loopback 缺钥 → 仍 fail-closed。
+- 不改 lock schema；locator **值**不进 lock / overlay / trajectory。ACP / `keyless_auth` 不动。
 
 ## Agent 运行时（挂 `after_environment_ready`）
 

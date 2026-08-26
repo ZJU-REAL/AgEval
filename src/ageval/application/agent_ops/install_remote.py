@@ -1,23 +1,47 @@
-"""Install an agent from the Registry into the local agents cache (design/14)."""
+"""Install an agent from a local path or the Registry into the agents cache."""
 
 from __future__ import annotations
 
 import tempfile
+from collections.abc import Callable
 from pathlib import Path
 from typing import Any
 
+from ageval.agents.manifest import load_agent_manifest
+from ageval.agents.paths import package_dir
 from ageval.agents.reserved import reject_reserved_harness_id
 from ageval.agents.store import AgentIndexEntry, install_from_path
+from ageval.application.agent_ops.install_plugins import install_declared_plugins
 from ageval.config.errors import ConfigError
+from ageval.plugins.install import InstalledItem
 from ageval.registry.archive import extract_archive
 from ageval.registry.client import RegistryError
 from ageval.registry.media_types import AGENT_MEDIA_TYPE
 
+HubFetch = Callable[[str], Path]
+
 
 class AgentInstallCommand:
-    def __init__(self, client_factory: Any) -> None:
+    def __init__(
+        self,
+        client_factory: Any,
+        *,
+        hub_fetch: HubFetch | None = None,
+        cleanup_plugin_tmp: Callable[[], None] | None = None,
+    ) -> None:
         self._client_factory = client_factory
+        self._hub_fetch = hub_fetch
+        self._cleanup_plugin_tmp = cleanup_plugin_tmp
         self._tmp_dirs: list[tempfile.TemporaryDirectory[str]] = []
+
+    def install_agent_from_path(self, source: Path) -> dict[str, Any]:
+        """Copy a local agent package, then install declared plugins."""
+        entry = install_from_path(source)
+        try:
+            plugins = self._install_plugins(entry)
+        finally:
+            self.cleanup_tmp()
+        return _summary(entry, plugins=plugins)
 
     def install_agent_from_registry(
         self,
@@ -53,14 +77,13 @@ class AgentInstallCommand:
                 package_digest=ver_or_digest if ver_or_digest.startswith("sha256:") else None,
                 location=locator,
             )
-            entry: AgentIndexEntry = install_from_path(extract_dir, agent_id=package_id)
+            entry = install_from_path(extract_dir, agent_id=package_id)
+            plugins = self._install_plugins(entry)
         except RegistryError as exc:
             raise ConfigError(exc.code, exc.message, location="registry") from exc
         finally:
             self.cleanup_tmp()
-        summary = entry.as_dict()
-        summary["ok"] = True
-        summary["ref"] = f"{entry.agent_id}@{entry.version}"
+        summary = _summary(entry, plugins=plugins)
         summary["from"] = locator
         return summary
 
@@ -100,7 +123,34 @@ class AgentInstallCommand:
         archive_path.unlink(missing_ok=True)
         return extract_dir
 
+    def _install_plugins(self, entry: AgentIndexEntry) -> list[InstalledItem]:
+        root = package_dir(entry.agent_id, entry.version)
+        manifest = load_agent_manifest(root)
+        return install_declared_plugins(
+            manifest.binding,
+            agent_root=root,
+            hub_fetch=self._hub_fetch,
+        )
+
     def cleanup_tmp(self) -> None:
         while self._tmp_dirs:
             tmp = self._tmp_dirs.pop()
             tmp.cleanup()
+        if self._cleanup_plugin_tmp is not None:
+            self._cleanup_plugin_tmp()
+
+
+def _summary(entry: AgentIndexEntry, *, plugins: list[InstalledItem]) -> dict[str, Any]:
+    summary = entry.as_dict()
+    summary["ok"] = True
+    summary["ref"] = f"{entry.agent_id}@{entry.version}"
+    summary["plugins"] = [
+        {
+            "plugin_id": item.plugin_id,
+            "version": item.version,
+            "digest": item.digest,
+            "status": item.status,
+        }
+        for item in plugins
+    ]
+    return summary

@@ -38,6 +38,12 @@ def test_cli_campaign_uses_composition() -> None:
     assert "from ageval.application.campaign import run_campaign" not in sources
 
 
+def test_build_agent_commands_installs_from_path_and_registry() -> None:
+    cmds = composition.build_agent_commands()
+    assert callable(cmds.install_agent_from_path)
+    assert callable(cmds.install_agent_from_registry)
+
+
 def test_cli_imports_composition_only() -> None:
     cli_dir = Path(cli_main.__file__).resolve().parent
     offenders: list[str] = []
