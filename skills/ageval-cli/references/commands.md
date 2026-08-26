@@ -36,6 +36,7 @@ Stdout JSON (high level):
 ## `ageval run`
 
 - `--probe` (requires `--task`): same feasibility report; does not start an Attempt.
+- TTY: short recap on stdout (per-task PASS/FAIL, `summary` / `logs`, `ageval view` next). Full document stays on disk. `--json` or a non-TTY stdout keeps one JSON object.
 - One foreground Attempt via production composition root **when** `--task` is set, `-k` defaults to 1, and no `--resume-suite`.
 - Evidence under dataset root `.ageval/runs/<id>/`. `logs` / `evidence_path` are portable relative to the dataset root.
 - **Always-k** (`--n-attempts` / `-k`, integer ≥1): fixed k independent Attempts per task. CLI/job only — not `task.yaml`.

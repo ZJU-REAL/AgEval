@@ -51,6 +51,7 @@ Path = dataset root. `--agent` and `--profiles` are mutually exclusive. Destruct
 | `--agent` | Bind an installed `ageval.agent/1` package; mutually exclusive with `--profiles` |
 | `--set` / `--profiles` | Overrides / alternate job binding |
 | `--probe` | Feasibility only: plan + readiness for this binding/`environment`. No Agent, no bake, no lock digest change. Exit 1 if the selected path is unsatisfied. |
+| `--json` | Write the full result document on stdout. A TTY defaults to a short recap (suite: `summary` path plus `ageval view` / `upload-suite`); a pipe still defaults to JSON. |
 
 ## `status` / `cancel`
 

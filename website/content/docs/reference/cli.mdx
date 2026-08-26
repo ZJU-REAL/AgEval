@@ -51,6 +51,7 @@ uv run ageval results upload|upload-suite|attach-agent|request|inbox|decide|shar
 | `--agent` | 用已安装的 `ageval.agent/1` 绑定 job；与 `--profiles` 互斥 |
 | `--set` / `--profiles` | 见下；与 job binding 相关 |
 | `--probe` | 只做可行性：按绑定 / `environment` 打印 plan + readiness。不 invoke Agent、不 bake、不改 lock digest。选中路径不满足则 exit 1。 |
+| `--json` | stdout 打完整结果文档。TTY 默认是短 recap（suite 含 `summary` 路径与 `ageval view` / `upload-suite`）；管道默认仍是 JSON。 |
 
 ## `status` / `cancel`
 

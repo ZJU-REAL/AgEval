@@ -31,7 +31,7 @@ uv sync --extra registry
 | Dataset path | Root with `ageval.yaml` (`ageval.dataset/1`) |
 | Registry ref | `<dataset_id>@<version>` or `<dataset_id>@sha256:<64hex>` |
 | `--task` | Member `task_id` under `tasks/<id>/task.yaml` |
-| Success output | Most commands print **one JSON object** on stdout (`sort_keys`) |
+| Success output | Most commands print **one JSON object** on stdout (`sort_keys`). `ageval run` on a TTY prints a short recap instead; `--json` or a pipe keeps the document. |
 | Failure | Human message on stderr + stable `error_code`; often exit **2** |
 | Secrets | Never written into lock / evidence; Registry uses `~/.ageval/credentials` or env |
 
@@ -81,7 +81,7 @@ Credentials file `~/.ageval/credentials` (mode `0600`):
 | --- | --- |
 | `ageval tasks` | List member task ids in a Dataset |
 | `ageval lock` | Lock config (no Agent) |
-| `ageval run` | Run one member or a full suite (Always-k via `-k` / `--n-attempts`; `--keep-workspace` keeps the host work root; `--keep-vendor-raw` keeps invocation dumps after seal) |
+| `ageval run` | Run one member or a full suite (Always-k via `-k` / `--n-attempts`; TTY recap, `--json` for the full document; `--keep-workspace` keeps the host work root; `--keep-vendor-raw` keeps invocation dumps after seal) |
 | `ageval campaign` | Serial parameter-matrix campaign (matrix axis ≠ k-attempt) |
 | `ageval executors` | Host executor / ACP entry inventory |
 | `ageval plugin install\|list\|uninstall` | Local `ageval.plugin/1` cache (`$AGEVAL_HOME/plugins`); never rewrites profiles |
@@ -167,7 +167,7 @@ String values need JSON quotes, e.g. `--set '/bindings/solver/options/entry="pi"
 
 ### Evidence and trajectory
 
-`ageval run` JSON often includes **`logs`**: Attempt evidence root.
+On a TTY, `ageval run` prints a short recap (per-task PASS/FAIL, `summary` path, `ageval view` / `upload-suite` next). The full document stays in `.ageval/suite-runs/<id>/summary.json` (suite) or `result.json` (single Attempt). `--json` or a pipe still prints one JSON object; single-Attempt JSON includes **`logs`**.
 
 ```bash
 uv run ageval evidence "$LOGS_PATH" --out /tmp/ageval-export
@@ -186,7 +186,7 @@ After `-k` / full suite, read:
 
 - **pass@k** / **pass^k** are **job** aggregates (mean over tasks); not package identity  
 - `--max-concurrent-tasks` only speeds scheduling; does not change k or PASS  
-- Single-task `k=1` without `--resume-suite` keeps the historical single Attempt JSON on stdout  
+- Single-task `k=1` without `--resume-suite` still prints the historical Attempt document when stdout is not a TTY (or with `--json`)  
 
 ### Campaign / control plane (brief)
 

@@ -29,6 +29,8 @@ uv run ageval plugin install plugins/nooa
 
 `--profiles` replaces the dataset job document. `--agent` and `--profiles` are mutually exclusive. `--set` allowlist: `/parameters/seed`, `/parameters/active_profile`, `/bindings/<role>/{model,executor,api_key,base_url,options/<key>}`. Not `limits.*`.
 
+`ageval run` on a TTY prints a short recap; `--json` or a pipe keeps the result document.
+
 Exit: 0 PASS / probe ready; 1 FAIL / probe not ready; 2 ERROR.
 
 Single Attempt evidence: `<dataset>/.ageval/runs/<id>/` (`lock.json`, `result.json`, `trajectory.jsonl`). Trajectory ≠ PASS.

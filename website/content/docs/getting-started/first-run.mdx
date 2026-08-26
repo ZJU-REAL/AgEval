@@ -15,7 +15,7 @@ uv run ageval run  examples/journeys --task terminal-jsonl-agg \
   --profiles examples/journeys/profiles.e2b-acp.yaml --probe
 ```
 
-`ageval run` 成功时输出 `logs` / `evidence_path`，指向 `.ageval/runs/<id>/`。
+`ageval run` 在 TTY 下打印短 recap（单题含 `logs` 路径，整包含 `summary` 路径）。管道或 `--json` 仍输出 JSON 文档。证据在 `.ageval/runs/<id>/`。
 
 | 术语 | 说明 |
 | --- | --- |

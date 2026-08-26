@@ -9,6 +9,17 @@ from typing import Annotated, Any
 import typer
 
 from ageval.cli.cmd_agent import AGENT_OPTION_HELP, resolve_agent_option
+from ageval.cli.run_output import (
+    RunProgress,
+    dataset_label,
+    dump_json,
+    format_attempt_recap,
+    format_duration_ms,
+    format_suite_recap,
+    print_human,
+    use_json_stdout,
+    use_progress_bar,
+)
 
 
 def register(app: typer.Typer) -> None:
@@ -211,6 +222,15 @@ def register(app: typer.Typer) -> None:
                 ),
             ),
         ] = False,
+        json_out: Annotated[
+            bool,
+            typer.Option(
+                "--json",
+                help=(
+                    "Write the full result document on stdout. Default when stdout is not a TTY."
+                ),
+            ),
+        ] = False,
         install_dir: Annotated[
             Path | None,
             typer.Option(
@@ -300,6 +320,7 @@ def register(app: typer.Typer) -> None:
                 n_attempts=k,
                 suite_run_id=resume_id,
             )
+            machine = use_json_stdout(force_json=json_out)
             # Historical single-task JSON only when k==1 and not resuming.
             if (
                 len(plan.task_ids) == 1
@@ -308,6 +329,9 @@ def register(app: typer.Typer) -> None:
                 and plan.n_attempts == 1
                 and resume_id is None
             ):
+                import time
+
+                started = time.monotonic()
                 code, result = asyncio.run(
                     build_run_attempt()(
                         package,
@@ -319,13 +343,20 @@ def register(app: typer.Typer) -> None:
                     )
                 )
                 summary = result.as_dict()
-                typer.echo(
-                    json.dumps(summary, ensure_ascii=False, sort_keys=True, separators=(",", ":"))
-                )
+                if machine:
+                    dump_json(summary)
+                else:
+                    print_human(
+                        format_attempt_recap(
+                            summary,
+                            task_id=plan.task_ids[0],
+                            dataset_root=plan.dataset_root,
+                            duration=format_duration_ms((time.monotonic() - started) * 1000.0),
+                        )
+                    )
                 raise typer.Exit(code=code)
 
             import os
-            import sys
 
             from ageval.control.store import ControlStore
 
@@ -347,52 +378,28 @@ def register(app: typer.Typer) -> None:
                 },
             )
 
-            def _progress(ev: dict) -> None:
-                # Terminal progress on stderr; final JSON stays on stdout.
-                kind = str(ev.get("type") or "")
-                done = ev.get("done")
-                total = ev.get("total")
-                if kind == "suite_start":
-                    sys.stderr.write(
-                        f"suite {plan.suite_run_id}: start "
-                        f"todo={ev.get('todo')} total={total} "
-                        f"(cancel: ageval cancel {plan.suite_run_id})\n"
-                    )
-                elif kind == "unit_start":
-                    sys.stderr.write(
-                        f"[{done}/{total}] start {ev.get('task_id')} "
-                        f"attempt={ev.get('attempt_index')}\n"
-                    )
-                elif kind == "unit_done":
-                    sys.stderr.write(
-                        f"[{done}/{total}] done  {ev.get('task_id')} "
-                        f"attempt={ev.get('attempt_index')} "
-                        f"{ev.get('status')}"
-                        + (f" {ev.get('duration')}" if ev.get("duration") else "")
-                        + "\n"
-                    )
-                elif kind == "suite_complete":
-                    sys.stderr.write(
-                        f"suite complete exit={ev.get('exit_code')} done={done}/{total}\n"
-                    )
-                elif kind == "suite_cancelled":
-                    sys.stderr.write(
-                        f"suite cancelled done={done}/{total} skipped={ev.get('cancelled_units')}\n"
-                    )
-                sys.stderr.flush()
-
-            suite_summary = asyncio.run(
-                execute_suite_run(
-                    plan,
-                    overrides=overrides or None,
-                    profiles_path=profiles,
-                    resume=resume_id is not None,
-                    replace_slots=replace_keys,
-                    on_progress=_progress,
-                    keep_workspace=keep_workspace,
-                    keep_vendor_raw=keep_vendor_raw,
-                )
+            progress = RunProgress(
+                suite_run_id=plan.suite_run_id,
+                dataset_label=dataset_label(plan.dataset_id, plan.dataset_version),
+                use_bar=use_progress_bar(),
+                task_ids=list(plan.task_ids),
+                n_attempts=plan.n_attempts,
             )
+            try:
+                suite_summary = asyncio.run(
+                    execute_suite_run(
+                        plan,
+                        overrides=overrides or None,
+                        profiles_path=profiles,
+                        resume=resume_id is not None,
+                        replace_slots=replace_keys,
+                        on_progress=progress.handle,
+                        keep_workspace=keep_workspace,
+                        keep_vendor_raw=keep_vendor_raw,
+                    )
+                )
+            finally:
+                progress.close()
             final_status = (
                 "cancelled"
                 if suite_summary.get("cancelled")
@@ -412,6 +419,16 @@ def register(app: typer.Typer) -> None:
                     "cancelled": bool(suite_summary.get("cancelled")),
                 },
             )
+            if machine:
+                dump_json(suite_summary)
+            else:
+                print_human(
+                    format_suite_recap(
+                        suite_summary,
+                        dataset_root=plan.dataset_root,
+                    )
+                )
+            raise typer.Exit(code=int(suite_summary.get("exit_code", 2)))
         except ConfigError as exc:
             typer.echo(str(exc), err=True)
             raise typer.Exit(code=2) from exc
@@ -421,11 +438,6 @@ def register(app: typer.Typer) -> None:
         except Exception as exc:  # noqa: BLE001
             typer.echo(f"runtime_error: {type(exc).__name__}: {exc}", err=True)
             raise typer.Exit(code=2) from exc
-
-        typer.echo(
-            json.dumps(suite_summary, ensure_ascii=False, sort_keys=True, separators=(",", ":"))
-        )
-        raise typer.Exit(code=int(suite_summary.get("exit_code", 2)))
 
 
 def _probe_one(
