@@ -98,6 +98,10 @@ async def probe_attempt(
         probe["ready"] = False
         probe["error"] = f"{type(exc).__name__}: {exc}"
         return probe
+    if _http_credentials_missing(lock):
+        probe["ready"] = False
+        probe["error"] = "credential_missing"
+        return probe
     probe["ready"] = True
     return probe
 
@@ -247,6 +251,38 @@ def _open_evidence(
         run_id=run_id,
         dataset_root=dataset_root,
     )
+
+
+def _http_credentials_missing(lock: LockedTaskConfig) -> bool:
+    """True when an HTTP executor needs a key and the locked base_url is not loopback."""
+    from ageval.config.env_refs import resolve_locked_base_url
+    from ageval.config.errors import ConfigError
+    from ageval.plugins.executor_capabilities import get_capabilities
+    from ageval.plugins.http_loopback import HTTP_EXECUTORS, http_key_present, is_http_loopback
+
+    for row in lock.agent_profiles:
+        executor = str(row.get("executor") or "").strip()
+        if executor not in HTTP_EXECUTORS:
+            continue
+        raw = row.get("base_url")
+        try:
+            base = resolve_locked_base_url(raw if isinstance(raw, str) else None)
+        except ConfigError:
+            base = None
+        if is_http_loopback(base):
+            continue
+        names: list[str] = []
+        locator = row.get("api_key")
+        if isinstance(locator, str) and locator.strip():
+            names.append(locator.strip())
+        caps = get_capabilities(executor)
+        if caps is not None:
+            for name in caps.credential_env_names:
+                if name not in names:
+                    names.append(name)
+        if names and not http_key_present(names):
+            return True
+    return False
 
 
 def _selected_profile_id(lock: LockedTaskConfig) -> str:

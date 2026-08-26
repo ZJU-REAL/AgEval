@@ -23,7 +23,7 @@ No plugin `options` are consumed. Role profile fields only.
 | --- | --- | --- |
 | `model` | `gpt-4.1-mini` | Chat Completions model id the endpoint accepts. |
 | `base_url` | unset (executor default `https://api.openai.com/v1`) | `${ENV_NAME}` (lock stores the locator) or a literal `http(s)` URL. Host `AGEVAL_OPENAI_BASE_URL` is the fallback when the field is omitted. |
-| `api_key` | `OPENAI_API_KEY` | Env **locator name**, not the secret. Empty key is allowed only when `base_url` is loopback. |
+| `api_key` | `OPENAI_API_KEY` | Env **locator name**, not the secret. Empty key is allowed only when `base_url` host is `127.0.0.1` / `localhost` / `::1`. |
 
 ## Bind
 

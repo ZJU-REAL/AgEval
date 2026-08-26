@@ -33,6 +33,23 @@ if _PLUGIN_ROOT.is_dir() and str(_PLUGIN_ROOT) not in sys.path:
     sys.path.insert(0, str(_PLUGIN_ROOT))
 
 _OK_REASONS = frozenset({"completed", "max-tokens"})
+_LOOPBACK_HOSTS = frozenset({"127.0.0.1", "localhost", "::1"})
+
+
+def _is_http_loopback(url: str | None) -> bool:
+    try:
+        from ageval.plugins.http_loopback import is_http_loopback
+
+        return is_http_loopback(url)
+    except ImportError:
+        from urllib.parse import urlparse
+
+        text = str(url or "").strip()
+        if not text:
+            return False
+        parsed = urlparse(text if "://" in text else f"http://{text}")
+        host = (parsed.hostname or "").lower()
+        return host in _LOOPBACK_HOSTS
 
 
 def _load_trajectory() -> Any:
@@ -131,16 +148,22 @@ def main() -> int:
 
     alias = os.environ.get("deepseek_api_key")  # noqa: SIM112 — profile locator
     if not os.environ.get("DEEPSEEK_API_KEY") and not alias:
-        return _emit(
-            {
-                "ok": False,
-                "error": "dsh_missing_credential",
-                "model": model,
-                "text": "",
-                "metadata": {"plugin": "dsh"},
-            },
-            code=2,
+        base = (
+            os.environ.get("DEEPSEEK_BASE_URL")
+            or os.environ.get("OPENAI_BASE_URL")
+            or os.environ.get("litellm_base_url")  # noqa: SIM112 — profile locator
         )
+        if not _is_http_loopback(base):
+            return _emit(
+                {
+                    "ok": False,
+                    "error": "dsh_missing_credential",
+                    "model": model,
+                    "text": "",
+                    "metadata": {"plugin": "dsh"},
+                },
+                code=2,
+            )
 
     # Alias lowercase locator so the runtime sees the official name.
     if not os.environ.get("DEEPSEEK_API_KEY") and alias:

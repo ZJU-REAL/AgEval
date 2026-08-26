@@ -31,6 +31,24 @@ _PLUGIN_ROOT = Path("/opt/nooa")
 if _PLUGIN_ROOT.is_dir() and str(_PLUGIN_ROOT) not in sys.path:
     sys.path.insert(0, str(_PLUGIN_ROOT))
 
+_LOOPBACK_HOSTS = frozenset({"127.0.0.1", "localhost", "::1"})
+
+
+def _is_http_loopback(url: str | None) -> bool:
+    try:
+        from ageval.plugins.http_loopback import is_http_loopback
+
+        return is_http_loopback(url)
+    except ImportError:
+        from urllib.parse import urlparse
+
+        text = str(url or "").strip()
+        if not text:
+            return False
+        parsed = urlparse(text if "://" in text else f"http://{text}")
+        host = (parsed.hostname or "").lower()
+        return host in _LOOPBACK_HOSTS
+
 
 def _load_agent_class(agent_ref: str, package_root: Path) -> Any:
     import importlib.util
@@ -80,8 +98,6 @@ def _is_nooa_agent_type(cls: Any) -> bool:
 
 
 def _build_llm(*, model: str, api_base: str | None, api_key: str | None) -> Any:
-    from nooa.unifiedllm import get_llm_client
-
     overrides: dict[str, Any] = {"temperature": 0}
     base = (
         api_base or os.environ.get("OPENAI_BASE_URL") or os.environ.get("litellm_base_url")  # noqa: SIM112
@@ -91,8 +107,10 @@ def _build_llm(*, model: str, api_base: str | None, api_key: str | None) -> Any:
         overrides["api_base"] = base
     if key:
         overrides["api_key"] = key
-    if not key and not (base and ("127.0.0.1" in base or "localhost" in base)):
+    if not key and not _is_http_loopback(base if isinstance(base, str) else None):
         raise RuntimeError("nooa_missing_credential")
+    from nooa.unifiedllm import get_llm_client
+
     return get_llm_client(model or "openai/gpt-4.1-mini", **overrides)
 
 
