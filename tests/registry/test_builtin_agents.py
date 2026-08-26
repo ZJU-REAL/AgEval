@@ -218,6 +218,19 @@ def test_openai_http_kind_collision(tmp_path: Path) -> None:
     assert "agent_id: openai-http" in agent_body["content"]
 
 
+def test_publish_reserved_agent_id_fail_closed(tmp_path: Path) -> None:
+    svc = _service(tmp_path)
+    svc.meta.create_org(name="acme", owner_user_id="alice", display_name="Acme")
+    meta, archive = _agent_meta(tmp_path)
+    alice = TokenInfo(scopes=frozenset({"registry:publish"}), user_id="alice")
+    for dataset_id in ("acme/pi", "acme/OpenAI-HTTP", "pi"):
+        meta["dataset_id"] = dataset_id
+        with pytest.raises(RegistryAppError) as ei:
+            svc.publish(meta=meta, archive=archive, auth=alice)
+        assert ei.value.error == "agent_id_reserved"
+        assert ei.value.http_status == 400
+
+
 def test_http_explore_and_kind_query(tmp_path: Path) -> None:
     state, token = build_default_state(tmp_path / "http", bootstrap_token="tok", memory_blob=True)
     api = RegistryHttpApi(state)

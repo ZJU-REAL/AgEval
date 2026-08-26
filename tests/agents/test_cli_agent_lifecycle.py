@@ -135,6 +135,16 @@ def test_lock_with_agent_records_agent_ref_and_matches_profiles_lane(
     assert via_profiles["digest"] == summary["digest"]
 
 
+def test_lock_with_builtin_agent_without_install(env: dict[str, str]) -> None:
+    summary = _lock_summary(env, "--agent", "pi", "--model", "glm-4.7")
+    overlay = summary["job_overlay"]["agent_profiles"]
+    refs = {row.get("agent_ref") for row in overlay.values()}
+    assert all(isinstance(ref, str) and ref.startswith("pi@0.1.0+sha256:") for ref in refs)
+    assert {row.get("model") for row in overlay.values()} == {"glm-4.7"}
+    dumped = json.dumps(summary)
+    assert "sk-" not in dumped
+
+
 def test_lock_model_override_requires_agent_and_writes_overlay(
     env: dict[str, str],
 ) -> None:

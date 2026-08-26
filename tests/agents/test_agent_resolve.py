@@ -78,6 +78,24 @@ def test_missing_cache_ref_fails_closed() -> None:
         bindings_from_agent_specs(["ghost@1.0"])
 
 
+def test_bindings_from_builtin_short_id() -> None:
+    agent_profiles = bindings_from_agent_specs(["pi"])
+    row = agent_profiles["*"]
+    assert row["executor"] == "acp"
+    assert "model" not in row
+    assert row["agent_ref"].startswith("pi@0.1.0+sha256:")
+    opencode = bindings_from_agent_specs(["opencode"])["*"]
+    assert opencode["overlays"] == ["overlays/opencode.litellm.json"]
+    assert opencode["agent_ref"].startswith("opencode@0.1.0+sha256:")
+
+
+def test_builtin_model_override() -> None:
+    out = resolve_agent_specs(["pi"], model="glm-4.7")
+    doc = yaml.safe_load(out.read_text(encoding="utf-8"))
+    assert {row["model"] for row in doc["agent_profiles"].values()} == {"glm-4.7"}
+    assert {row["agent_ref"].split("@", 1)[0] for row in doc["agent_profiles"].values()} == {"pi"}
+
+
 def test_duplicate_role_fails_closed(tmp_path: Path) -> None:
     pkg = _make_pkg(tmp_path)
     with pytest.raises(ConfigError):

@@ -14,6 +14,7 @@ from services.registry.builtin_agents import (
     builtin_agent_item,
     builtin_agent_items,
     is_builtin_agent_id,
+    reserved_harness_leaf,
 )
 from services.registry.builtin_agents import (
     builtin_list_files as builtin_agent_list_files,
@@ -175,6 +176,14 @@ class PackageService:
                 f"{leaf} ships with ageval; it is not a Hub package",
                 http_status=400,
             )
+        if package_kind == "agent":
+            hit = reserved_harness_leaf(dataset_id)
+            if hit is not None:
+                raise RegistryAppError(
+                    "agent_id_reserved",
+                    f"{hit} ships with ageval; it is not a Hub package",
+                    http_status=400,
+                )
         if slot == DRAFT_SLOT or is_draft_version(version):
             return self.upsert_draft(meta=meta, archive=archive, auth=auth)
         if not org_id:
