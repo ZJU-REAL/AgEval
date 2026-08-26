@@ -6,6 +6,7 @@ import tempfile
 from pathlib import Path
 from typing import Any
 
+from ageval.agents.reserved import reject_reserved_harness_id
 from ageval.agents.store import AgentIndexEntry, install_from_path
 from ageval.config.errors import ConfigError
 from ageval.registry.archive import extract_archive
@@ -37,6 +38,7 @@ class AgentInstallCommand:
         ver_or_digest = ver_or_digest.strip()
         if not package_id or not ver_or_digest:
             raise ConfigError("invalid_ref", "empty package_id or version", location=locator)
+        reject_reserved_harness_id(package_id)
 
         client = self._client_factory(
             registry_url=registry_url,

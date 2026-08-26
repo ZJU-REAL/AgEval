@@ -713,6 +713,7 @@ export function LeaderboardTable({
                               complete={s.complete}
                               boundKind={s.bound_kind}
                               boardListed={s.board_listed}
+                              jobOverlay={s.job_overlay}
                               canManage
                               token={getToken()}
                               onVisibility={(next) =>

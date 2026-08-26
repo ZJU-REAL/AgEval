@@ -120,7 +120,7 @@ uv run ageval executors -v
 uv run ageval view examples/journeys --no-browser
 ```
 
-`examples/journeys` 的默认环境为 docker。先执行 `ageval agent install examples/agents/pi-default`，再使用 `--agent` 绑定。可选 `--model` 改这次 run。
+`examples/journeys` 的默认环境为 docker。内置 harness 用 `--agent pi`（不必 install）。可选 `--model` 改这次 run。定制 overlays 包仍先 `ageval agent install`，再 `--agent org/name@version`。
 
 仓库内示例见 [`examples/README.md`](examples/README.md)：journeys、`tau3-airline`，以及 Agent 目录包。
 

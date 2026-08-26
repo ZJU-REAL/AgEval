@@ -2,13 +2,15 @@ import { useEffect, useMemo, useState } from "react";
 import { Link, useNavigate, useParams, useSearchParams } from "react-router-dom";
 
 import { BindingPreview } from "@/components/binding-preview";
+import { BrandMark } from "@/components/brand-mark";
+import { BuiltinMark } from "@/components/builtin-mark";
 import { MarketplaceCounts } from "@/components/marketplace-counts";
 import { CatalogHead } from "@/components/page-head";
 import { PackageStarButton } from "@/components/star-toggle";
 import { CommandStrip } from "@/components/command-strip";
 import { DisplayNameEditor } from "@/components/display-name-editor";
 import { EntityMarkControl } from "@/components/entity-mark-control";
-import { entityHintFromPackage } from "@/lib/brand-marks";
+import { entityHintFromPackage, markFromPackage } from "@/lib/brand-marks";
 import { OfficialMark } from "@/components/official-mark";
 import { FileSplitPanel } from "@/components/file-split-panel";
 import { PackageOwnerOps } from "@/components/package-owner-ops";
@@ -25,10 +27,13 @@ import {
   decodeDatasetId,
   decodeFileContent,
   encodeDatasetId,
+  getBuiltinPackageFile,
   getOrg,
   getPackageByDigest,
   getPackageFile,
+  isBuiltinPackage,
   isDraftRelease,
+  listBuiltinPackageFiles,
   listPackageFiles,
   listPackageVersions,
   listPackageVersionsWithAppearances,
@@ -80,7 +85,9 @@ export function AgentDetailPage() {
       setTreeLoading(true);
       setError(null);
       try {
-        const listed = await listPackageVersionsWithAppearances(agentId, token);
+        const listed = await listPackageVersionsWithAppearances(agentId, token, {
+          packageKind: "agent",
+        });
         const versions = listed.items;
         if (!versions.length) {
           throw new RegistryHttpError(404, "not_found", "agent not found");
@@ -90,6 +97,25 @@ export function AgentDetailPage() {
           (a, b) => (b.created_at ?? 0) - (a.created_at ?? 0),
         )[0];
         if (cancelled) return;
+
+        if (isBuiltinPackage(latest)) {
+          setRelease(latest);
+          setPreview(latest.agent_preview || null);
+          setCanEditName(false);
+          const files = await listBuiltinPackageFiles(agentId, token, {
+            packageKind: "agent",
+          });
+          if (cancelled) return;
+          const nested = buildNestedTree(files.items);
+          setTree(nested);
+          setFilePaths(files.items.filter((e) => e.type !== "dir").map((e) => e.path));
+          const prefer =
+            files.items.find((e) => e.path === "agent.yaml") ||
+            files.items.find((e) => e.path === "README.md") ||
+            files.items.find((e) => e.type !== "dir");
+          if (prefer) setSelectedPath(prefer.path);
+          return;
+        }
 
         let meta: PackageRelease = latest;
         try {
@@ -158,9 +184,10 @@ export function AgentDetailPage() {
   }, [agentId, token, reloadAt]);
 
   const packageDigest = release?.package_digest;
+  const builtin = isBuiltinPackage(release);
 
   useEffect(() => {
-    if (!packageDigest || !selectedPath) {
+    if (!selectedPath || (!builtin && !packageDigest)) {
       setFileContent(null);
       setFileNote(null);
       return;
@@ -168,7 +195,12 @@ export function AgentDetailPage() {
     let cancelled = false;
     setFileLoading(true);
     setFileNote(null);
-    getPackageFile(agentId, packageDigest, selectedPath, token)
+    const pending = builtin
+      ? getBuiltinPackageFile(agentId, selectedPath, token, {
+          packageKind: "agent",
+        })
+      : getPackageFile(agentId, packageDigest || "", selectedPath, token);
+    pending
       .then((f) => {
         if (cancelled) return;
         try {
@@ -193,7 +225,7 @@ export function AgentDetailPage() {
     return () => {
       cancelled = true;
     };
-  }, [agentId, packageDigest, selectedPath, token]);
+  }, [agentId, packageDigest, selectedPath, token, builtin]);
 
   const installCmd = useMemo(() => {
     if (!release) return `ageval agent install ${agentId}@<version>`;
@@ -206,8 +238,9 @@ export function AgentDetailPage() {
         agentId,
         release?.version || "<version>",
         selectedModel,
+        { builtin },
       ),
-    [agentId, release, selectedModel],
+    [agentId, release, selectedModel, builtin],
   );
 
   const formatBadge =
@@ -277,10 +310,12 @@ export function AgentDetailPage() {
                 packageParts.name
               }
               prefix={packageParts.org ? `${packageParts.org}/` : null}
-              canEdit={Boolean(token && canEditName && release)}
+              canEdit={Boolean(token && canEditName && release && !builtin)}
               headingClassName="text-xl font-semibold tracking-tight text-ink"
               beforeTitle={
-                release ? (
+                builtin && release ? (
+                  <BrandMark mark={markFromPackage(release)} size={24} />
+                ) : release ? (
                   <EntityMarkControl
                     hint={entityHintFromPackage({
                       ...release,
@@ -303,7 +338,13 @@ export function AgentDetailPage() {
                   />
                 ) : null
               }
-              afterTitle={release?.official ? <OfficialMark /> : null}
+              afterTitle={
+                builtin ? (
+                  <BuiltinMark />
+                ) : release?.official ? (
+                  <OfficialMark />
+                ) : null
+              }
               onSave={async (next) => {
                 const updated = await updatePackageDisplayName(agentId, next, token);
                 setRelease((prev) =>
@@ -320,15 +361,19 @@ export function AgentDetailPage() {
           {release ? (
             <div className="mt-1 flex flex-wrap items-center gap-x-1.5 gap-y-1 text-xs text-mute">
               <span>@{agentId}</span>
-              <span aria-hidden>·</span>
-              <span>
-                {isDraftRelease(release) ? "draft" : `v${release.version}`}
-              </span>
-              <span aria-hidden>·</span>
-              <MarketplaceCounts
-                downloadCount={release.download_count}
-                favoriteCount={release.favorite_count}
-              />
+              {builtin ? null : (
+                <>
+                  <span aria-hidden>·</span>
+                  <span>
+                    {isDraftRelease(release) ? "draft" : `v${release.version}`}
+                  </span>
+                  <span aria-hidden>·</span>
+                  <MarketplaceCounts
+                    downloadCount={release.download_count}
+                    favoriteCount={release.favorite_count}
+                  />
+                </>
+              )}
               {release.org_id ? (
                 <>
                   <span aria-hidden>·</span>
@@ -347,7 +392,7 @@ export function AgentDetailPage() {
             </div>
           ) : null}
         </div>
-        {release ? (
+        {release && !builtin ? (
           <div className="flex flex-wrap items-center justify-end gap-2">
             <PackageStarButton
               packageId={agentId}
@@ -402,14 +447,26 @@ export function AgentDetailPage() {
           ) : null}
 
           <section className="space-y-2">
-            <h2 className="text-sm font-medium text-ink">Install &amp; run (CLI)</h2>
-            <CommandStrip command={installCmd} />
+            <h2 className="text-sm font-medium text-ink">
+              {builtin ? "Run (CLI)" : "Install & run (CLI)"}
+            </h2>
+            {builtin ? null : <CommandStrip command={installCmd} />}
             <CommandStrip command={runCmd} />
             <p className="text-xs text-mute">
-              Install writes only the local cache; the harness binds per run via{" "}
-              <span>--agent</span>. Optional <span>--model</span>{" "}
-              overrides this run&apos;s model. <span>agent_ref</span> is
-              provenance, not fingerprint identity.
+              {builtin ? (
+                <>
+                  Ships with ageval; no install. Bind a run with{" "}
+                  <span>--agent</span>. Optional <span>--model</span>{" "}
+                  overrides this run&apos;s model.
+                </>
+              ) : (
+                <>
+                  Install writes only the local cache; the harness binds per run
+                  via <span>--agent</span>. Optional <span>--model</span>{" "}
+                  overrides this run&apos;s model. <span>agent_ref</span> is
+                  provenance, not fingerprint identity.
+                </>
+              )}
             </p>
           </section>
 
@@ -436,9 +493,9 @@ export function AgentDetailPage() {
               ) : null}
             </div>
             <p className="text-xs text-mute">
-              Package default plus models that appeared on consented plaza
-              suites. Selecting one is query state on this harness page, not a
-              second package.
+              {builtin
+                ? "Models from plaza overlay runs of this harness. Selecting one is query state on this page, not a second package."
+                : "Package default plus models that appeared on consented plaza suites. Selecting one is query state on this harness page, not a second package."}
             </p>
             {models.length === 0 ? (
               <p className="text-sm text-mute">
@@ -500,21 +557,25 @@ export function AgentDetailPage() {
                 : "Appearances"}
             </h2>
             <p className="text-xs text-mute">
-              Official public complete release-bound suites with this Agent org’s
-              consent (direct attach or an approved appearance request).
-              Observational metrics only — PASS stays on the independent evaluator.
+              {builtin
+                ? "Official public complete release-bound suites whose overlay harness matches this card. Observational metrics only — PASS stays on the independent evaluator."
+                : "Official public complete release-bound suites with this Agent org’s consent (direct attach or an approved appearance request). Observational metrics only — PASS stays on the independent evaluator."}
             </p>
             {appearancesByVersion.length === 0 ? (
               <p className="text-sm text-mute">
                 {selectedModel
-                  ? "No consented appearances for this model yet."
-                  : (
-                    <>
-                      No Hub appearances yet. Attach a published{" "}
-                      <span>org/name@version</span> as this
-                      Agent’s org owner, or approve an appearance request.
-                    </>
-                  )}
+                  ? builtin
+                    ? "No plaza appearances for this model yet."
+                    : "No consented appearances for this model yet."
+                  : builtin
+                    ? "No plaza appearances yet. Upload a public complete suite on an official Dataset that ran this harness."
+                    : (
+                      <>
+                        No Hub appearances yet. Attach a published{" "}
+                        <span>org/name@version</span> as this
+                        Agent’s org owner, or approve an appearance request.
+                      </>
+                    )}
               </p>
             ) : (
               appearancesByVersion.map(([version, rows]) => (

@@ -1,7 +1,7 @@
 """CLI: ``ageval agent install|list|show|uninstall`` (design/14).
 
 Install writes only the local cache ($AGEVAL_HOME/agents) — never profiles /
-task.yaml. Run with ``ageval run <dataset> --agent <id>@<version>``.
+task.yaml. Run with ``ageval run <dataset> --agent pi`` or ``--agent <id>@<version>``.
 """
 
 from __future__ import annotations
@@ -19,7 +19,7 @@ agent_app = typer.Typer(
         "Manage local Agent definitions (ageval.agent/1).\n\n"
         "install writes only ~/.ageval/agents (or $AGEVAL_HOME/agents) — it does "
         "NOT modify profiles.yaml / task.yaml. Bind at run time with "
-        "`ageval run <dataset> --agent <id>@<version>` or `--agent <role>=<ref>`."
+        "`ageval run <dataset> --agent pi` (builtin) or `--agent <id>@<version>`."
     ),
     no_args_is_help=True,
 )
@@ -30,10 +30,10 @@ def register(app: typer.Typer) -> None:
 
 
 AGENT_OPTION_HELP = (
-    "Bind an installed Agent (ageval.agent/1) for this run; repeatable. "
-    "Forms: <id>@<version> (all roles), <role>=<ref> (one role), or a local "
-    "path to an agent dir / agent.yaml. Mutually exclusive with --profiles. "
-    "The package is a harness; binding.model is the default when --model is omitted."
+    "Bind an Agent harness (ageval.agent/1) for this run; repeatable. "
+    "Forms: short builtin id (pi, opencode, …), <id>@<version>, <role>=<ref>, "
+    "or a local path to an agent dir / agent.yaml. Mutually exclusive with "
+    "--profiles. binding.model is the default when --model is omitted."
 )
 
 MODEL_OPTION_HELP = (

@@ -13,11 +13,11 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { toast } from "@/components/ui/toast";
+import { toastError } from "@/lib/toast-error";
 import {
   decideRequests,
   listInbox,
   type ResourceRequest,
-  RegistryHttpError,
 } from "@/lib/api";
 import { getToken } from "@/lib/auth";
 import { rememberReturnPath } from "@/lib/return-path";
@@ -64,7 +64,6 @@ export function InboxPage() {
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [query, setQuery] = useState("");
   const [peek, setPeek] = useState<PeekTarget | null>(null);
-  const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
 
@@ -78,15 +77,10 @@ export function InboxPage() {
       .then((items) => {
         if (cancelled) return;
         setRows(items);
-        setError(null);
       })
       .catch((err: unknown) => {
         if (cancelled) return;
-        if (err instanceof RegistryHttpError) {
-          setError(`${err.code}: ${err.message}`);
-        } else {
-          setError(err instanceof Error ? err.message : String(err));
-        }
+        toastError(err);
       })
       .finally(() => {
         if (!cancelled) setLoading(false);
@@ -146,7 +140,6 @@ export function InboxPage() {
     const ids = pendingIds.filter((id) => selected.has(id));
     if (!ids.length) return;
     setBusy(true);
-    setError(null);
     try {
       const payload = await decideRequests(ids, action, token);
       const returned = payload.items || [];
@@ -157,11 +150,7 @@ export function InboxPage() {
       setSelected(new Set());
       toast(action === "approve" ? "Requests approved" : "Requests rejected");
     } catch (err) {
-      if (err instanceof RegistryHttpError) {
-        setError(`${err.code}: ${err.message}`);
-      } else {
-        setError(err instanceof Error ? err.message : String(err));
-      }
+      toastError(err);
     } finally {
       setBusy(false);
     }
@@ -173,7 +162,6 @@ export function InboxPage() {
         title="Inbox"
         sub="Pending listing and appearance requests you can decide."
       />
-      {error ? <p className="text-sm text-error">{error}</p> : null}
 
       <div className="flex flex-wrap items-center gap-2">
         <Input

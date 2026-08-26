@@ -18,6 +18,7 @@ from typing import Any
 
 from ageval.agents.manifest import AgentManifest, load_agent_manifest
 from ageval.agents.paths import agents_root, index_path, package_dir
+from ageval.agents.reserved import reject_reserved_harness_id
 from ageval.config.errors import ERROR_INVALID_PACKAGE, ConfigError
 from ageval.plugins.store import compute_tree_digest
 
@@ -224,6 +225,8 @@ def install_from_path(source: Path, *, agent_id: str | None = None) -> AgentInde
         if isinstance(agent_id, str) and agent_id.strip()
         else default_index_id(manifest)
     )
+    reject_reserved_harness_id(manifest.agent_id)
+    reject_reserved_harness_id(index_id)
     digest = compute_tree_digest(source)
     rel = f"{index_id}/{manifest.version}"
     dest = package_dir(index_id, manifest.version)

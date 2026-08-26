@@ -695,6 +695,7 @@ class ResultService:
             AttachAgentRefError,
             format_published_agent_ref,
             inject_published_agent_ref,
+            load_builtin_attach,
             parse_published_agent_spec,
         )
 
@@ -715,31 +716,40 @@ class ResultService:
                 "conflicting role in --agent and --role",
                 http_status=400,
             )
-        release = self.meta.get_by_version(package_id, version)
-        if release is None or not self.access.visible_package(release, auth):
-            raise RegistryAppError("not_found", "agent package not found", http_status=404)
         try:
-            kind = package_kind_for_media_type(release.media_type)
-        except ValueError as exc:
-            raise RegistryAppError("invalid_request", str(exc), http_status=400) from exc
-        if kind != "agent":
-            raise RegistryAppError(
-                "invalid_request",
-                "agent ref must name an agent package",
-                http_status=400,
-            )
-        data = read_blob(self.blobs, release.blob_digest, prefix="packages")
-        if data is None:
-            raise RegistryAppError("not_found", "agent package blob missing", http_status=404)
-        preview = _agent_preview_from_archive(data)
-        binding = preview.get("binding")
-        if not isinstance(binding, Mapping):
-            raise RegistryAppError(
-                "invalid_request",
-                "published agent binding is missing",
-                http_status=400,
-            )
-        agent_ref = format_published_agent_ref(package_id, version, release.package_digest)
+            builtin = load_builtin_attach(package_id, version)
+        except AttachAgentRefError as exc:
+            raise RegistryAppError(exc.error_code, exc.message, http_status=400) from exc
+        release_org_id: str | None = None
+        if builtin is not None:
+            binding, package_id, agent_ref = builtin
+        else:
+            release = self.meta.get_by_version(package_id, version)
+            if release is None or not self.access.visible_package(release, auth):
+                raise RegistryAppError("not_found", "agent package not found", http_status=404)
+            try:
+                kind = package_kind_for_media_type(release.media_type)
+            except ValueError as exc:
+                raise RegistryAppError("invalid_request", str(exc), http_status=400) from exc
+            if kind != "agent":
+                raise RegistryAppError(
+                    "invalid_request",
+                    "agent ref must name an agent package",
+                    http_status=400,
+                )
+            data = read_blob(self.blobs, release.blob_digest, prefix="packages")
+            if data is None:
+                raise RegistryAppError("not_found", "agent package blob missing", http_status=404)
+            preview = _agent_preview_from_archive(data)
+            binding = preview.get("binding")
+            if not isinstance(binding, Mapping):
+                raise RegistryAppError(
+                    "invalid_request",
+                    "published agent binding is missing",
+                    http_status=400,
+                )
+            agent_ref = format_published_agent_ref(package_id, version, release.package_digest)
+            release_org_id = (release.org_id or "").strip() or None
         try:
             cfg = json.loads(row.config_json or "{}")
         except (json.JSONDecodeError, TypeError):
@@ -763,10 +773,12 @@ class ResultService:
                 cfg["config_fingerprint"] = fingerprint_before
             self.meta.update_suite_config_json(suite_run_id, json.dumps(cfg, sort_keys=True))
         agent_org_owner = bool(
-            release.org_id
-            and self.access.org_owner_status(org_id=release.org_id, auth=auth) == "ok"
+            release_org_id
+            and self.access.org_owner_status(org_id=release_org_id, auth=auth) == "ok"
         )
-        if grant_consent is True or (grant_consent is None and agent_org_owner):
+        if builtin is None and (
+            grant_consent is True or (grant_consent is None and agent_org_owner)
+        ):
             self.meta.grant_agent_consent(
                 suite_run_id=suite_run_id,
                 package_id=package_id,

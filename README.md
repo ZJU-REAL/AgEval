@@ -120,7 +120,7 @@ uv run ageval executors -v
 uv run ageval view examples/journeys --no-browser
 ```
 
-Default `examples/journeys` profiles use `environment: docker`. Install an Agent package with `ageval agent install examples/agents/pi-default`, then bind it with `--agent`. Optional `--model` overrides this run.
+Default `examples/journeys` profiles use `environment: docker`. Bind a shipped harness with `--agent pi` (no install). Optional `--model` overrides this run. Custom overlay packs still use `ageval agent install` then `--agent org/name@version`.
 
 In-repo examples: [`examples/README.md`](examples/README.md) — journeys, `tau3-airline`, and catalog Agents.
 

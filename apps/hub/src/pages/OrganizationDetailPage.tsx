@@ -56,6 +56,7 @@ import {
   RegistryHttpError,
 } from "@/lib/api";
 import { getGithubUser, getToken } from "@/lib/auth";
+import { toastError } from "@/lib/toast-error";
 import { datasetRef, formatDate } from "@/lib/utils";
 
 type Tab = "overview" | "settings";
@@ -100,7 +101,6 @@ export function OrganizationDetailPage() {
   const [maxUses, setMaxUses] = useState("");
   const [expiresDays, setExpiresDays] = useState("7");
   const [createBusy, setCreateBusy] = useState(false);
-  const [createError, setCreateError] = useState<string | null>(null);
   /** Full key shown once after create (never re-fetched from list). */
   const [revealedKey, setRevealedKey] = useState<string | null>(null);
   const [revealCopied, setRevealCopied] = useState(false);
@@ -108,12 +108,10 @@ export function OrganizationDetailPage() {
 
   const [orgDanger, setOrgDanger] = useState<OrgDanger | null>(null);
   const [dangerBusy, setDangerBusy] = useState(false);
-  const [dangerError, setDangerError] = useState<string | null>(null);
 
   const [addOpen, setAddOpen] = useState(false);
   const [addLogin, setAddLogin] = useState("");
   const [addBusy, setAddBusy] = useState(false);
-  const [memberError, setMemberError] = useState<string | null>(null);
   const [memberBusy, setMemberBusy] = useState<string | null>(null);
 
   const isOwner = (org?.role || "").toLowerCase() === "owner";
@@ -232,11 +230,6 @@ export function OrganizationDetailPage() {
     [org, orgId],
   );
 
-  function memberErr(err: unknown): string {
-    if (err instanceof RegistryHttpError) return `${err.code}: ${err.message}`;
-    return err instanceof Error ? err.message : String(err);
-  }
-
   async function refreshOrgAndMembers() {
     if (!token) return;
     const [orgRow, memberRows] = await Promise.all([
@@ -250,12 +243,10 @@ export function OrganizationDetailPage() {
   function closeOrgDanger() {
     if (dangerBusy || revokeBusy) return;
     setOrgDanger(null);
-    setDangerError(null);
   }
 
   async function runOrgDanger() {
     if (!orgDanger || !token) return;
-    setDangerError(null);
     try {
       if (orgDanger.kind === "leave" || orgDanger.kind === "dissolve") {
         setDangerBusy(true);
@@ -282,7 +273,7 @@ export function OrganizationDetailPage() {
       }
       setOrgDanger(null);
     } catch (err: unknown) {
-      setDangerError(memberErr(err));
+      toastError(err);
     } finally {
       setDangerBusy(false);
       setRevokeBusy(null);
@@ -337,14 +328,13 @@ export function OrganizationDetailPage() {
     const login = addLogin.trim();
     if (!login) return;
     setAddBusy(true);
-    setMemberError(null);
     try {
       await addOrgMember(orgId, login, token, "member");
       setAddLogin("");
       setAddOpen(false);
       await refreshOrgAndMembers();
     } catch (err: unknown) {
-      setMemberError(memberErr(err));
+      toastError(err);
     } finally {
       setAddBusy(false);
     }
@@ -353,12 +343,11 @@ export function OrganizationDetailPage() {
   async function changeRole(userId: string, role: "owner" | "member") {
     if (!token) return;
     setMemberBusy(`role:${userId}`);
-    setMemberError(null);
     try {
       await setOrgMemberRole(orgId, userId, role, token);
       await refreshOrgAndMembers();
     } catch (err: unknown) {
-      setMemberError(memberErr(err));
+      toastError(err);
     } finally {
       setMemberBusy(null);
     }
@@ -704,16 +693,12 @@ export function OrganizationDetailPage() {
                         aria-label="Add member by GitHub Id"
                         onClick={() => {
                           setAddOpen(true);
-                          setMemberError(null);
                         }}
                       >
                         <Plus className="h-4 w-4" />
                       </Button>
                     </HoverTip>
                   </div>
-                  {memberError && !addOpen ? (
-                    <p className="text-sm text-error">{memberError}</p>
-                  ) : null}
                   {members.length === 0 ? (
                     <p className="text-sm text-mute">No members listed.</p>
                   ) : (
@@ -789,7 +774,7 @@ export function OrganizationDetailPage() {
                                         size="sm"
                                         disabled={memberBusy === transferKey}
                                         onClick={() => {
-                                          setDangerError(null);
+                                          
                                           setOrgDanger({
                                             kind: "transfer",
                                             userId: m.user_id,
@@ -807,7 +792,7 @@ export function OrganizationDetailPage() {
                                         lastOwner || memberBusy === removeKey
                                       }
                                       onClick={() => {
-                                        setDangerError(null);
+                                        
                                         setOrgDanger({
                                           kind: "remove",
                                           userId: m.user_id,
@@ -873,7 +858,6 @@ export function OrganizationDetailPage() {
                         void (async () => {
                           if (!token) return;
                           setCreateBusy(true);
-                          setCreateError(null);
                           try {
                             const body: {
                               max_uses?: number;
@@ -909,15 +893,7 @@ export function OrganizationDetailPage() {
                             );
                             setInviteKeys(keys);
                           } catch (err: unknown) {
-                            if (err instanceof RegistryHttpError) {
-                              setCreateError(`${err.code}: ${err.message}`);
-                            } else {
-                              setCreateError(
-                                err instanceof Error
-                                  ? err.message
-                                  : String(err),
-                              );
-                            }
+                            toastError(err);
                           } finally {
                             setCreateBusy(false);
                           }
@@ -928,9 +904,6 @@ export function OrganizationDetailPage() {
                     </Button>
                   </div>
 
-                  {createError ? (
-                    <p className="text-sm text-error">{createError}</p>
-                  ) : null}
                   {inviteLoadError ? (
                     <p className="text-sm text-error">{inviteLoadError}</p>
                   ) : null}
@@ -989,7 +962,7 @@ export function OrganizationDetailPage() {
                                     size="sm"
                                     disabled={revokeBusy === k.key_id}
                                     onClick={() => {
-                                      setDangerError(null);
+                                      
                                       setOrgDanger({
                                         kind: "revoke",
                                         keyId: k.key_id,
@@ -1045,7 +1018,7 @@ export function OrganizationDetailPage() {
                     className="shrink-0"
                     disabled={dangerBusy}
                     onClick={() => {
-                      setDangerError(null);
+                      
                       setOrgDanger({
                         kind: isOwner ? "dissolve" : "leave",
                       });
@@ -1069,7 +1042,6 @@ export function OrganizationDetailPage() {
           onClick={(e) => {
             if (e.target === e.currentTarget && !addBusy) {
               setAddOpen(false);
-              setMemberError(null);
             }
           }}
         >
@@ -1109,9 +1081,6 @@ export function OrganizationDetailPage() {
                 }}
               />
             </div>
-            {memberError ? (
-              <p className="text-sm text-error">{memberError}</p>
-            ) : null}
             <div className="flex justify-end gap-2">
               <Button
                 type="button"
@@ -1119,7 +1088,6 @@ export function OrganizationDetailPage() {
                 disabled={addBusy}
                 onClick={() => {
                   setAddOpen(false);
-                  setMemberError(null);
                 }}
               >
                 Cancel
@@ -1201,7 +1169,6 @@ export function OrganizationDetailPage() {
           description={orgDangerCopy(orgDanger).description}
           confirmLabel={orgDangerCopy(orgDanger).confirmLabel}
           busy={dangerBusy || Boolean(revokeBusy)}
-          error={dangerError}
           onCancel={closeOrgDanger}
           onConfirm={() => void runOrgDanger()}
         />

@@ -6,7 +6,9 @@
 
 单 Attempt `results upload` 通常上不了榜。正确路径：`ageval run <dataset>`（无 `--task`）→ `ageval results upload-suite --suite-run <id> --with-attempts`。申请人是 suite `uploaded_by`；不完备或 draft-bound 申请 listing fail closed。批准只写 listing 标记，不改 lock / fingerprint / overlay。
 
-`--agent` 投影进 profiles 通道，与 `--profiles` 互斥。`agent_ref` 是 harness 溯源不是身份，不进 `config_fingerprint`（包身份与 `--model` 见 [14](14-agent-hub.md)）。已上传 suite 允许延后把 published `org/name@version` 写入 **Registry 存的** `job_overlay`。Appearances 对齐尺子：executor、ACP entry、secret-free plugin options（**不含** model）。suite 可比性仍走 `_binding_role_key`（含实际 model）。不改 Attempt `lock.json`、digest、PASS。`local/` 与 `file:` 不能当 Hub 溯源。plaza 出场（官方 Dataset + public + complete + release）不变；仅 overlay 有 `agent_ref` 不够 —— Appearances 还要 Agent 包 org 同意。
+`--agent` 投影进 profiles 通道，与 `--profiles` 互斥。`agent_ref` 是 harness 溯源不是身份，不进 `config_fingerprint`（机制卡 vs 定制卡与 `--model` 见 [14](14-agent-hub.md)）。已上传 suite 允许延后把 published `org/name@version` 写入 **Registry 存的** `job_overlay`。Appearances 对齐尺子：executor、ACP entry、secret-free plugin options（**不含** model）。suite 可比性仍走 `_binding_role_key`（含实际 model）。不改 Attempt `lock.json`、digest、PASS。`local/` 与 `file:` 不能当 Hub 溯源。plaza 出场（官方 Dataset + public + complete + release）不变。
+
+机制卡（builtin 短 id）的已登记 model 从 plaza overlay 按 `resolve_agent_id` 归堆，**不**经 Agent org 同意。定制 upload 包的 Appearances 仍要该包 org 同意：owner 自己 attach，或批准 `agent_appearance` 请求。Leaderboard 上榜门（listing）不因此放宽。
 
 Leaderboard 两列保持 Harness / Model。有 consented published `agent_refs` 时：Harness 打开 `/agents/{package_id}`，Model 打开同一 harness 页 `?model=`（overlay `model`）。无 ref 则两列都是观测文本，不要按 executor / overlay 文案猜包。不要 `/agents/…/models/…`。Environment 仍是机制标。行展开仍走整行点击；链 `stopPropagation`。
 

@@ -10,6 +10,18 @@ from typing import Any
 from services.registry.access import AccessPolicy
 from services.registry.blob_io import read_blob, sha256_file
 from services.registry.brand_marks import normalize_icon_github, normalize_icon_key
+from services.registry.builtin_agents import (
+    builtin_agent_item,
+    builtin_agent_items,
+    is_builtin_agent_id,
+    reserved_harness_leaf,
+)
+from services.registry.builtin_agents import (
+    builtin_list_files as builtin_agent_list_files,
+)
+from services.registry.builtin_agents import (
+    builtin_read_file as builtin_agent_read_file,
+)
 from services.registry.builtin_plugins import (
     builtin_plugin_item,
     builtin_plugin_items,
@@ -26,6 +38,31 @@ from services.registry.store import (
     package_kind_for_media_type,
     release_to_dict,
 )
+
+
+def overlay_kind(dataset_id: str, package_kind: str | None) -> str | None:
+    """Which builtin catalog to serve. Omitted kind prefers plugin on collision."""
+    want = (package_kind or "").strip().casefold() or None
+    if want not in {None, "plugin", "agent"}:
+        return None
+    plugin = is_builtin_plugin_id(dataset_id)
+    agent = is_builtin_agent_id(dataset_id)
+    if want == "plugin":
+        return "plugin" if plugin else None
+    if want == "agent":
+        return "agent" if agent else None
+    if plugin:
+        return "plugin"
+    if agent:
+        return "agent"
+    return None
+
+
+def _builtin_item(dataset_id: str, kind: str) -> dict[str, Any]:
+    item = builtin_plugin_item(dataset_id) if kind == "plugin" else builtin_agent_item(dataset_id)
+    if item is None:
+        raise RegistryAppError("not_found", f"builtin {kind} not found", http_status=404)
+    return item
 
 
 def _normalize_plugin_name_segment(dataset_id: str, raw: object) -> str:
@@ -139,6 +176,14 @@ class PackageService:
                 f"{leaf} ships with ageval; it is not a Hub package",
                 http_status=400,
             )
+        if package_kind == "agent":
+            hit = reserved_harness_leaf(dataset_id)
+            if hit is not None:
+                raise RegistryAppError(
+                    "agent_id_reserved",
+                    f"{hit} ships with ageval; it is not a Hub package",
+                    http_status=400,
+                )
         if slot == DRAFT_SLOT or is_draft_version(version):
             return self.upsert_draft(meta=meta, archive=archive, auth=auth)
         if not org_id:
@@ -394,14 +439,11 @@ class PackageService:
         self._with_download_counts(items, auth=auth)
         if favorited:
             items = [i for i in items if i.get("favorited")]
-        if (
-            package_kind == "plugin"
-            and not mine
-            and not orgs
-            and not favorited
-            and visibility != "private"
-        ):
+        explore = not mine and not orgs and not favorited and visibility != "private"
+        if package_kind == "plugin" and explore:
             items = builtin_plugin_items(prefix=prefix) + items
+        if package_kind == "agent" and explore:
+            items = builtin_agent_items(prefix=prefix) + items
         return {"items": items}
 
     def _filter_orgs(self, items: list[dict[str, Any]], auth: TokenInfo) -> list[dict[str, Any]]:
@@ -434,10 +476,17 @@ class PackageService:
                 out.append(item)
         return out
 
-    def list_versions(self, *, dataset_id: str, auth: TokenInfo) -> dict[str, Any]:
-        builtin = builtin_plugin_item(dataset_id)
-        if builtin is not None:
-            return {"dataset_id": dataset_id, "items": [builtin]}
+    def list_versions(
+        self,
+        *,
+        dataset_id: str,
+        auth: TokenInfo,
+        package_kind: str | None = None,
+    ) -> dict[str, Any]:
+        kind = overlay_kind(dataset_id, package_kind)
+        if kind is not None:
+            builtin = _builtin_item(dataset_id, kind)
+            return {"dataset_id": builtin["dataset_id"], "items": [builtin]}
         rows = self.meta.list_versions(dataset_id, include_private=True)
         items = [release_to_dict(r) for r in rows if self.access.visible_package(r, auth)]
         draft = self.meta.get_draft(dataset_id)
@@ -458,16 +507,17 @@ class PackageService:
         version: str | None,
         package_digest: str | None,
         auth: TokenInfo,
+        package_kind: str | None = None,
     ) -> dict[str, Any]:
-        builtin = builtin_plugin_item(dataset_id)
-        if builtin is not None:
+        kind = overlay_kind(dataset_id, package_kind)
+        if kind is not None:
             if package_digest:
-                raise RegistryAppError("not_found", "builtin plugin has no blob", http_status=404)
+                raise RegistryAppError("not_found", f"builtin {kind} has no blob", http_status=404)
             if version:
                 raise RegistryAppError(
-                    "not_found", "builtin plugin has no version", http_status=404
+                    "not_found", f"builtin {kind} has no version", http_status=404
                 )
-            return builtin
+            return _builtin_item(dataset_id, kind)
         row = self._visible_release(
             dataset_id=dataset_id,
             auth=auth,
@@ -522,12 +572,16 @@ class PackageService:
         auth: TokenInfo,
         package_digest: str | None = None,
         version: str | None = None,
+        package_kind: str | None = None,
     ) -> dict[str, Any]:
         from services.registry.builtin_plugins import builtin_list_files
         from services.registry.package_files import get_or_build_index
 
-        if is_builtin_plugin_id(dataset_id):
+        kind = overlay_kind(dataset_id, package_kind)
+        if kind == "plugin":
             return builtin_list_files(dataset_id)
+        if kind == "agent":
+            return builtin_agent_list_files(dataset_id)
 
         row = self._visible_release(
             dataset_id=dataset_id,
@@ -595,6 +649,7 @@ class PackageService:
         auth: TokenInfo,
         package_digest: str | None = None,
         version: str | None = None,
+        package_kind: str | None = None,
     ) -> dict[str, Any]:
         from services.registry.builtin_plugins import builtin_read_file
         from services.registry.package_files import (
@@ -607,8 +662,11 @@ class PackageService:
             read_member,
         )
 
-        if is_builtin_plugin_id(dataset_id):
+        kind = overlay_kind(dataset_id, package_kind)
+        if kind == "plugin":
             return builtin_read_file(dataset_id, file_path)
+        if kind == "agent":
+            return builtin_agent_read_file(dataset_id, file_path)
 
         row = self._visible_release(
             dataset_id=dataset_id,
@@ -846,9 +904,7 @@ class PackageService:
     def _store_task_summary(self, archive: Path, package_digest: str) -> None:
         from services.registry.package_files import build_index_from_archive
 
-        index = build_index_from_archive(
-            archive.read_bytes(), package_digest=package_digest
-        )
+        index = build_index_from_archive(archive.read_bytes(), package_digest=package_digest)
         tasks, has_shared = index.list_tasks()
         self.meta.put_package_task_summary(
             package_digest,

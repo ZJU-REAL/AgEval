@@ -101,6 +101,24 @@ def _cache_package_root(ref: str) -> Path:
             "agent_ref must be <id>@<version>+sha256:…",
             location=ref,
         )
+    from ageval.agents.reserved import builtin_harness_root, canonical_harness_id
+    from ageval.plugins.store import compute_tree_digest
+
+    hit = canonical_harness_id(agent_id.strip())
+    if hit is not None:
+        root = builtin_harness_root(hit)
+        have = compute_tree_digest(root)
+        if plus and digest.strip():
+            want = digest.strip()
+            hex_want = want[len(_SHA_PREFIX) :] if want.startswith(_SHA_PREFIX) else want
+            hex_have = have[len(_SHA_PREFIX) :] if have.startswith(_SHA_PREFIX) else have
+            if not hex_have.startswith(hex_want):
+                raise ConfigError(
+                    ERROR_INVALID_PACKAGE,
+                    "agent_ref digest does not match the installed package",
+                    location=ref,
+                )
+        return root
     entry, root = resolve_installed_ref(agent_id.strip(), version.strip())
     if plus and digest.strip():
         want = digest.strip()

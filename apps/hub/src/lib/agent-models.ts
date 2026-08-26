@@ -60,9 +60,12 @@ export function formatAgentRunCommand(
   packageId: string,
   version: string,
   model?: string | null,
+  opts?: { builtin?: boolean },
 ): string {
-  const ver = version.trim() || "<version>";
-  const base = `ageval run <dataset> --agent ${packageId}@${ver}`;
+  const agent = opts?.builtin
+    ? `--agent ${packageId}`
+    : `--agent ${packageId}@${version.trim() || "<version>"}`;
+  const base = `ageval run <dataset> ${agent}`;
   const chosen = (model || "").trim();
   if (!chosen) return base;
   return `${base} --model ${shellToken(chosen)}`;

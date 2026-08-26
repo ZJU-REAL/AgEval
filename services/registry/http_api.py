@@ -375,9 +375,16 @@ class RegistryHttpApi:
             return _caught(exc)
         return json_result(200, payload)
 
-    def _list_package_versions(self, *, dataset_id: str, auth: TokenInfo) -> HttpResult:
+    def _list_package_versions(
+        self, *, dataset_id: str, auth: TokenInfo, qs: dict[str, list[str]]
+    ) -> HttpResult:
         try:
-            payload = self.state.packages.list_versions(dataset_id=dataset_id, auth=auth)
+            package_kind = (qs.get("package_kind") or [None])[0]
+            payload = self.state.packages.list_versions(
+                dataset_id=dataset_id,
+                auth=auth,
+                package_kind=package_kind,
+            )
             items = payload.get("items") or []
             if any(
                 isinstance(item, dict) and item.get("package_kind") == "agent" for item in items
@@ -431,13 +438,16 @@ class RegistryHttpApi:
         auth: TokenInfo,
         package_digest: str | None = None,
         version: str | None = None,
+        qs: dict[str, list[str]] | None = None,
     ) -> HttpResult:
         try:
+            package_kind = (qs.get("package_kind") or [None])[0] if qs else None
             payload = self.state.packages.list_files(
                 dataset_id=dataset_id,
                 auth=auth,
                 package_digest=package_digest,
                 version=version,
+                package_kind=package_kind,
             )
         except RegistryAppError as exc:
             return _caught(exc)
@@ -482,14 +492,17 @@ class RegistryHttpApi:
         auth: TokenInfo,
         package_digest: str | None = None,
         version: str | None = None,
+        qs: dict[str, list[str]] | None = None,
     ) -> HttpResult:
         try:
+            package_kind = (qs.get("package_kind") or [None])[0] if qs else None
             payload = self.state.packages.read_file(
                 dataset_id=dataset_id,
                 file_path=file_path,
                 auth=auth,
                 package_digest=package_digest,
                 version=version,
+                package_kind=package_kind,
             )
         except RegistryAppError as exc:
             return _caught(exc)

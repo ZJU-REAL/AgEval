@@ -7,6 +7,7 @@ from pathlib import Path
 from typing import Any
 
 from ageval.agents.manifest import load_agent_manifest
+from ageval.agents.reserved import reject_reserved_harness_id
 from ageval.config.errors import ConfigError
 from ageval.registry.agent_package import (
     AGENT_MEDIA_TYPE,
@@ -48,7 +49,9 @@ class AgentPublishCommand:
     ) -> dict[str, Any]:
         root = agent_root.expanduser().resolve(strict=False)
         manifest = load_agent_manifest(root)
+        reject_reserved_harness_id(manifest.agent_id)
         package_id = hub_agent_package_id(manifest.agent_id, org=org or "")
+        reject_reserved_harness_id(package_id)
         package_digest = compute_agent_digest(root)
         archive, blob_digest, size = build_agent_archive(root)
 

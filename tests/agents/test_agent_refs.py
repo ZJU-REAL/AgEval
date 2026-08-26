@@ -37,7 +37,23 @@ def test_published_agent_ref_parts() -> None:
     )
     assert published_agent_ref_parts("local/http-default@0.1.0+sha256:aaaaaaaaaaaa") is None
     assert published_agent_ref_parts("file:/tmp/agent@dev+sha256:aaaaaaaaaaaa") is None
+    assert published_agent_ref_parts("pi@0.1.0+sha256:aaaaaaaaaaaa") is None
     assert published_agent_ref_parts(None) is None
+
+
+def test_builtin_ref_resolves_shipped_tree() -> None:
+    from ageval.agents.reserved import builtin_harness_root
+    from ageval.plugins.store import compute_tree_digest
+
+    root = builtin_harness_root("opencode")
+    digest = compute_tree_digest(root)
+    short = digest[len("sha256:") :][:12]
+    resolved = package_root_from_agent_ref(f"opencode@0.1.0+sha256:{short}")
+    assert resolved == root
+    assert (resolved / "overlays" / "opencode.litellm.json").is_file()
+    with pytest.raises(ConfigError) as ei:
+        package_root_from_agent_ref("opencode@0.1.0+sha256:ffffffffffff")
+    assert ei.value.error_code == "invalid_package"
 
 
 def test_file_ref_resolves_directory(tmp_path: Path) -> None:

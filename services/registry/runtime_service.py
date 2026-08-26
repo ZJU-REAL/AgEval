@@ -1,7 +1,9 @@
 """Derived Agent appearances over official public Leaderboard suites.
 
 Nobody stores a Runtime or appearance row. Reduce is here; HTTP stays thin.
-Group key is the published Hub id ``org/name`` parsed from ``agent_ref``.
+Uploaded packs group by published Hub id ``org/name`` from ``agent_ref``
+(with Agent-org consent). Builtin mechanism cards group by
+``resolve_agent_id`` and skip consent.
 """
 
 from __future__ import annotations
@@ -55,12 +57,17 @@ class RuntimeService:
         self.results = results
 
     def appearances_for_agent(self, package_id: str, auth: TokenInfo) -> list[dict[str, Any]]:
-        """Appearances whose ``agent_ref`` parses to *package_id* (``org/name``)."""
+        """Appearances for an uploaded ``org/name`` or a builtin short id."""
         want = (package_id or "").strip()
         if not want:
             return []
-        grouped = self._reduce(auth)
-        rows = grouped.get(want) or []
+        from ageval.agents.reserved import canonical_harness_id
+
+        harness = canonical_harness_id(want)
+        if harness is not None:
+            rows = self._reduce_builtin(harness, auth)
+        else:
+            rows = self._reduce(auth).get(want) or []
         return sorted(
             rows,
             key=lambda a: (
@@ -69,6 +76,25 @@ class RuntimeService:
                 str(a.get("role") or ""),
             ),
         )
+
+    def _reduce_builtin(self, harness_id: str, auth: TokenInfo) -> list[dict[str, Any]]:
+        official = official_dataset_ids(self.meta.list_releases(include_private=True))
+        listed = self.results.list_suites(auth=auth, dataset_id=None)
+        items = [s for s in (listed.get("items") or []) if isinstance(s, Mapping)]
+        digest_cache: dict[tuple[str, str], str] = {}
+        out: list[dict[str, Any]] = []
+        for suite in items:
+            if not is_plaza_source_suite(suite, official):
+                continue
+            package_digest = _package_digest_for_suite(self.meta, suite, digest_cache)
+            out.extend(
+                _appearances_from_suite(
+                    suite,
+                    package_digest=package_digest,
+                    harness_id=harness_id,
+                )
+            )
+        return out
 
     def _reduce(self, auth: TokenInfo) -> dict[str, list[dict[str, Any]]]:
         official = official_dataset_ids(self.meta.list_releases(include_private=True))
@@ -148,10 +174,22 @@ def _overlay_paths(binding: Mapping[str, Any]) -> list[str]:
     return [str(item).strip() for item in raw if str(item).strip()]
 
 
+def _version_from_ref(ref: object) -> str:
+    if not isinstance(ref, str):
+        return ""
+    at = ref.find("@")
+    if at <= 0:
+        return ""
+    rest = ref[at + 1 :]
+    plus = rest.find("+")
+    return (rest[:plus] if plus >= 0 else rest).strip()
+
+
 def _appearances_from_suite(
     suite: Mapping[str, Any],
     *,
     package_digest: str = "",
+    harness_id: str | None = None,
 ) -> list[dict[str, Any]]:
     overlay = suite.get("job_overlay")
     if not isinstance(overlay, Mapping):
@@ -167,14 +205,22 @@ def _appearances_from_suite(
         role_id = str(role).strip()
         if not role_id:
             continue
+        product = resolve_agent_id(raw)
         teammates_all.append(
             {
                 "role": role_id,
                 "executor": str(raw.get("executor") or "").strip(),
-                "entry": resolve_agent_id(raw),
+                "entry": product,
                 "display_name": agent_display_name(raw),
             }
         )
+        if harness_id is not None:
+            if product != harness_id:
+                continue
+            published = published_agent_ref_parts(raw.get("agent_ref"))
+            version = published[1] if published else _version_from_ref(raw.get("agent_ref"))
+            valid.append((role_id, raw, (harness_id, version)))
+            continue
         parts = published_agent_ref_parts(raw.get("agent_ref"))
         if parts is None:
             continue

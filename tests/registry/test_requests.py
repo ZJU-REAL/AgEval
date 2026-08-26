@@ -205,6 +205,36 @@ def test_listing_reject_and_incomplete_fail_closed(tmp_path: Path) -> None:
     assert meta["config_fingerprint"] == "sha256:aaaaaaaa"
 
 
+def test_apply_appearance_builtin_is_direct(tmp_path: Path) -> None:
+    packages, results, requests, runtimes = _svcs(tmp_path)
+    _publish_dataset(
+        packages, tmp_path, dataset_id="official/gaia", org_id="official", owner="alice"
+    )
+    bob = TokenInfo(scopes=frozenset({"results:upload"}), user_id="bob")
+    alice = TokenInfo(scopes=frozenset({"results:upload"}), user_id="alice")
+    _upload(
+        results,
+        tmp_path,
+        suite_run_id="s_builtin",
+        dataset_id="official/gaia",
+        user_id="bob",
+        agent_profiles={"solver": dict(PI)},
+    )
+    applied = requests.apply(
+        kind="agent_appearance",
+        suite_run_id="s_builtin",
+        auth=bob,
+        agent="pi",
+    )
+    assert applied["direct_attach"] is True
+    assert applied.get("request") is None
+    assert str(applied["job_overlay"]["agent_profiles"]["solver"]["agent_ref"]).startswith(
+        "pi@0.1.0+"
+    )
+    rows = runtimes.appearances_for_agent("pi", alice)
+    assert [r["suite_run_id"] for r in rows] == ["s_builtin"]
+
+
 def test_appearance_request_approve_uses_attach(tmp_path: Path) -> None:
     packages, results, requests, runtimes = _svcs(tmp_path)
     _publish_dataset(

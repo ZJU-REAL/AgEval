@@ -12,6 +12,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Input } from "@/components/ui/input";
 import { toast } from "@/components/ui/toast";
+import { toastError } from "@/lib/toast-error";
 import {
   Select,
   SelectContent,
@@ -23,15 +24,19 @@ import {
   addResultShare,
   applyRequest,
   deleteResult,
+  isBuiltinPackage,
+  listPackageVersionsWithAppearances,
   listResultShares,
   listSuiteRequests,
   removeResultShare,
   setResultVisibility,
+  type JobOverlay,
   type ResourceRequest,
   type ResultShare,
   type SuiteRow,
   RegistryHttpError,
 } from "@/lib/api";
+import { overlayHarnessIds } from "@/lib/utils";
 
 /** Compare Hub appearance specs: optional `role=`, ignore `+digest`. */
 function appearanceKey(value: string | undefined): string {
@@ -58,6 +63,7 @@ export function ResultOwnerOps({
   onVisibility,
   onDeleted,
   onAttached,
+  jobOverlay,
 }: {
   kind: "attempt" | "suite";
   resultId: string;
@@ -70,9 +76,9 @@ export function ResultOwnerOps({
   onVisibility?: (next: "public" | "private") => void;
   onDeleted?: () => void;
   onAttached?: (suite: Partial<SuiteRow>) => void;
+  jobOverlay?: JobOverlay | null;
 }) {
   const [busy, setBusy] = useState(false);
-  const [error, setError] = useState<string | null>(null);
   const [shares, setShares] = useState<ResultShare[]>([]);
   const [requests, setRequests] = useState<ResourceRequest[]>([]);
   const [targetType, setTargetType] = useState<"org" | "user">("org");
@@ -89,6 +95,28 @@ export function ResultOwnerOps({
     let cancelled = false;
     setShares([]);
     setRequests([]);
+    setAgentRef("");
+    const ids =
+      kind === "suite" ? overlayHarnessIds(jobOverlay) : [];
+    const builtinLoad =
+      ids.length > 0
+        ? Promise.all(
+            ids.map((id) =>
+              listPackageVersionsWithAppearances(id, token, {
+                packageKind: "agent",
+              })
+                .then((listed) => listed.items.find(isBuiltinPackage) ?? null)
+                .catch(() => null),
+            ),
+          ).then((rows) => {
+            const hits = rows.filter(
+              (row): row is NonNullable<typeof row> => row != null,
+            );
+            if (!cancelled && hits.length === 1) {
+              setAgentRef(hits[0].dataset_id);
+            }
+          })
+        : Promise.resolve();
     const shareLoad = listResultShares(kind, resultId, token)
       .then((rows) => {
         if (!cancelled) setShares(rows);
@@ -106,11 +134,11 @@ export function ResultOwnerOps({
               if (!cancelled) setRequests([]);
             })
         : Promise.resolve();
-    void Promise.all([shareLoad, requestLoad]);
+    void Promise.all([shareLoad, requestLoad, builtinLoad]);
     return () => {
       cancelled = true;
     };
-  }, [shareOpen, canManage, kind, resultId, token]);
+  }, [shareOpen, canManage, kind, resultId, token, jobOverlay]);
 
   const pendingAppearance = useMemo(
     () =>
@@ -139,11 +167,7 @@ export function ResultOwnerOps({
   const authToken = token;
 
   function fail(err: unknown) {
-    if (err instanceof RegistryHttpError) {
-      setError(`${err.code}: ${err.message}`);
-    } else {
-      setError(err instanceof Error ? err.message : String(err));
-    }
+    toastError(err);
   }
 
   async function reloadRequests() {
@@ -158,7 +182,6 @@ export function ResultOwnerOps({
   async function changeVisibility(next: "public" | "private") {
     if (next === visibility) return;
     setBusy(true);
-    setError(null);
     try {
       await setResultVisibility(kind, resultId, next, authToken);
       onVisibility?.(next);
@@ -174,7 +197,6 @@ export function ResultOwnerOps({
     const id = targetId.trim();
     if (!id) return;
     setBusy(true);
-    setError(null);
     try {
       const row = await addResultShare(
         kind,
@@ -194,7 +216,6 @@ export function ResultOwnerOps({
 
   async function unshare(row: ResultShare) {
     setBusy(true);
-    setError(null);
     try {
       await removeResultShare(
         kind,
@@ -219,7 +240,6 @@ export function ResultOwnerOps({
   async function requestListing() {
     if (kind !== "suite" || pendingListing) return;
     setBusy(true);
-    setError(null);
     try {
       await applyRequest(
         { kind: "leaderboard_list", suite_run_id: resultId },
@@ -243,7 +263,6 @@ export function ResultOwnerOps({
     const spec = agentRef.trim();
     if (!spec || kind !== "suite" || matchingAppearance) return;
     setBusy(true);
-    setError(null);
     try {
       const row = await applyRequest(
         { kind: "agent_appearance", suite_run_id: resultId, agent: spec },
@@ -271,7 +290,6 @@ export function ResultOwnerOps({
 
   async function remove() {
     setBusy(true);
-    setError(null);
     try {
       await deleteResult(kind, resultId, authToken, {
         withAttempts: kind === "suite" && withAttempts,
@@ -306,7 +324,6 @@ export function ResultOwnerOps({
         <DropdownMenuContent align="end">
           <DropdownMenuItem
             onSelect={() => {
-              setError(null);
               setShareOpen(true);
             }}
           >
@@ -317,7 +334,6 @@ export function ResultOwnerOps({
           <DropdownMenuItem
             className="text-error focus:text-error data-[highlighted]:text-error"
             onSelect={() => {
-              setError(null);
               setConfirmDelete(true);
             }}
           >
@@ -335,11 +351,9 @@ export function ResultOwnerOps({
             ? "Who can see this suite, and whether it is listed."
             : "Who can see this attempt."
         }
-        error={error}
         onClose={() => {
           if (!busy) {
             setShareOpen(false);
-            setError(null);
           }
         }}
       >
@@ -373,7 +387,7 @@ export function ResultOwnerOps({
           {kind === "suite" ? (
             <div className="space-y-2">
               <p className="text-xs font-medium text-mute uppercase tracking-wide">
-                Attach published agent
+                Attach agent
               </p>
               <div className="flex flex-wrap items-center gap-2">
                 <Input
@@ -521,11 +535,9 @@ export function ResultOwnerOps({
         }
         confirmLabel="Delete"
         busy={busy}
-        error={error}
         onCancel={() => {
           if (!busy) {
             setConfirmDelete(false);
-            setError(null);
           }
         }}
         onConfirm={() => void remove()}

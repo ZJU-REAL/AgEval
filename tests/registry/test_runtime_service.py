@@ -158,6 +158,41 @@ def _upload(
     )
 
 
+def test_builtin_harness_appearances_skip_consent(tmp_path: Path) -> None:
+    packages, results, runtimes = _services(tmp_path)
+    _publish(packages, tmp_path, dataset_id="official/gaia", org_id="official")
+    builtin_binding = {
+        "executor": "acp",
+        "extensions": [{"plugin": "acp", "options": {"entry": "pi"}}],
+        "model": "glm-4.7",
+        "agent_ref": "pi@0.1.0+sha256:aaaaaaaaaaaa",
+    }
+    uploaded_binding = _bound("official/pi-default", entry="pi", model="dashscope/qwen")
+    _upload(
+        results,
+        tmp_path,
+        suite_run_id="suite_builtin_ref",
+        dataset_id="official/gaia",
+        agent_profiles={"solver": builtin_binding},
+    )
+    _upload(
+        results,
+        tmp_path,
+        suite_run_id="suite_uploaded_ref",
+        dataset_id="official/gaia",
+        agent_profiles={"solver": uploaded_binding},
+    )
+    auth = TokenInfo(scopes=frozenset(), user_id="")
+    assert runtimes.appearances_for_agent("official/pi-default", auth) == []
+    rows = runtimes.appearances_for_agent("pi", auth)
+    by_suite = {r["suite_run_id"]: r for r in rows}
+    assert set(by_suite) == {"suite_builtin_ref", "suite_uploaded_ref"}
+    assert by_suite["suite_builtin_ref"]["model"] == "glm-4.7"
+    assert by_suite["suite_builtin_ref"]["package_id"] == "pi"
+    assert by_suite["suite_uploaded_ref"]["model"] == "dashscope/qwen"
+    assert by_suite["suite_uploaded_ref"]["package_id"] == "pi"
+
+
 def test_official_public_suite_appears_community_does_not(tmp_path: Path) -> None:
     packages, results, runtimes = _services(tmp_path)
     _publish(packages, tmp_path, dataset_id="official/gaia", org_id="official")

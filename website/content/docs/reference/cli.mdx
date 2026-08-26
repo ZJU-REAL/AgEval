@@ -52,7 +52,7 @@ uv run ageval results upload|attach-agent|request|inbox|decide|share|unshare|set
 | `--keep-workspace` | 清理后保留环境工作根（默认删除）。 |
 | `--keep-vendor-raw` | seal 后保留 vendor raw / layer B；默认丢掉。与 `--keep-workspace` 独立 |
 | `--dir <path>` | 只配合 Hub ref：在 `<path>/<dataset_id>/` 找包；已匹配则复用 |
-| `--agent` | 用已安装的 `ageval.agent/1` harness 绑定 job；与 `--profiles` 互斥 |
+| `--agent` | 绑定 `ageval.agent/1` harness（`pi`、`org/name@version` 或本地路径）；与 `--profiles` 互斥 |
 | `--model` | 改这次 run 已绑角色的 `binding.model`；须配合 `--agent`。不是 `results upload-suite --model` |
 | `--set` / `--profiles` | 见下；与 job binding 相关 |
 | `--probe` | 只做可行性：按绑定 / `environment` 打印 plan + readiness。不 invoke Agent、不 bake、不改 lock digest。选中路径不满足则 exit 1。 |

@@ -6,6 +6,7 @@ import {
   type MarkDraft,
 } from "@/components/brand-mark-picker";
 import { toast } from "@/components/ui/toast";
+import { toastError } from "@/lib/toast-error";
 import { updatePackageIcon } from "@/lib/api";
 import {
   resolveEntityMark,
@@ -38,7 +39,6 @@ export function EntityMarkControl({
 }) {
   const [open, setOpen] = useState(false);
   const [busy, setBusy] = useState(false);
-  const [error, setError] = useState<string | null>(null);
   const mark = useMemo(() => resolveEntityMark(hint), [hint]);
 
   if (!canEdit) {
@@ -50,7 +50,6 @@ export function EntityMarkControl({
       <button
         type="button"
         onClick={() => {
-          setError(null);
           setOpen(true);
         }}
         aria-label="Change icon"
@@ -66,7 +65,6 @@ export function EntityMarkControl({
         current={draftFromHint(hint)}
         uploadedBy={hint.uploadedBy}
         busy={busy}
-        error={error}
         onCancel={() => {
           if (!busy) setOpen(false);
         }}
@@ -78,7 +76,6 @@ export function EntityMarkControl({
                 ? { icon_key: "", icon_github: draft.login }
                 : { icon_key: "", icon_github: "" };
           setBusy(true);
-          setError(null);
           void updatePackageIcon(packageId, body, token)
             .then((updated) => {
               onUpdated({
@@ -89,7 +86,7 @@ export function EntityMarkControl({
               toast("Icon updated");
             })
             .catch((err: unknown) => {
-              setError(err instanceof Error ? err.message : String(err));
+              toastError(err);
             })
             .finally(() => setBusy(false));
         }}

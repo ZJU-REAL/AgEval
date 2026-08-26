@@ -837,6 +837,58 @@ def test_first_class_usage_and_jsonl_labels_without_invocation_meta(tmp_path: Pa
     assert terminal.get("elapsed_ms") == pytest.approx(142.5)
     assert "usage=" not in (terminal.get("content") or "")
     assert terminal.get("extra") == {"reasoning_tokens": 3, "foo": True}
+
+
+def test_actor_model_from_job_overlay_when_lock_has_no_profiles(
+    tmp_path: Path,
+) -> None:
+    """Sealed lock.json is overlay-only; default runs drop invocation metadata."""
+    db = _clean_db(tmp_path)
+    job_id = _seed_suite_run(db)
+    root = db / ".ageval" / "runs" / "run_alpha_1"
+    root.mkdir(parents=True, exist_ok=True)
+    (root / "lock.json").write_text(
+        json.dumps(
+            {
+                "task_id": "alpha",
+                "dataset_id": "test/suite-min",
+                "dataset_version": "0.1.0",
+                "job_overlay": {
+                    "environment": "docker",
+                    "agent_profiles": {
+                        "solver": {
+                            "executor": "openai-http",
+                            "label": "openai-http · qwen",
+                            "model": "dashscope/deepseek-v4-flash",
+                        }
+                    },
+                },
+            }
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    (root / "result.json").write_text(json.dumps({"status": "PASS", "score": 1.0}) + "\n")
+    (root / "summary.json").write_text(json.dumps({"status": "PASS"}) + "\n")
+    (root / "trajectory.jsonl").write_text(
+        json.dumps(
+            {
+                "type": "terminal",
+                "ok": True,
+                "elapsed_ms": 10,
+                "usage": {"prompt_tokens": 1, "completion_tokens": 1},
+                "metadata": {"profile_id": "solver"},
+            }
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+
+    detail = trials.get_trial(db, job_id, "alpha", "run_alpha_1")
+    actor = (detail["trial"].get("actors") or [])[0]
+    assert actor["agent"] == "openai-http · qwen"
+    assert actor["model"] == "dashscope/deepseek-v4-flash"
+    assert actor.get("executor_kind") == "openai-http"
     assert detail["trial"].get("extra") is None
 
 
