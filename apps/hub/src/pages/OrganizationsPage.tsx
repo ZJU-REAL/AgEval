@@ -2,10 +2,11 @@ import { Building2, Plus } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 
+import { EmptyState, LoadingState } from "@/components/empty-state";
 import { HoverTip } from "@/components/hover-tip";
 import { OfficialMark } from "@/components/official-mark";
 import { PageHead } from "@/components/page-head";
-import { SignInLink } from "@/components/sign-in-button";
+import { SignInButton } from "@/components/sign-in-button";
 import { Button } from "@/components/ui/button";
 import { FloatingField } from "@/components/ui/floating-field";
 import { Input } from "@/components/ui/input";
@@ -219,14 +220,14 @@ export function OrganizationsPage() {
       />
 
       {!token ? (
-        <div className="rounded-[8px] border border-hairline bg-canvas-soft p-6 text-sm text-body">
-          <p className="font-medium text-ink">Sign in required</p>
-          <p className="mt-1 text-mute">
-            <SignInLink /> to list your organizations.
-          </p>
-        </div>
+        <EmptyState
+          icon={Building2}
+          glyph="orgs"
+          title="Sign in to see org packages"
+          action={<SignInButton />}
+        />
       ) : loading ? (
-        <p className="text-sm text-mute">Loading…</p>
+        <LoadingState label="Loading organizations" />
       ) : error ? (
         <div className="rounded-[8px] border border-hairline bg-canvas-soft p-4 text-sm">
           <p className="text-error font-medium">Could not load organizations</p>
@@ -268,27 +269,30 @@ export function OrganizationsPage() {
             </Button>
           </div>
           {filtered.length === 0 ? (
-            <div className="rounded-[8px] border border-dashed border-hairline bg-canvas-soft p-10 text-center text-sm">
-              <div className="flex justify-center mb-4">
-                <div className="flex h-16 w-16 items-center justify-center rounded-[12px] bg-canvas border border-hairline text-mute">
-                  <Building2 className="h-8 w-8" strokeWidth={1.5} aria-hidden />
-                </div>
-              </div>
-              <p className="font-medium text-ink">No organizations</p>
-              <p className="mt-1 text-mute">
-                Create one here, or join with an invite key.
-              </p>
-              <div className="mt-4 flex justify-center">
-                <Button
-                  type="button"
-                  onClick={() => {
-                    setCreateOpen(true);
-                  }}
-                >
-                  Create organization
-                </Button>
-              </div>
-            </div>
+            query.trim() ? (
+              <EmptyState
+                icon={Building2}
+                glyph="orgs"
+                title="No matches"
+                action={
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setQuery("")}
+                  >
+                    Clear search
+                  </Button>
+                }
+              />
+            ) : (
+              <EmptyState
+                icon={Building2}
+                glyph="orgs"
+                title="No organizations"
+                caption="Create one, or join with an invite key."
+              />
+            )
           ) : (
             <div className="rounded-[8px] border border-hairline overflow-hidden">
               <Table>

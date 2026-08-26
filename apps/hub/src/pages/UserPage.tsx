@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 
 import { CatalogCardGrid } from "@/components/catalog-card";
+import { LoadingState } from "@/components/empty-state";
 import { DescriptionEditor } from "@/components/description-editor";
 import { GitHubIcon } from "@/components/github-icon";
 import { PageHead } from "@/components/page-head";
@@ -119,7 +120,7 @@ export function UserPage() {
       <PageHead title={title || "…"} />
 
       {loading ? (
-        <p className="text-sm text-mute">Loading…</p>
+        <LoadingState label="Loading user" />
       ) : error ? (
         <div className="rounded-[8px] border border-hairline bg-canvas-soft p-4 text-sm">
           <p className="text-error font-medium">Could not load user</p>

@@ -247,18 +247,4 @@ export function CatalogCardGrid({
   );
 }
 
-export function CatalogCardSkeleton({ count = 6 }: { count?: number }) {
-  return (
-    <div
-      className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3"
-      aria-hidden
-    >
-      {Array.from({ length: count }, (_, i) => (
-        <div
-          key={i}
-          className="h-[168px] rounded-[12px] border border-hairline bg-canvas-soft motion-safe:animate-pulse"
-        />
-      ))}
-    </div>
-  );
-}
+

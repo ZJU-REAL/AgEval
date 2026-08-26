@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 
+import { LoadingState } from "@/components/empty-state";
 import { CatalogHead } from "@/components/page-head";
 import { BuiltinMark } from "@/components/builtin-mark";
 import { CommandStrip } from "@/components/command-strip";
@@ -367,7 +368,7 @@ export function PluginDetailPage() {
         ) : null}
       </div>
 
-      {loading && <p className="text-sm text-mute">Loading…</p>}
+      {loading && <LoadingState label="Loading plugin" />}
       {error && (
         <div className="rounded-[8px] border border-hairline bg-canvas-soft p-4 text-sm">
           <p className="text-error font-medium">Could not load plugin</p>

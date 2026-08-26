@@ -1,6 +1,8 @@
+import { Inbox } from "lucide-react";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Navigate } from "react-router-dom";
 
+import { EmptyState, LoadingState } from "@/components/empty-state";
 import { PageHead } from "@/components/page-head";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -193,9 +195,15 @@ export function InboxPage() {
       </div>
 
       {loading ? (
-        <p className="text-sm text-mute">Loading…</p>
+        <LoadingState label="Loading inbox" />
       ) : pending.length === 0 ? (
-        <p className="text-sm text-mute">No pending requests.</p>
+        <EmptyState
+          icon={Inbox}
+          glyph="inbox"
+          title="No pending requests"
+          caption="Listing and appearance requests show up here."
+          className={history.length > 0 ? "min-h-0 flex-none py-10" : undefined}
+        />
       ) : (
         <div className="overflow-hidden rounded-[8px] border border-hairline">
           <Table>

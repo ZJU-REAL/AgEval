@@ -1,4 +1,3 @@
-import { Database } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
 
@@ -10,8 +9,11 @@ import {
   catalogScopeSearch,
   type CatalogScope,
 } from "@/components/catalog-scope-bar";
+import {
+  CatalogEmpty,
+  CatalogLoading,
+} from "@/components/empty-state";
 import { PageHead } from "@/components/page-head";
-import { SignInLink } from "@/components/sign-in-button";
 import {
   Table,
   TableBody,
@@ -121,46 +123,33 @@ export function DatasetsPage() {
       />
 
       {scope === "orgs" && !token ? (
-        <div className="rounded-[8px] border border-hairline bg-canvas-soft p-6 text-sm text-body">
-          <p className="font-medium text-ink">Sign in to see org packages</p>
-          <p className="mt-1 text-mute">
-            <SignInLink /> to list datasets from your organizations. Public
-            packages are under{" "}
-            <button
-              type="button"
-              className="text-link hover:text-link-deep underline underline-offset-2"
-              onClick={() => setScope("explore")}
-            >
-              Explore
-            </button>
-            .
-          </p>
-        </div>
+        <CatalogEmpty
+          kind="dataset"
+          scope={scope}
+          signedIn={false}
+          searching={false}
+          onExplore={() => setScope("explore")}
+          onClearSearch={() => setQuery("")}
+        />
       ) : loading ? (
-        <p className="text-sm text-mute">Loading…</p>
+        <CatalogLoading kind="dataset" />
       ) : error ? (
         <div className="rounded-[8px] border border-hairline bg-canvas-soft p-4 text-sm text-body">
           <p className="text-error font-medium">Could not load packages</p>
           <p className="mt-1 text-xs">{error}</p>
         </div>
+      ) : datasets.length === 0 ? (
+        <CatalogEmpty
+          kind="dataset"
+          scope={scope}
+          signedIn={Boolean(token)}
+          searching={Boolean(query.trim())}
+          onExplore={() => setScope("explore")}
+          onClearSearch={() => setQuery("")}
+        />
       ) : (
         <>
-          {datasets.length === 0 ? (
-            <div className="rounded-[8px] border border-dashed border-hairline bg-canvas-soft p-10 text-center text-sm text-body">
-              <div className="flex justify-center mb-4">
-                <div className="flex h-16 w-16 items-center justify-center rounded-[12px] bg-canvas border border-hairline text-mute">
-                  <Database className="h-8 w-8" strokeWidth={1.5} aria-hidden />
-                </div>
-              </div>
-              <p className="font-medium text-ink">No datasets found</p>
-              <p className="mt-1 text-mute">
-                {scope === "orgs"
-                  ? "No packages from your organizations yet. Publish with ageval publish --org <id>."
-                  : "No public packages on this Registry yet."}
-              </p>
-            </div>
-          ) : (
-            <div className="rounded-[8px] border border-hairline overflow-hidden">
+          <div className="rounded-[8px] border border-hairline overflow-hidden">
               <Table>
                 <TableHeader>
                   <TableRow className="hover:bg-transparent">
@@ -221,8 +210,7 @@ export function DatasetsPage() {
                   ))}
                 </TableBody>
               </Table>
-            </div>
-          )}
+          </div>
           <p className="text-xs text-mute mt-3 tabular-nums">
             {datasets.length} dataset{datasets.length === 1 ? "" : "s"}
           </p>

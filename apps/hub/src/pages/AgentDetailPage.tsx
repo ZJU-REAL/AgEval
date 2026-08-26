@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { Link, useNavigate, useParams, useSearchParams } from "react-router-dom";
 
 import { BindingPreview } from "@/components/binding-preview";
+import { LoadingState } from "@/components/empty-state";
 import { BrandMark } from "@/components/brand-mark";
 import { BuiltinMark } from "@/components/builtin-mark";
 import { MarketplaceCounts } from "@/components/marketplace-counts";
@@ -427,7 +428,7 @@ export function AgentDetailPage() {
         ) : null}
       </div>
 
-      {loading && <p className="text-sm text-mute">Loading…</p>}
+      {loading && <LoadingState label="Loading agent" />}
       {error && (
         <div className="rounded-[8px] border border-hairline bg-canvas-soft p-4 text-sm">
           <p className="text-error font-medium">Could not load agent</p>

@@ -28,7 +28,7 @@ Do not invent a second marketing skin or hand-rolled full-page CSS over shadcn.
 - Leaderboard / suite plugin chips: builtin short ids (`acp`, `openai-http`, environments) stay on the row and link to `/plugins/<id>`. Distinguish them from `org/name` marketplace packages. Do not drop them via a client-side builtin-executor denylist.
 - Footer is one row: mute counts (`download_count` + star count) on the left (lucide `Download` / `Star` + number; star on a card is a count, not a control), updated date on the right. Do not draw slot/binding tags. Builtin overlay rows have no blob and no timestamp, so omit the footer.
 - Builtin overlay rows appear on **Explore** `/plugins` only. They must not appear in Your organizations / mine, org detail, Home, or user public lists (no uploader, no org).
-- Loading uses `CatalogCardSkeleton` (same grid, pulse). Empty states use a dashed well.
+- Loading uses `ThinkingLogo` + one “Loading …” line (`LoadingState`). Empty is a centered stack (icon → title → one caption **or** one control), never the thinking mark.
 
 ## Motion
 
@@ -38,3 +38,10 @@ Do not invent a second marketing skin or hand-rolled full-page CSS over shadcn.
 - Toast (`Toaster` + `toast()`) after key writes that have no local success state (save description/name, visibility, delete). Copy and star stay on the control. Overshoot from below; reduced-motion shows the card with no travel. Fill is a solid `*-soft` wash (not transparent); no border.
 - Select / dropdown lists enter with `data-ageval-menu`. Modal/tooltip enter with `data-ageval-pop` / `data-ageval-scrim`. Honor `prefers-reduced-motion`.
 - No GSAP or Motion on Hub. No magnetic hover, cursor trail, 3D tilt, or scroll hijack.
+- Named canvas exception: `ThinkingLogo` (docs/design/13). `prefers-reduced-motion: reduce` freezes that canvas on a static frame.
+
+## Nav glyphs
+
+Sidebar lucide marks use `nav-*` tokens (Home / Datasets / Plugins / Agents / Inbox / Organizations). Color the glyph only. Labels are `font-mono text-[13px]`. Inactive is outline stroke 2 + `font-normal`; active is outline stroke 2.5 + `font-semibold`. Weight and stroke use the default 200ms `ease-smooth` transition. Active / hover row is `canvas` (chrome is `canvas-soft`); labels stay `ink` / `body`; focus stays IKB.
+
+Hub chrome (sidebar + top bar) is opaque `canvas-soft`. The main column stays `canvas`. Do not give the top bar a translucent canvas wash.

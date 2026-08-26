@@ -3,6 +3,7 @@ import { Link, useNavigate, useParams, useSearchParams } from "react-router-dom"
 import { Plus } from "lucide-react";
 
 import { CatalogCardGrid } from "@/components/catalog-card";
+import { LoadingState } from "@/components/empty-state";
 import { DescriptionEditor } from "@/components/description-editor";
 import { CatalogHead } from "@/components/page-head";
 import { UnderlineTabs } from "@/components/underline-tabs";
@@ -396,7 +397,7 @@ export function OrganizationDetailPage() {
       />
 
       {loading ? (
-        <p className="text-sm text-mute">Loading…</p>
+        <LoadingState label="Loading organization" />
       ) : error ? (
         <div className="rounded-[8px] border border-hairline bg-canvas-soft p-4 text-sm">
           <p className="text-error font-medium">Could not load organization</p>

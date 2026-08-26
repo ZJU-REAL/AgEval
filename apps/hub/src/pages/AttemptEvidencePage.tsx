@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 
+import { LoadingState } from "@/components/empty-state";
 import { CatalogHead } from "@/components/page-head";
 import { CommandStrip } from "@/components/command-strip";
 import { ActorsTable } from "@/components/trial/actors-table";
@@ -214,7 +215,7 @@ export function AttemptEvidencePage() {
 
         {runCommand ? <CommandStrip command={runCommand} /> : null}
 
-        {loading && <p className="text-sm text-mute">Loading attempt evidence…</p>}
+        {loading && <LoadingState label="Loading attempt evidence" />}
 
         {error ? (
           <div className="rounded-[8px] border border-hairline bg-canvas-soft p-6 space-y-3">

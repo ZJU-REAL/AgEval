@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link, useNavigate, useParams, useSearchParams } from "react-router-dom";
 
+import { LoadingState } from "@/components/empty-state";
 import { CatalogHead } from "@/components/page-head";
 import { ListPager } from "@/components/list-pager";
 import { UnderlineTabs } from "@/components/underline-tabs";
@@ -502,7 +503,7 @@ export function DatasetDetailPage() {
       />
 
       {shellLoading ? (
-        <p className="text-sm text-mute">Loading…</p>
+        <LoadingState label="Loading dataset" />
       ) : error ? (
         <div className="space-y-2 text-sm">
           <p className="text-error">{error}</p>
