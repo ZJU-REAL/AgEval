@@ -1,6 +1,6 @@
 """CLI: ``ageval agent install|list|show|uninstall`` (design/14).
 
-Install writes only the local cache ($AGEVAL_HOME/agents) — never profiles /
+Install writes the agent cache and declared plugins — never profiles /
 task.yaml. Run with ``ageval run <dataset> --agent pi`` or ``--agent <id>@<version>``.
 """
 
@@ -17,8 +17,9 @@ agent_app = typer.Typer(
     name="agent",
     help=(
         "Manage local Agent definitions (ageval.agent/1).\n\n"
-        "install writes only ~/.ageval/agents (or $AGEVAL_HOME/agents) — it does "
-        "NOT modify profiles.yaml / task.yaml. Bind at run time with "
+        "install writes ~/.ageval/agents (or $AGEVAL_HOME/agents) and installs "
+        "plugins declared on binding.extensions[].plugin into ~/.ageval/plugins. "
+        "It does NOT modify profiles.yaml / task.yaml. Bind at run time with "
         "`ageval run <dataset> --agent pi` (builtin) or `--agent <id>@<version>`."
     ),
     no_args_is_help=True,
