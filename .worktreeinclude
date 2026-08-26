@@ -1,0 +1,7 @@
+# Gitignored local files to copy into new worktrees.
+# Intersection of this file and .gitignore; tracked files are never copied.
+# Used by Worktrunk (`wt step copy-ignored`), Claude Code, and similar tools.
+
+.env
+.env.*
+!.env.example
