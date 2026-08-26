@@ -16,6 +16,8 @@ from services.registry.official import official_dataset_ids
 from services.registry.store import TokenInfo
 
 from ageval.agents.refs import published_agent_ref_parts
+from ageval.agents.reserved import canonical_harness_id
+from ageval.application.suite.attach_agent_ref import hub_agent_ref_parts
 from ageval.config.runtime_identity import (
     agent_display_name,
     resolve_agent_id,
@@ -38,14 +40,23 @@ def attach_agent_refs(
     *,
     consented: set[str] | None = None,
 ) -> dict[str, Any]:
-    """Add ``agent_refs`` only on plaza-source rows with consented published refs."""
+    """Add Leaderboard ``agent_refs`` on plaza-source rows.
+
+    Builtin short ids (``pi@0.1.0``) skip Agent-org consent. Uploaded
+    ``org/name@version`` still needs consent. ``file:`` / ``local/`` stay out.
+    """
     if not is_plaza_source_suite(payload, official_ids):
         return payload
     refs = _agent_refs_from_overlay(
         payload.get("job_overlay") if isinstance(payload.get("job_overlay"), Mapping) else None
     )
     if consented is not None:
-        refs = [r for r in refs if r.get("package_id") in consented]
+        refs = [
+            row
+            for row in refs
+            if canonical_harness_id(str(row.get("package_id") or "")) is not None
+            or str(row.get("package_id") or "") in consented
+        ]
     if refs:
         payload["agent_refs"] = refs
     return payload
@@ -61,8 +72,6 @@ class RuntimeService:
         want = (package_id or "").strip()
         if not want:
             return []
-        from ageval.agents.reserved import canonical_harness_id
-
         harness = canonical_harness_id(want)
         if harness is not None:
             rows = self._reduce_builtin(harness, auth)
@@ -129,7 +138,7 @@ def _agent_refs_from_overlay(overlay: Mapping[str, Any] | None) -> list[dict[str
     for role, raw in profiles.items():
         if not isinstance(raw, Mapping):
             continue
-        parts = published_agent_ref_parts(raw.get("agent_ref"))
+        parts = hub_agent_ref_parts(raw.get("agent_ref"))
         if parts is None:
             continue
         package_id, _version = parts
