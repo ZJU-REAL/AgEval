@@ -331,7 +331,12 @@ def test_appearance_approve_private_suite_and_mismatch(tmp_path: Path) -> None:
         suite_run_id="s_mis",
         dataset_id="official/gaia",
         user_id="bob",
-        agent_profiles={"solver": {**PI, "model": "other"}},
+        agent_profiles={
+            "solver": {
+                **PI,
+                "extensions": [{"plugin": "acp", "options": {"entry": "codex"}}],
+            }
+        },
     )
     bad = requests.apply(
         kind="agent_appearance",
