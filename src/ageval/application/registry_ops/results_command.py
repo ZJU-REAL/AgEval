@@ -377,7 +377,7 @@ class ResultsCommands:
 
     def upload_suite_result(
         self,
-        dataset_root: Path,
+        dataset_root: Path | str,
         *,
         suite_run_id: str,
         public: bool = False,
@@ -395,7 +395,7 @@ class ResultsCommands:
         existing suite_run_id conflict (409); attempt re-uploads under
         ``--with-attempts`` remain idempotent (``already_exists``).
         """
-        root = dataset_root.expanduser().resolve(strict=False)
+        root = resolve_dataset_root(dataset_root)
         suite_dir = _resolve_suite_dir(root, suite_run_id)
         summary = _load_suite_summary(suite_dir)
 
@@ -553,7 +553,7 @@ class ResultsCommands:
 
     def append_suite_slot_result(
         self,
-        dataset_root: Path,
+        dataset_root: Path | str,
         *,
         suite_run_id: str,
         task_id: str,
@@ -568,7 +568,7 @@ class ResultsCommands:
         Does **not** call whole-row ``upload_suite --replace``. Old Attempt blobs
         stay. ``task_refs`` come from the local summary (current + previous[]).
         """
-        root = dataset_root.expanduser().resolve(strict=False)
+        root = resolve_dataset_root(dataset_root)
         suite_dir = _resolve_suite_dir(root, suite_run_id)
         summary = _load_suite_summary(suite_dir)
         metrics, task_refs = _suite_metrics_and_refs(summary)

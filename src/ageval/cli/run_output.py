@@ -141,13 +141,12 @@ def format_suite_recap(
     footer_bits.append(f"exit={int(summary.get('exit_code', 2))}")
     lines = [_RECAP_RULE, "   ".join(footer_bits)]
     summary_path = summary.get("summary_path")
-    view_arg = recap_view_arg(dataset_root, summary)
-    upload_arg = display_path(dataset_root)
+    ds_arg = recap_view_arg(dataset_root, summary)
     if summary_path:
         lines.append(f"summary  {display_path(str(summary_path))}")
-    lines.append(f"next     ageval view {view_arg}")
+    lines.append(f"next     ageval view {ds_arg}")
     if sid:
-        lines.append(f"         ageval results upload-suite {upload_arg} --suite-run {sid}")
+        lines.append(f"         ageval results upload-suite {ds_arg} --suite-run {sid}")
     return "\n".join(lines) + "\n"
 
 

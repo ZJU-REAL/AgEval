@@ -76,6 +76,7 @@ Stdout JSON (high level):
 
 - Single Attempt upload does **not** create a suite Leaderboard row.
 - Prefer `upload-suite` after `ageval run <dataset>` **without** `--task`.
+- Dataset arg is a path or registry ref (`id@version`); a unique verified cache hit does not contact Hub to find the local suite-runs.
 - Hub Leaderboard **Public** lists complete, release-bound suites only.
 
 ### Hub path checklist

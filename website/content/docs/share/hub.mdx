@@ -85,7 +85,7 @@ Jobs 列表里，已有运行产物的行可以点进去看；没上传的会显
 ```bash
 # 正确：整包 suite → 上榜
 uv run ageval run <dataset> --profiles <profiles.yaml>
-uv run ageval results upload-suite <dataset> --suite-run <8-hex> --public --with-attempts
+uv run ageval results upload-suite <dataset|id@version> --suite-run <8-hex> --public --with-attempts
 
 # 不够：单题 attempt upload 单独上传 → 榜上经常空白
 # uv run ageval run <dataset> --task <id>

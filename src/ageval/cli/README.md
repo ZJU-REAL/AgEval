@@ -326,10 +326,10 @@ Public Leaderboard lists only **complete**, **release-bound** suites; incomplete
 or draft-bound rows stay on Task Jobs.
 
 ```bash
-uv run ageval results upload-suite /path/to/dataset --suite-run <suite_run_id> \
+uv run ageval results upload-suite official/demo@0.1.0 --suite-run <suite_run_id> \
   --agent codex --model gpt-test
 # Optional full Attempt evidence (Hub Jobs deep-link / evidence browser):
-uv run ageval results upload-suite /path/to/dataset --suite-run <suite_run_id> \
+uv run ageval results upload-suite official/demo@0.1.0 --suite-run <suite_run_id> \
   --with-attempts
 # Owner overwrite of same suite_run_id (default is 409; no history):
 # uv run ageval results upload-suite … --suite-run <id> --replace

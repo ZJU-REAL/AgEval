@@ -85,7 +85,7 @@ Jobs rows with uploaded run artifacts open detail; others show **Not uploaded**.
 ```bash
 # Correct path for Leaderboard
 uv run ageval run <dataset> --profiles <profiles.yaml>
-uv run ageval results upload-suite <dataset> --suite-run <8-hex> --public --with-attempts
+uv run ageval results upload-suite <dataset|id@version> --suite-run <8-hex> --public --with-attempts
 
 # Not enough for Leaderboard: single-task attempt upload alone
 # uv run ageval run <dataset> --task <id>

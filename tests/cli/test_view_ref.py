@@ -50,6 +50,13 @@ def test_view_help_names_registry_ref() -> None:
     assert "@" in result.stdout
 
 
+def test_upload_suite_help_names_registry_ref() -> None:
+    result = CliRunner().invoke(app, ["results", "upload-suite", "--help"])
+    assert result.exit_code == 0, result.stdout
+    assert "registry ref" in result.stdout.lower()
+    assert "@" in result.stdout
+
+
 def test_resolve_version_hits_verified_cache(tmp_path: Path) -> None:
     planted = _plant_cache(tmp_path / "cache")
     got = resolve_dataset_root(

@@ -218,4 +218,6 @@ def test_suite_recap_view_uses_ref_for_cache_root(tmp_path: Path) -> None:
         dataset_root=cache_root,
     )
     assert "ageval view official/demo@0.1.0" in text
-    assert "sha256_3c22" not in text.split("ageval view ", 1)[-1].splitlines()[0]
+    assert "ageval results upload-suite official/demo@0.1.0 --suite-run ca096a6f" in text
+    next_block = text.split("next     ", 1)[-1]
+    assert "sha256_3c22" not in next_block

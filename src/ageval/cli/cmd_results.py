@@ -126,8 +126,14 @@ def register(app: typer.Typer) -> None:
     @sub.command("upload-suite")
     def results_upload_suite_command(
         dataset: Annotated[
-            Path,
-            typer.Argument(help="Local Dataset root containing .ageval/suite-runs/<id>."),
+            str,
+            typer.Argument(
+                help=(
+                    "Dataset root path or registry ref "
+                    "(<dataset_id>@<version> | <dataset_id>@sha256:<digest>) "
+                    "containing .ageval/suite-runs/<id>."
+                ),
+            ),
         ],
         suite_run: Annotated[
             str,
