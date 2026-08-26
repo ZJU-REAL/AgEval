@@ -38,6 +38,7 @@ def test_require_public_backend_ok(monkeypatch: pytest.MonkeyPatch) -> None:
 
 
 def test_build_state_from_env_fail_closed(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr("services.registry.app.load_env_file", lambda: None)
     monkeypatch.delenv("AGEVAL_REGISTRY_DATABASE_URL", raising=False)
     monkeypatch.delenv("AGEVAL_REGISTRY_S3_ENDPOINT", raising=False)
     monkeypatch.setenv("AGEVAL_REGISTRY_DATA_DIR", str(tmp_path / "data"))
