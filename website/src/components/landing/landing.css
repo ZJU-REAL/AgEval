@@ -1362,15 +1362,23 @@ html:has(.ageval-landing) body {
 
 .ageval-landing .owl-wash {
   position: absolute;
-  right: 3%;
-  bottom: 2%;
+  right: 2%;
+  bottom: 4%;
   z-index: 1;
-  width: min(340px, 32vw);
+  width: min(420px, 38vw);
+  aspect-ratio: 806 / 721;
   height: auto;
   color: var(--cream);
-  opacity: 0.16;
+  opacity: 0.72;
+  mix-blend-mode: screen;
   pointer-events: none;
   user-select: none;
+}
+
+.ageval-landing .owl-wash canvas {
+  display: block;
+  width: 100%;
+  height: 100%;
 }
 
 .ageval-landing footer {
@@ -1539,8 +1547,8 @@ html:has(.ageval-landing) body {
   .ageval-landing .owl-wash {
     right: 2%;
     bottom: 4%;
-    width: min(220px, 48vw);
-    opacity: 0.09;
+    width: min(240px, 52vw);
+    opacity: 0.4;
   }
 
   .ageval-landing .code-panel,

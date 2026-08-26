@@ -44,6 +44,7 @@ landing 的 oklch 系(`oklch(15.4% 0.018 264)` 底等)是本表的 oklch 等值�
   按钮走 6px,不要 `clip-path` 切角。
 - **动效**:默认 `--ease-smooth` `cubic-bezier(0.22, 1, 0.36, 1)`、200ms。
   Hub / Viewer 只允许 CSS(无 GSAP / Motion)。Landing 允许一次性 hero stagger 与 8px view-timeline 揭示,进场可到 400ms(强调瞬间,须在 `website/DESIGN.md` 写明)。
+  Landing 像素标(`OwlPixelMark`)是第三条 landing 例外:canvas 2D 把 owl 面标栅格成方块,hero 一次性 assemble(约 1.4s);指针在 hero 内时方块径向推开;assemble 完成后整标共用一条透明度呼吸(6s,最暗 35%,最亮 80%),并带轻微整体起伏/旋转与边缘 drift。不是磁吸或光标拖尾。`prefers-reduced-motion` 为静止像素标。导航 logo 仍用静态 SVG。
   第二档命名曲线是已记录例外,不得再发明 playground 弹簧:
   - `--ease-spring` `cubic-bezier(0.34, 1.56, 0.64, 1)`:toast 进场(可到 550ms)、star burst 回弹、按钮松开回弹(可到 500ms)
   - `--ease-glide` `cubic-bezier(0.65, 0, 0.35, 1)`:PillTabs 指示条(250ms)
