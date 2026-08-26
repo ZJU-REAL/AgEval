@@ -288,6 +288,11 @@ def test_agent_install_host_requires_fail_closes(env: dict[str, str], tmp_path: 
     payload = json.loads(proc.stderr or proc.stdout)
     assert payload.get("ok") is False
     assert payload.get("error") == "host_requires_unsatisfied"
+    message = str(payload.get("message") or "")
+    assert "plugin cache" in message
+    assert "definitely_not_a_real_module" in message
+    assert "missing on purpose" in message
+    assert not message.startswith("host_requires_unsatisfied:")
 
 
 def test_dsh_default_installs_plugin_or_fail_closes(env: dict[str, str]) -> None:

@@ -98,6 +98,47 @@ def test_hub_locator_uses_the_same_helper(ageval_home: Path, tmp_path: Path) -> 
     assert fetched == ["acme/need-me"]
 
 
+def test_host_requires_message_names_import_and_hint(
+    ageval_home: Path, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    del ageval_home
+    plugin = tmp_path / "plugins" / "needs-host"
+    plugin.mkdir(parents=True)
+    (plugin / "plugin.yaml").write_text(
+        (
+            "format: ageval.plugin/1\n"
+            "plugin_id: needs-host\n"
+            "version: 0.1.0\n"
+            "host_requires:\n"
+            "  - import: definitely_not_a_real_module\n"
+            "    hint: uv sync --extra nooa\n"
+            "slots:\n"
+            "  chain:\n"
+            "    - id: after_environment_ready\n"
+            "      priority: 120\n"
+            "      entry: demo.hooks:build\n"
+        ),
+        encoding="utf-8",
+    )
+    src = plugin / "src" / "demo"
+    src.mkdir(parents=True)
+    (src / "__init__.py").write_text("", encoding="utf-8")
+    (src / "hooks.py").write_text(
+        "def build(**_k):\n"
+        "    async def h(ctx, value, nxt):\n"
+        "        return await nxt(value)\n"
+        "    return h\n",
+        encoding="utf-8",
+    )
+    monkeypatch.chdir(tmp_path)
+    with pytest.raises(ConfigError) as ei:
+        install_declared_plugins({"extensions": [{"plugin": "needs-host"}]})
+    assert ei.value.error_code == "host_requires_unsatisfied"
+    assert "plugin cache" in ei.value.message
+    assert "definitely_not_a_real_module" in ei.value.message
+    assert "uv sync --extra nooa" in ei.value.message
+
+
 def test_missing_plugin_fail_closes(ageval_home: Path) -> None:
     del ageval_home
     with pytest.raises(ConfigError) as ei:

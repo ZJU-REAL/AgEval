@@ -99,7 +99,7 @@ def agent_install(
         else:
             summary = cmds.install_agent_from_path(src_path)
     except ConfigError as exc:
-        emit({"ok": False, "error": exc.error_code, "message": str(exc)}, err=True)
+        emit({"ok": False, "error": exc.error_code, "message": exc.message}, err=True)
         raise typer.Exit(code=2) from exc
     except OSError as exc:
         emit({"ok": False, "error": "io_error", "message": str(exc)}, err=True)

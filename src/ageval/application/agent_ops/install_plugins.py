@@ -11,7 +11,7 @@ from pathlib import Path
 from typing import Any
 
 from ageval.config.errors import ConfigError
-from ageval.plugins.host_requires import host_requires_satisfied, installed_plugin
+from ageval.plugins.host_requires import evaluate_host_requires, installed_plugin
 from ageval.plugins.install import InstalledItem, install_extracted_hub, install_from_local
 from ageval.plugins.manifest import MANIFEST_NAMES, PluginManifestError, split_plugin_id
 from ageval.plugins.plugin_requires import PluginRequiresError
@@ -132,12 +132,38 @@ def _assert_host_requires(plugin_id: str) -> None:
             location=plugin_id,
         )
     manifest, root = found
-    if not host_requires_satisfied(manifest.host_requires, root=root):
-        raise ConfigError(
-            "host_requires_unsatisfied",
-            f"plugin {plugin_id!r} host_requires unsatisfied",
-            location=plugin_id,
-        )
+    missing = [
+        row
+        for row in evaluate_host_requires(manifest.host_requires, root=root, plugin_id=plugin_id)
+        if not row.get("ok")
+    ]
+    if not missing:
+        return
+    raise ConfigError(
+        "host_requires_unsatisfied",
+        _host_requires_message(plugin_id, missing),
+        location=plugin_id,
+    )
+
+
+def _host_requires_message(plugin_id: str, missing: list[dict[str, Any]]) -> str:
+    """Plugin cache is not the host extra. Spell the missing import/file and hint."""
+    parts: list[str] = []
+    for row in missing:
+        if row.get("import"):
+            bit = f"import {row['import']!r} missing"
+        elif row.get("file"):
+            bit = f"file {row['file']!r} missing"
+        else:
+            bit = "requirement missing"
+        hint = row.get("hint")
+        if isinstance(hint, str) and hint.strip():
+            bit = f"{bit} ({hint.strip()})"
+        parts.append(bit)
+    detail = "; ".join(parts) if parts else "host_requires unsatisfied"
+    return (
+        f"plugin {plugin_id!r} is in the plugin cache; this host cannot import/run it yet: {detail}"
+    )
 
 
 def _local_plugin_dir(plugin_id: str, *, agent_root: Path | None) -> Path | None:
