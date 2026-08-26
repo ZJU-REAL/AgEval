@@ -35,6 +35,7 @@ def test_composition_has_no_lifecycle_double() -> None:
 
 
 def test_cli_has_lock_and_run() -> None:
+    from typer.main import get_command
     from typer.testing import CliRunner
 
     from ageval.cli.main import app
@@ -48,4 +49,9 @@ def test_cli_has_lock_and_run() -> None:
     assert result2.exit_code == 0
     result3 = CliRunner().invoke(app, ["run", "--help"])
     assert result3.exit_code == 0
-    assert "--dir" in result3.stdout
+    commands = getattr(get_command(app), "commands", None)
+    assert isinstance(commands, dict)
+    run = commands.get("run")
+    assert run is not None
+    opts = {opt for param in run.params for opt in param.opts}
+    assert "--dir" in opts
