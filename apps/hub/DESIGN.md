@@ -14,7 +14,7 @@ Do not invent a second marketing skin or hand-rolled full-page CSS over shadcn.
 | Surface | UI | Why |
 | --- | --- | --- |
 | Plugins (`/plugins`, Home, org, user public) | **Catalog cards** (`CatalogCard` / `CatalogCardGrid`) | Marketplace identity: `org/name` + official, **or** builtin short id + lucide builtin mark (Explore only; no org) |
-| Agents (`/agents`, Home, org, user public) | **Catalog cards** | Same: one job binding is a package |
+| Agents (`/agents`, Home, org, user public) | **Catalog cards** | One harness package per card; model is a run parameter (`?model=` on the package page) |
 | Datasets, jobs, leaderboard, members, suites | **Hairline tables** | Dense comparable rows (sort, scan, bulk) |
 
 ### Catalog card rules

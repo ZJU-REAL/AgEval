@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { Link, useNavigate, useParams } from "react-router-dom";
+import { Link, useNavigate, useParams, useSearchParams } from "react-router-dom";
 
 import { BindingPreview } from "@/components/binding-preview";
 import { MarketplaceCounts } from "@/components/marketplace-counts";
@@ -39,6 +39,13 @@ import {
   type PackageRelease,
   RegistryHttpError,
 } from "@/lib/api";
+import {
+  agentPackageHref,
+  bindingModel,
+  formatAgentRunCommand,
+  modelSourceLabel,
+  registeredModels,
+} from "@/lib/agent-models";
 import { getToken } from "@/lib/auth";
 import { buildNestedTree, type TreeNode } from "@/lib/file-tree";
 import { formatScore } from "@/lib/utils";
@@ -46,6 +53,8 @@ import { formatScore } from "@/lib/utils";
 export function AgentDetailPage() {
   const { agentId: rawId } = useParams();
   const agentId = decodeDatasetId(rawId || "");
+  const [searchParams] = useSearchParams();
+  const selectedModel = (searchParams.get("model") || "").trim();
   const token = getToken();
   const navigate = useNavigate();
   const [reloadAt, setReloadAt] = useState(0);
@@ -191,10 +200,15 @@ export function AgentDetailPage() {
     return `ageval agent install ${agentId}@${release.version}`;
   }, [agentId, release]);
 
-  const runCmd = useMemo(() => {
-    const ver = release?.version || "<version>";
-    return `ageval run <dataset> --agent ${agentId}@${ver}`;
-  }, [agentId, release]);
+  const runCmd = useMemo(
+    () =>
+      formatAgentRunCommand(
+        agentId,
+        release?.version || "<version>",
+        selectedModel,
+      ),
+    [agentId, release, selectedModel],
+  );
 
   const formatBadge =
     preview?.format || (release?.package_kind === "agent" ? "ageval.agent/1" : null);
@@ -203,6 +217,22 @@ export function AgentDetailPage() {
 
   const binding = (preview?.binding || {}) as Record<string, unknown>;
   const hasBinding = Object.keys(binding).length > 0;
+  const defaultModel = bindingModel(binding);
+  const models = useMemo(
+    () =>
+      registeredModels(
+        defaultModel,
+        appearances.map((row) => row.model),
+        selectedModel,
+      ),
+    [appearances, defaultModel, selectedModel],
+  );
+  const visibleAppearances = useMemo(() => {
+    if (!selectedModel) return appearances;
+    return appearances.filter(
+      (row) => (row.model || "").trim() === selectedModel,
+    );
+  }, [appearances, selectedModel]);
 
   function openOverlayPath(declared: string) {
     const prefix = declared.endsWith("/") ? declared : `${declared}/`;
@@ -218,14 +248,14 @@ export function AgentDetailPage() {
 
   const appearancesByVersion = useMemo(() => {
     const groups = new Map<string, AgentAppearance[]>();
-    for (const row of appearances) {
+    for (const row of visibleAppearances) {
       const key = row.agent_version || "unknown";
       const list = groups.get(key) ?? [];
       list.push(row);
       groups.set(key, list);
     }
     return [...groups.entries()].sort(([a], [b]) => b.localeCompare(a));
-  }, [appearances]);
+  }, [visibleAppearances]);
 
   return (
     <>
@@ -376,10 +406,10 @@ export function AgentDetailPage() {
             <CommandStrip command={installCmd} />
             <CommandStrip command={runCmd} />
             <p className="text-xs text-mute">
-              Install writes only the local cache; the binding applies per run via{" "}
-              <span>--agent</span> and lands in the lock&apos;s
-              job_overlay as <span>agent_ref</span> (provenance,
-              not fingerprint identity).
+              Install writes only the local cache; the harness binds per run via{" "}
+              <span>--agent</span>. Optional <span>--model</span>{" "}
+              overrides this run&apos;s model. <span>agent_ref</span> is
+              provenance, not fingerprint identity.
             </p>
           </section>
 
@@ -393,7 +423,82 @@ export function AgentDetailPage() {
           </section>
 
           <section className="space-y-3">
-            <h2 className="text-sm font-medium text-ink">Appearances</h2>
+            <div className="flex flex-wrap items-baseline justify-between gap-2">
+              <h2 className="text-sm font-medium text-ink">Registered models</h2>
+              {selectedModel ? (
+                <Link
+                  to={agentPackageHref(agentId)}
+                  replace
+                  className="text-xs text-link hover:text-link-deep hover:underline underline-offset-2"
+                >
+                  Clear model focus
+                </Link>
+              ) : null}
+            </div>
+            <p className="text-xs text-mute">
+              Package default plus models that appeared on consented plaza
+              suites. Selecting one is query state on this harness page, not a
+              second package.
+            </p>
+            {models.length === 0 ? (
+              <p className="text-sm text-mute">
+                No registered model yet. The package default is empty.
+              </p>
+            ) : (
+              <div className="rounded-[8px] border border-hairline overflow-hidden">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Model</TableHead>
+                      <TableHead>Source</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {models.map((model) => {
+                      const selected = model === selectedModel;
+                      const appearanceCount = appearances.filter(
+                        (row) => (row.model || "").trim() === model,
+                      ).length;
+                      return (
+                        <TableRow
+                          key={model}
+                          data-state={selected ? "selected" : undefined}
+                        >
+                          <TableCell>
+                            <Link
+                              to={agentPackageHref(
+                                agentId,
+                                selected ? null : model,
+                              )}
+                              replace
+                              aria-current={selected ? "page" : undefined}
+                              className="text-link hover:text-link-deep hover:underline underline-offset-2"
+                            >
+                              {model}
+                            </Link>
+                          </TableCell>
+                          <TableCell className="text-mute">
+                            {modelSourceLabel({
+                              model,
+                              defaultModel,
+                              appearanceCount,
+                            })}
+                          </TableCell>
+                        </TableRow>
+                      );
+                    })}
+                  </TableBody>
+                </Table>
+              </div>
+            )}
+          </section>
+
+          <section className="space-y-3">
+            <h2 className="text-sm font-medium text-ink">
+              {selectedModel
+                ? `Appearances · ${selectedModel}`
+                : "Appearances"}
+            </h2>
             <p className="text-xs text-mute">
               Official public complete release-bound suites with this Agent org’s
               consent (direct attach or an approved appearance request).
@@ -401,9 +506,15 @@ export function AgentDetailPage() {
             </p>
             {appearancesByVersion.length === 0 ? (
               <p className="text-sm text-mute">
-                No Hub appearances yet. Attach a published{" "}
-                <span>org/name@version</span> as this
-                Agent’s org owner, or approve an appearance request.
+                {selectedModel
+                  ? "No consented appearances for this model yet."
+                  : (
+                    <>
+                      No Hub appearances yet. Attach a published{" "}
+                      <span>org/name@version</span> as this
+                      Agent’s org owner, or approve an appearance request.
+                    </>
+                  )}
               </p>
             ) : (
               appearancesByVersion.map(([version, rows]) => (

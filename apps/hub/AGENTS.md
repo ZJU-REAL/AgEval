@@ -6,7 +6,7 @@
 | README + Files (package tree via #38) | Full Run/Attempt evidence browser (#43) |
 | Task Jobs **list only** | Click-through into trial trajectory |
 | Leaderboard tab (#40) | Suite-level PASS authority |
-| Agent appearances on `/agents/:id` — derived via `agent_ref` | Persist a Runtime table; invent suite or per-role PASS; keep `/runtimes` |
+| Agent appearances on `/agents/:id` — derived via `agent_ref`; `?model=` selects a registered model | Persist a Runtime table; invent suite or per-role PASS; keep `/runtimes`; add `/agents/:id/models/:model` |
 | Same stack as viewer (Vite/React/shadcn) | Second component library / marketing CSS |
 
 Registry API is the data plane. Token stays in browser storage only.

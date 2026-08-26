@@ -57,9 +57,11 @@ export function AgentsPage() {
         sub={
           <>
             Browse <code className="font-mono text-xs">ageval.agent/1</code>{" "}
-            definitions (one job binding: executor × model × options). Install
-            is CLI-only and never edits profiles; bind at run time with{" "}
-            <code className="font-mono text-xs">--agent</code>.
+            harness packages (executor, entry, overlays).{" "}
+            <code className="font-mono text-xs">binding.model</code> is the
+            default; override a run with{" "}
+            <code className="font-mono text-xs">--model</code>. Install is
+            CLI-only and never edits profiles.
           </>
         }
       />
