@@ -237,6 +237,7 @@ html:has(.ageval-landing) body {
   display: inline-flex;
   align-items: center;
   justify-content: center;
+  gap: 8px;
   min-height: 44px;
   padding: 0 20px;
   border-radius: 6px;
@@ -250,6 +251,12 @@ html:has(.ageval-landing) body {
     color var(--t) var(--ease),
     box-shadow var(--t) var(--ease),
     transform 200ms var(--ease);
+}
+
+.ageval-landing .hero-ctas .btn svg {
+  width: 16px;
+  height: 16px;
+  flex-shrink: 0;
 }
 
 .ageval-landing .btn:active {
@@ -406,12 +413,12 @@ html:has(.ageval-landing) body {
 
 .ageval-landing .stage {
   position: relative;
+  align-self: center;
   background: oklch(11.6% 0.022 264 / 0.42);
-  -webkit-backdrop-filter: blur(6px);
-  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(10px);
+  backdrop-filter: blur(10px);
   border: 1px solid var(--border);
-  min-height: 448px;
-  padding: 28px 24px 22px;
+  padding: 22px 22px 20px;
 }
 
 .ageval-landing .cross {
@@ -452,79 +459,70 @@ html:has(.ageval-landing) body {
   bottom: 8px;
 }
 
-.ageval-landing .stage-head {
+.ageval-landing .start-code {
   display: flex;
+  flex-direction: column;
+  gap: 14px;
+  min-width: 0;
+}
+
+.ageval-landing .start-head {
+  display: flex;
+  align-items: center;
   justify-content: space-between;
-  align-items: baseline;
   gap: 12px;
+  padding: 0 4px;
+}
+
+.ageval-landing .start-label {
+  margin: 0;
   font-family: var(--font-mono);
   font-size: 11px;
   letter-spacing: 0.12em;
+  text-transform: uppercase;
   color: var(--muted);
-  margin: 4px 4px 20px;
 }
 
-.ageval-landing .stage-head b {
-  color: var(--cream);
-  font-weight: 500;
-}
-
-.ageval-landing .inspect {
-  display: grid;
-  gap: 0;
-  margin: 0 4px;
-}
-
-.ageval-landing .inspect li {
-  display: grid;
-  grid-template-columns: 108px 1fr;
-  gap: 12px;
-  align-items: baseline;
-  padding: 11px 0;
-  border-top: 1px solid var(--border);
-}
-
-.ageval-landing .inspect li:last-child {
-  border-bottom: 1px solid var(--border);
-}
-
-.ageval-landing .inspect .k {
+.ageval-landing .start-copy {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 44px;
+  padding: 0 10px;
   font-family: var(--font-mono);
-  font-size: 11px;
-  letter-spacing: 0.1em;
-  color: var(--muted);
-  margin: 0;
-}
-
-.ageval-landing .inspect strong {
-  font-family: var(--font-mono);
-  font-size: 13px;
-  font-weight: 500;
-  color: var(--cream);
-}
-
-.ageval-landing .inspect span {
-  display: block;
-  margin-top: 3px;
   font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
   color: var(--muted);
+  transition: color var(--t) var(--ease);
 }
 
-.ageval-landing .stage-foot {
-  margin: 18px 4px 2px;
-  font-family: var(--font-mono);
-  font-size: 11px;
-  letter-spacing: 0.04em;
-  color: var(--muted);
-  line-height: 1.7;
+.ageval-landing .start-copy svg {
+  width: 14px;
+  height: 14px;
 }
 
-.ageval-landing .stage-foot code {
-  display: block;
-  margin-top: 6px;
+.ageval-landing .start-copy:hover {
   color: var(--cream);
-  font-family: inherit;
-  font-size: 11.5px;
+}
+
+.ageval-landing .start-snippet {
+  margin: 0;
+  padding: 16px 16px 14px;
+  background: oklch(11.6% 0.022 264 / 0.28);
+  border: 1px solid var(--border);
+  color: var(--cream);
+  font-family: var(--font-mono);
+  font-size: 13.5px;
+  line-height: 1.85;
+  font-weight: 400;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.ageval-landing .start-snippet .prompt {
+  color: var(--accent);
+  user-select: none;
 }
 
 .ageval-landing .pact {
@@ -1524,11 +1522,6 @@ html:has(.ageval-landing) body {
   .ageval-landing .take-right,
   .ageval-landing .split > div {
     padding: 28px 22px;
-  }
-
-  .ageval-landing .inspect li {
-    grid-template-columns: 1fr;
-    gap: 4px;
   }
 
   .ageval-landing .foot {

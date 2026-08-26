@@ -1,11 +1,27 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
+import { BookOpen } from "lucide-react";
 import { DshWhale } from "@/components/landing/dsh-whale";
 import { landingCopy } from "@/components/landing/copy";
 import { LandingNav } from "@/components/landing/landing-nav";
 import { OwlPixelMark } from "@/components/landing/owl-pixel";
+import { StartCode } from "@/components/landing/start-code";
 import { isSiteLocale } from "@/lib/i18n";
 import { gitConfig } from "@/lib/shared";
+
+/** GitHub invertocat. Fill uses currentColor. Path matches hub `GitHubIcon`. */
+function GitHubMark() {
+  return (
+    <svg
+      xmlns="http://www.w3.org/2000/svg"
+      viewBox="0 1 100 97.53"
+      fill="currentColor"
+      aria-hidden="true"
+    >
+      <path d="M50 1C22.39 1 0 23.386 0 51c0 22.092 14.326 40.835 34.193 47.446 2.499.463 3.416-1.085 3.416-2.405 0-1.192-.046-5.132-.067-9.31-13.91 3.025-16.846-5.899-16.846-5.899-2.274-5.78-5.552-7.316-5.552-7.316-4.536-3.103.342-3.04.342-3.04 5.021.353 7.665 5.153 7.665 5.153 4.46 7.644 11.697 5.434 14.55 4.157.449-3.232 1.745-5.437 3.175-6.686-11.106-1.265-22.78-5.552-22.78-24.71 0-5.46 1.953-9.92 5.151-13.421-.519-1.26-2.23-6.345.485-13.232 0 0 4.198-1.344 13.753 5.125 3.988-1.108 8.266-1.663 12.515-1.682 4.25.018 8.53.574 12.526 1.682 9.543-6.47 13.736-5.125 13.736-5.125 2.722 6.887 1.01 11.972.49 13.232 3.206 3.501 5.146 7.961 5.146 13.42 0 19.204-11.697 23.433-22.83 24.67 1.793 1.553 3.39 4.596 3.39 9.26 0 6.69-.057 12.075-.057 13.722 0 1.33.9 2.89 3.434 2.398C85.691 91.82 100 73.085 100 51.001c0-27.615-22.386-50-50-50" />
+    </svg>
+  );
+}
 
 const repoUrl = `https://github.com/${gitConfig.user}/${gitConfig.repo}`;
 const designUrl = `https://github.com/${gitConfig.user}/${gitConfig.repo}/tree/${gitConfig.branch}/docs/design`;
@@ -57,35 +73,23 @@ export default async function HomePage({ params }: { params: Promise<HomeParams>
               <p className="hero-lead">{text.hero.lead}</p>
               <div className="hero-ctas">
                 <a className="btn btn-pri" href={repoUrl} rel="noopener noreferrer">
+                  <GitHubMark />
                   {text.hero.primary}
                 </a>
                 <a className="btn btn-ghost" href={`/${lang}/docs`}>
+                  <BookOpen aria-hidden="true" />
                   {text.hero.secondary}
                 </a>
               </div>
             </div>
-            <aside className="stage" aria-label={text.hero.stageAria}>
+            <aside className="stage" aria-label={text.hero.startAria}>
               <span className="cross tl" aria-hidden="true" />
               <span className="cross br" aria-hidden="true" />
-              <p className="stage-head">
-                <b>{text.hero.stagePkg}</b>
-                <span>{text.hero.stagePhase}</span>
-              </p>
-              <ol className="inspect">
-                {text.hero.rows.map(([key, value, note]) => (
-                  <li key={key}>
-                    <p className="k">{key}</p>
-                    <div>
-                      <strong>{value}</strong>
-                      <span>{note}</span>
-                    </div>
-                  </li>
-                ))}
-              </ol>
-              <p className="stage-foot">
-                {text.hero.foot} <code>{text.hero.help}</code> {text.hero.footAfter}
-                <code>{text.hero.footCmd}</code>
-              </p>
+              <StartCode
+                label={text.hero.startLabel}
+                copyLabel={text.hero.copy}
+                copiedLabel={text.hero.copied}
+              />
             </aside>
           </div>
         </section>
@@ -412,9 +416,11 @@ export default async function HomePage({ params }: { params: Promise<HomeParams>
             <p className="lead">{text.cta.lead}</p>
             <div className="hero-ctas">
               <a className="btn btn-pri" href={repoUrl} rel="noopener noreferrer">
+                <GitHubMark />
                 {text.cta.primary}
               </a>
               <a className="btn btn-ghost" href={`/${lang}/docs`}>
+                <BookOpen aria-hidden="true" />
                 {text.cta.docs}
               </a>
             </div>
