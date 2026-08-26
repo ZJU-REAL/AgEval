@@ -1,0 +1,44 @@
+[
+  {
+    "harness_id": "pi",
+    "kind": "acp",
+    "product": "pi",
+    "label": "Pi",
+    "description": "Pi coding agent via ACP (`executor: acp` + `options.entry: pi`). No default model; pass --model on the run."
+  },
+  {
+    "harness_id": "opencode",
+    "kind": "acp",
+    "product": "opencode",
+    "label": "OpenCode",
+    "description": "OpenCode via ACP. Ships a LiteLLM locator overlay into $HOME/.config/opencode. No default model; pass --model on the run."
+  },
+  {
+    "harness_id": "codex",
+    "kind": "acp",
+    "product": "codex",
+    "label": "Codex",
+    "description": "OpenAI Codex via ACP (`options.entry: codex`). No default model; pass --model on the run."
+  },
+  {
+    "harness_id": "claude-code",
+    "kind": "acp",
+    "product": "claude-code",
+    "label": "Claude Code",
+    "description": "Anthropic Claude Code via ACP (`options.entry: claude-code`). No default model; pass --model on the run."
+  },
+  {
+    "harness_id": "grok-build",
+    "kind": "acp",
+    "product": "grok-build",
+    "label": "Grok Build",
+    "description": "xAI Grok via ACP (`options.entry: grok-build`). No default model; pass --model on the run."
+  },
+  {
+    "harness_id": "openai-http",
+    "kind": "executor",
+    "product": "openai-http",
+    "label": "OpenAI HTTP",
+    "description": "OpenAI-compatible HTTP Chat Completions (`executor: openai-http`). Locators for base_url and api_key. No default model; pass --model on the run."
+  }
+]

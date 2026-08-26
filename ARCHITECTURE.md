@@ -160,7 +160,9 @@ ageval/                              # GitHub: ZJU-REAL/ageval
 │   ├── registry/                    # Hub client
 │   ├── viewer/                      # local Jobs HTTP
 │   ├── control/
-│   └── agents/
+│   └── agents/                      # ageval.agent/1 cache + builtin catalog
+│       ├── builtin/                 # catalog.json + shipped harness trees
+│       └── reserved.py              # short ids: overlay, not Hub upload
 ├── sdk/python/src/ageval_sdk/       # RunContext / RunTerminal / AgentSession
 ├── apps/
 │   ├── viewer/                      # `ageval view` SPA

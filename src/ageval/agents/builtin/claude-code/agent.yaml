@@ -1,0 +1,11 @@
+format: ageval.agent/1
+agent_id: claude-code
+version: "0.1.0"
+label: "Claude Code"
+description: "Anthropic Claude Code via ACP. No default model; pass --model on the run."
+tags: [coding, acp]
+binding:
+  executor: acp
+  extensions:
+    - plugin: acp
+      options: { entry: claude-code }

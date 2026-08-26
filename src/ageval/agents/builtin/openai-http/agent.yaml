@@ -1,0 +1,15 @@
+format: ageval.agent/1
+agent_id: openai-http
+version: "0.1.0"
+label: "OpenAI HTTP"
+description: >-
+  OpenAI-compatible HTTP Chat Completions. No default model; pass --model
+  on the run. Locators stay names until invoke.
+tags: [openai-http]
+binding:
+  executor: openai-http
+  api_key: ${litellm_api_key}
+  base_url: ${litellm_base_url}
+  extensions:
+    - plugin: openai-http
+    - plugin: local
