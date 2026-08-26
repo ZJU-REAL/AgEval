@@ -35,8 +35,11 @@ def test_parse_published_spec_and_reject_local_file() -> None:
         parse_published_agent_spec("local/http-default@0.1.0")
     with pytest.raises(AttachAgentRefError, match="published"):
         parse_published_agent_spec("file:/tmp/agent@dev")
-    with pytest.raises(AttachAgentRefError, match="org/name@version"):
+    with pytest.raises(AttachAgentRefError, match="builtin harness id"):
         parse_published_agent_spec("acme/http-default")
+    assert parse_published_agent_spec("pi") == (None, "pi", "0.1.0")
+    assert parse_published_agent_spec("solver=opencode")[1:] == ("opencode", "0.1.0")
+    assert parse_published_agent_spec("pi@0.1.0") == (None, "pi", "0.1.0")
 
 
 def test_inject_matches_all_roles_and_keeps_fingerprint() -> None:
