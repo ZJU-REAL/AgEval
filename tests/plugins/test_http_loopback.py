@@ -10,6 +10,7 @@ import subprocess
 import sys
 from pathlib import Path
 from types import SimpleNamespace
+from typing import Any
 
 import pytest
 
@@ -56,7 +57,7 @@ def test_http_executors_are_the_four_openai_compatible_kinds() -> None:
     assert frozenset({"openai-http", "dsh", "nooa", "miniswe"}) == HTTP_EXECUTORS
 
 
-def _load_worker(path: Path, name: str) -> object:
+def _load_worker(path: Path, name: str) -> Any:
     spec = importlib.util.spec_from_file_location(name, path)
     assert spec is not None and spec.loader is not None
     mod = importlib.util.module_from_spec(spec)
