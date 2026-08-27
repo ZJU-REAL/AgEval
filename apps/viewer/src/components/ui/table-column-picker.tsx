@@ -47,9 +47,9 @@ export function TableColumnPicker<T extends string>({
       <div
         role="group"
         aria-label={ariaLabel}
-        className="hidden h-9 overflow-hidden rounded-[6px] border border-hairline bg-canvas md:inline-flex"
+        className="hidden h-9 rounded-[8px] border border-hairline bg-canvas p-0.5 md:inline-flex"
       >
-        {options.map((opt, index) => {
+        {options.map((opt) => {
           const on = selected.has(opt.id);
           return (
             <button
@@ -58,13 +58,12 @@ export function TableColumnPicker<T extends string>({
               aria-pressed={on}
               onClick={() => onChange(toggleId(options, value, opt.id))}
               className={cn(
-                "h-full px-3 text-sm font-medium squish",
+                "h-full rounded-[8px] px-3 text-sm font-medium squish",
                 "transition-colors duration-200 ease-smooth",
-                "focus-visible:outline-none focus-visible:z-10 focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-link/70",
-                index > 0 && "border-l border-hairline",
+                "focus-visible:outline-none focus-visible:z-10 focus-visible:ring-2 focus-visible:ring-link/70",
                 on
                   ? "bg-canvas-soft-2 text-ink"
-                  : "bg-canvas text-body hover:bg-canvas-soft hover:text-ink",
+                  : "text-body hover:bg-liquid-hover hover:text-ink",
               )}
             >
               {opt.label}

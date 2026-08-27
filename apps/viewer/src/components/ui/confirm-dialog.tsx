@@ -57,7 +57,7 @@ export function ConfirmDialog({
         aria-describedby="confirm-dialog-desc"
         data-ageval-pop=""
         className={cn(
-          "w-full max-w-md rounded-[12px] border border-hairline bg-canvas p-5 shadow-[var(--viewer-shadow-pop)]",
+          "w-full max-w-md rounded-[14px] border border-hairline bg-canvas p-5 shadow-[var(--viewer-shadow-pop)]",
           className,
         )}
         onClick={(event) => event.stopPropagation()}

@@ -1,6 +1,9 @@
-import { useLayoutEffect, useRef, useState } from "react";
+import { Liquid } from "liquid-gooey";
 
+import { LiquidThumb, useTrackedRect } from "@/components/liquid-thumb";
+import { liquidGroup } from "@/lib/liquid";
 import { cn } from "@/lib/utils";
+import { useRef } from "react";
 
 type Item<T extends string> = { id: T; label: string };
 
@@ -18,65 +21,26 @@ export function PillTabs<T extends string>({
   className?: string;
 }) {
   const listRef = useRef<HTMLDivElement>(null);
-  const [bar, setBar] = useState({ x: 0, y: 0, w: 0, h: 0 });
-  const [ready, setReady] = useState(false);
   const itemsKey = items.map((item) => item.id).join("\0");
-
-  useLayoutEffect(() => {
-    const root = listRef.current;
-    if (!root) return;
-    const btn = root.querySelector<HTMLElement>(
-      `[data-tab-id="${CSS.escape(value)}"]`,
-    );
-    if (!btn) return;
-
-    const measure = () => {
-      setBar({
-        x: btn.offsetLeft,
-        y: btn.offsetTop,
-        w: btn.offsetWidth,
-        h: btn.offsetHeight,
-      });
-    };
-    measure();
-    if (typeof ResizeObserver === "undefined") return;
-    const ro = new ResizeObserver(measure);
-    ro.observe(root);
-    ro.observe(btn);
-    return () => ro.disconnect();
-  }, [value, itemsKey]);
-
-  useLayoutEffect(() => {
-    if (bar.w === 0 || ready) return;
-    const frame = window.requestAnimationFrame(() => setReady(true));
-    return () => window.cancelAnimationFrame(frame);
-  }, [bar.w, ready]);
+  const { bar, ready } = useTrackedRect(
+    listRef,
+    '[aria-selected="true"]',
+    `${value}\0${itemsKey}`,
+  );
 
   return (
-    <div
+    <Liquid
       ref={listRef}
+      {...liquidGroup}
+      fill="var(--viewer-canvas-soft-2)"
       role="tablist"
       aria-label={ariaLabel}
       className={cn(
-        "relative inline-flex shrink-0 rounded-[6px] border border-hairline bg-canvas p-0.5",
+        "relative inline-flex shrink-0 rounded-[8px] bg-canvas p-0.5",
         className,
       )}
     >
-      {bar.w > 0 ? (
-        <span
-          aria-hidden
-          className={cn(
-            "pointer-events-none absolute top-0 left-0 rounded-[4px] bg-canvas-soft",
-            ready &&
-              "motion-safe:transition-[transform,width,height] motion-safe:duration-[250ms] motion-safe:ease-glide",
-          )}
-          style={{
-            width: bar.w,
-            height: bar.h,
-            transform: `translate(${bar.x}px, ${bar.y}px)`,
-          }}
-        />
-      ) : null}
+      <LiquidThumb bar={bar} ready={ready} />
       {items.map((item) => (
         <button
           key={item.id}
@@ -86,16 +50,16 @@ export function PillTabs<T extends string>({
           aria-selected={value === item.id}
           onClick={() => onChange(item.id)}
           className={cn(
-            "relative z-10 rounded-[4px] px-2 py-0.5 text-[11px]",
+            "relative z-10 rounded-[8px] px-2.5 py-0.5 text-[11px]",
             "transition-colors duration-200 ease-smooth",
             value === item.id
               ? "font-medium text-ink"
-              : "text-mute hover:text-ink",
+              : "text-mute hover:bg-liquid-hover hover:text-ink",
           )}
         >
           {item.label}
         </button>
       ))}
-    </div>
+    </Liquid>
   );
 }

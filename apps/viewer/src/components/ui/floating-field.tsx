@@ -29,7 +29,7 @@ export function FloatingField(props: InputProps | AreaProps) {
     props.multiline ? "top-3" : "top-1/2 -translate-y-1/2",
   );
   const controlClass = cn(
-    "peer w-full rounded-[6px] border border-hairline bg-canvas px-3 text-sm text-ink shadow-none",
+    "peer w-full rounded-[10px] border border-hairline bg-canvas px-3.5 text-sm text-ink shadow-none",
     "placeholder:text-transparent focus-visible:border-link focus-visible:outline-none",
     "disabled:cursor-not-allowed disabled:opacity-50",
     props.multiline ? "min-h-[5.5rem] resize-y py-3" : "h-9",

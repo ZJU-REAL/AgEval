@@ -27,7 +27,7 @@ export function CommandStrip({
   return (
     <div
       className={cn(
-        "flex items-center gap-2 rounded-[8px] border border-hairline bg-code-bg px-3 py-2.5",
+        "flex items-center gap-2 rounded-[10px] border border-hairline bg-code-bg px-3.5 py-2.5",
         className,
       )}
     >

@@ -14,7 +14,7 @@ export const SelectTrigger = React.forwardRef<
   <SelectPrimitive.Trigger
     ref={ref}
     className={cn(
-      "group flex h-9 select-none items-center justify-between gap-2 rounded-[6px] border border-hairline bg-canvas-soft px-3 text-sm text-ink squish",
+      "group flex h-9 select-none items-center justify-between gap-2 rounded-[8px] border border-hairline bg-canvas px-3.5 text-sm text-ink squish",
       "focus:outline-none focus-visible:outline-none focus:border-hairline focus-visible:border-hairline disabled:cursor-not-allowed disabled:opacity-50",
       "data-[placeholder]:text-mute min-w-[9rem]",
       className,
@@ -38,7 +38,7 @@ export const SelectContent = React.forwardRef<
       ref={ref}
       data-ageval-menu=""
       className={cn(
-        "z-50 min-w-[8rem] overflow-hidden rounded-[8px] border border-hairline bg-canvas text-ink shadow-[var(--viewer-shadow-pop)]",
+        "z-50 min-w-[8rem] overflow-hidden rounded-[12px] border border-hairline bg-canvas text-ink shadow-[var(--viewer-shadow-pop)]",
         className,
       )}
       position={position}
@@ -59,7 +59,7 @@ export const SelectItem = React.forwardRef<
   <SelectPrimitive.Item
     ref={ref}
     className={cn(
-      "relative flex w-full cursor-pointer select-none items-center rounded-[6px] py-1.5 pl-8 pr-2 text-sm outline-none",
+      "relative flex w-full cursor-pointer select-none items-center rounded-[8px] py-1.5 pl-8 pr-2 text-sm outline-none",
       "transition-colors duration-200 ease-smooth",
       "data-[highlighted]:bg-canvas-soft data-[state=checked]:bg-canvas-soft-2",
       "data-[disabled]:pointer-events-none data-[disabled]:opacity-50",

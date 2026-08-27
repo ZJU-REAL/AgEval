@@ -87,7 +87,7 @@ function ToastCard({
       onPointerEnter={pause}
       onPointerLeave={resume}
       className={cn(
-        "pointer-events-auto flex max-w-sm items-start gap-2.5 rounded-[12px] px-3 py-2 shadow-[var(--viewer-shadow-pop)]",
+        "pointer-events-auto flex max-w-sm items-start gap-2.5 rounded-[14px] px-3.5 py-2.5 shadow-[var(--viewer-shadow-pop)]",
         bg,
       )}
     >

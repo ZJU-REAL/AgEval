@@ -16,11 +16,11 @@ export function Shell({
     <div className="min-h-full flex flex-col bg-canvas">
       <a
         href="#main"
-        className="sr-only focus:not-sr-only focus:absolute focus:left-3 focus:top-3 focus:z-[80] focus:rounded-[6px] focus:bg-link focus:px-3 focus:py-2 focus:text-sm focus:font-medium focus:text-on-accent"
+        className="sr-only focus:not-sr-only focus:absolute focus:left-3 focus:top-3 focus:z-[80] focus:rounded-[8px] focus:bg-link focus:px-3 focus:py-2 focus:text-sm focus:font-medium focus:text-on-accent"
       >
         Skip to content
       </a>
-      <header className="h-14 border-b border-hairline flex items-center px-6 gap-4 shrink-0">
+      <header className="h-14 border-b border-hairline bg-canvas-soft flex items-center px-6 gap-4 shrink-0">
         <Link
           to="/"
           className="flex items-center gap-1.5 font-semibold tracking-tight text-ink text-[15px]"
