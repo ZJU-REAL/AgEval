@@ -46,7 +46,7 @@ const SIDEBAR_COLLAPSED_KEY = "ageval-hub-sidebar-collapsed";
 type Glyph = ComponentType<{ className?: string; strokeWidth?: number }>;
 
 const navItemClass =
-  "flex h-8 w-full items-center rounded-[6px] font-mono text-[13px] motion-safe:transition-[color,background-color,font-weight] motion-safe:duration-200 motion-safe:ease-smooth focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-link/70";
+  "flex h-9 w-full items-center rounded-[6px] text-sm motion-safe:transition-[color,background-color,font-weight] motion-safe:duration-200 motion-safe:ease-smooth focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-link/70";
 
 function useDesktopNav(): boolean {
   const [desktop, setDesktop] = useState(

@@ -22,7 +22,7 @@ export function SortableHead({
       type="button"
       onClick={onClick}
       className={cn(
-        "inline-flex items-center gap-1 text-xs font-medium text-mute hover:text-ink transition-colors",
+        "inline-flex items-center gap-1 text-sm font-medium text-mute hover:text-ink transition-colors",
         className,
       )}
     >

@@ -614,8 +614,8 @@ export function AgentDetailPage() {
                             <TableHead>Dataset</TableHead>
                             <TableHead>Role</TableHead>
                             <TableHead>Model</TableHead>
-                            <TableHead className="text-right">Pass rate</TableHead>
-                            <TableHead className="text-right">Mean</TableHead>
+                            <TableHead>Pass rate</TableHead>
+                            <TableHead>Mean</TableHead>
                           </TableRow>
                         </TableHeader>
                         <TableBody>
@@ -637,10 +637,10 @@ export function AgentDetailPage() {
                                 <TableCell>
                                   {row.model || "—"}
                                 </TableCell>
-                                <TableCell className="text-right tabular-nums">
+                                <TableCell className="tabular-nums">
                                   {formatScore(row.pass_rate)}
                                 </TableCell>
-                                <TableCell className="text-right tabular-nums">
+                                <TableCell className="tabular-nums">
                                   {formatScore(row.mean_score)}
                                 </TableCell>
                               </TableRow>

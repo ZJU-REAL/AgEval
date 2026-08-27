@@ -84,7 +84,7 @@ const components: Components = {
     <tr className="border-b border-hairline last:border-0">{children}</tr>
   ),
   th: ({ children }) => (
-    <th className="px-3 py-2 text-left text-xs font-medium text-mute align-top whitespace-nowrap">
+    <th className="px-3 py-2 text-left text-sm font-medium text-mute align-top whitespace-nowrap">
       {children}
     </th>
   ),

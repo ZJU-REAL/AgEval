@@ -9,7 +9,7 @@ export function Table({
   return (
     <div className="relative w-full overflow-auto">
       <table
-        className={cn("w-full caption-bottom text-sm", className)}
+        className={cn("w-full table-fixed caption-bottom text-sm", className)}
         {...props}
       />
     </div>
@@ -54,7 +54,7 @@ export function TableHead({
   return (
     <th
       className={cn(
-        "h-10 px-3 text-left align-middle text-xs font-medium text-mute whitespace-nowrap",
+        "h-10 px-4 text-left align-middle text-sm font-medium text-mute whitespace-nowrap overflow-hidden text-ellipsis",
         className,
       )}
       {...props}
@@ -69,7 +69,7 @@ export function TableCell({
   return (
     <td
       className={cn(
-        "px-3 py-2.5 align-middle text-sm text-ink whitespace-nowrap",
+        "px-4 py-2.5 align-middle text-sm text-ink whitespace-nowrap overflow-hidden text-ellipsis",
         className,
       )}
       {...props}
