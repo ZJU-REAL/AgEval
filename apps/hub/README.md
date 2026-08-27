@@ -76,8 +76,8 @@ modal; the list only shows a prefix. Members join from **Organizations → Join*
 | `/plugins` | **Plugin marketplace** list (`package_kind=plugin`) |
 | `/plugins/:id` | Plugin detail (exclusive/chain timeline · files · CLI install) |
 | `/agents` | Published Agent catalog |
-| `/agents/:id` | Agent detail (binding, files, appearances grouped by version) |
-| `/datasets/:id?tab=leaderboard&suite=` | Public Leaderboard with that suite row expanded |
+| `/agents/:id` | Agent detail: `?model=` chips + CLI; tabs Overview / Appearances / Files |
+| `/datasets/:id?tab=leaderboard&suite=` | Public Leaderboard with that suite inspector open |
 | `/organizations` | Your orgs · Create · Join |
 | `/organizations/:orgId` | Overview (members · datasets · plugins · agents) · Settings |
 | `/users/:login` | Public user profile (official orgs only; signed-out OK) |
