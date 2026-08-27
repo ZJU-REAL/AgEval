@@ -29,6 +29,12 @@ from ageval.evidence.schema import (
     normalize_event,
 )
 
+# Layout strings live here. Run-phase invoke scratch vs evaluate-phase scratch.
+AGENT_INVOCATIONS_REL = "agent/invocations"
+EVALUATION_INVOCATIONS_REL = "evaluation/invocations"
+AGENT_EVENTS_REL = "agent/events.jsonl"
+EVALUATION_EVENTS_REL = "evaluation/events.jsonl"
+
 
 def _utc_now() -> str:
     return datetime.now(UTC).replace(microsecond=0).isoformat().replace("+00:00", "Z")
@@ -71,12 +77,13 @@ class InvocationHandle:
     started_at: str
     status: str = "running"
     sealed: bool = False
+    rel_prefix: str = AGENT_INVOCATIONS_REL
     _event_seq: int = 0
     _lock: threading.Lock = field(default_factory=threading.Lock)
 
     @property
     def relative_path(self) -> str:
-        return f"agent/invocations/{self.directory.name}"
+        return f"{self.rel_prefix}/{self.directory.name}"
 
     def write_request(self, request: dict[str, Any]) -> None:
         """Write redacted request; on residual secret seal redaction_failed and re-raise."""
@@ -288,6 +295,7 @@ class AttemptEvidenceStore:
     dataset_root: Path | None = None
     sentinels: list[str] = field(default_factory=list)
     _seq: int = 0
+    _eval_seq: int = 0
     _lock: threading.Lock = field(default_factory=threading.Lock)
     _invocations: dict[str, InvocationHandle] = field(default_factory=dict)
     _sealed_summary: bool = False
@@ -317,7 +325,11 @@ class AttemptEvidenceStore:
 
     def append_agent_index(self, event: dict[str, Any]) -> None:
         cleaned = redact_and_assert(event, extra_sentinels=self.sentinels)
-        self._append_jsonl(self.root / "agent" / "events.jsonl", cleaned)
+        self._append_jsonl(self.root / AGENT_EVENTS_REL, cleaned)
+
+    def append_evaluation_index(self, event: dict[str, Any]) -> None:
+        cleaned = redact_and_assert(event, extra_sentinels=self.sentinels)
+        self._append_jsonl(self.root / EVALUATION_EVENTS_REL, cleaned)
 
     def write_evaluation(self, name: str, doc: dict[str, Any]) -> None:
         if ".." in name or "/" in name or "\\" in name:
@@ -344,13 +356,19 @@ class AttemptEvidenceStore:
         executor_kind: str,
         model: str,
         invocation_id: str | None = None,
+        surface: str = "agent",
     ) -> InvocationHandle:
+        rel_prefix = EVALUATION_INVOCATIONS_REL if surface == "evaluate" else AGENT_INVOCATIONS_REL
         with self._lock:
-            self._seq += 1
-            seq = self._seq
+            if surface == "evaluate":
+                self._eval_seq += 1
+                seq = self._eval_seq
+            else:
+                self._seq += 1
+                seq = self._seq
             inv_id = invocation_id or f"inv_{uuid.uuid4().hex[:16]}"
             dirname = invocation_dir_name(seq, inv_id)
-            directory = self.root / "agent" / "invocations" / dirname
+            directory = self.root / rel_prefix / dirname
             directory.mkdir(parents=True, exist_ok=False)
             started = _utc_now()
             handle = InvocationHandle(
@@ -363,6 +381,7 @@ class AttemptEvidenceStore:
                 model=model,
                 attempt_id=self.attempt_id,
                 started_at=started,
+                rel_prefix=rel_prefix,
             )
             meta = {
                 "schema": METADATA_SCHEMA_VERSION,
@@ -379,25 +398,35 @@ class AttemptEvidenceStore:
                 "error": None,
                 "event_schema": "ageval.trajectory.event/1",
                 "event_count": 0,
+                "surface": surface,
             }
             _atomic_write_json(directory / "metadata.json", meta)
             # Empty events file for append-only contract.
             (directory / "events.jsonl").write_text("", encoding="utf-8")
             self._invocations[inv_id] = handle
-            self.append_agent_index(
-                {
-                    "type": "invocation_begin",
-                    "invocation_id": inv_id,
-                    "seq": seq,
-                    "profile_id": profile_id,
-                    "executor_kind": executor_kind,
-                    "started_at": started,
-                }
-            )
+            begin = {
+                "type": "invocation_begin",
+                "invocation_id": inv_id,
+                "seq": seq,
+                "profile_id": profile_id,
+                "executor_kind": executor_kind,
+                "started_at": started,
+                "surface": surface,
+            }
+            if surface == "evaluate":
+                self.append_evaluation_index(begin)
+            else:
+                self.append_agent_index(begin)
             return handle
 
     def list_invocations(self) -> list[Path]:
-        base = self.root / "agent" / "invocations"
+        return self._list_invocation_dirs(AGENT_INVOCATIONS_REL)
+
+    def list_evaluation_invocations(self) -> list[Path]:
+        return self._list_invocation_dirs(EVALUATION_INVOCATIONS_REL)
+
+    def _list_invocation_dirs(self, rel: str) -> list[Path]:
+        base = self.root / rel
         if not base.is_dir():
             return []
         return sorted(p for p in base.iterdir() if p.is_dir())

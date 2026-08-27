@@ -7,7 +7,11 @@ from pathlib import Path
 from typing import Any
 
 from ageval.evidence.schema import EVENT_SCHEMA_VERSION
-from ageval.evidence.trajectory import turn_rows, write_attempt_trajectory
+from ageval.evidence.trajectory import (
+    turn_rows,
+    write_attempt_trajectory,
+    write_evaluation_observation,
+)
 from ageval.plugins.contrib.acp.trajectory_map import acp_session_events_to_ageval
 
 
@@ -1004,3 +1008,36 @@ def test_write_attempt_keeps_invoke_order_across_profiles(tmp_path: Path) -> Non
     ]
     assert lines[2]["turn_index"] == 1
     assert lines[5]["turn_index"] == 2
+
+
+def test_evaluation_observation_omits_user_row(tmp_path: Path) -> None:
+    rows = turn_rows(
+        prompt="hidden gold body",
+        events=(
+            {
+                "schema": EVENT_SCHEMA_VERSION,
+                "seq": 1,
+                "source": "openai-http",
+                "kind": "text",
+                "channel": "assistant",
+                "text": "score 1",
+            },
+        ),
+        final_text="score 1",
+        structured=None,
+        usage={"prompt_tokens": 2, "completion_tokens": 1},
+        extra=None,
+        ok=True,
+        error=None,
+        metadata={"profile_id": "judge", "turn_index": 1, "executor_kind": "openai-http"},
+        include_user=False,
+    )
+    roles = [row.get("role") for row in rows if row.get("type") == "turn"]
+    assert "user" not in roles
+    assert any(row.get("type") == "terminal" for row in rows)
+    assert all("hidden gold body" not in json.dumps(row) for row in rows)
+    path = write_evaluation_observation(tmp_path / "run", [rows])
+    assert path == tmp_path / "run" / "evaluation" / "observation.jsonl"
+    dumped = path.read_text(encoding="utf-8")
+    assert "hidden gold body" not in dumped
+    assert '"role": "assistant"' in dumped

@@ -65,6 +65,10 @@ class AgentServiceServer:
         self._thread = threading.Thread(target=self._loop, name="ageval-agent-service", daemon=True)
         self._thread.start()
 
+    def seal_run(self) -> None:
+        """Close run-phase sessions; leave the socket up for evaluate."""
+        self.service.seal_run()
+
     def stop(self) -> None:
         """Close every session, then the socket. No Agent can write after this."""
         for session_id in self.service.open_session_ids():

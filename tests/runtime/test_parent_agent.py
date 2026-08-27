@@ -31,6 +31,7 @@ def _service(
     invoke_timeout_seconds: float = DEFAULT_INVOKE_TIMEOUT_SECONDS,
     evidence: bool = True,
     offline_env: str = "",
+    extra_profiles: tuple[str, ...] = (),
 ) -> tuple[ParentAgentService, ScriptedExecutor]:
     backend = executor or ScriptedExecutor()
     store = (
@@ -40,7 +41,7 @@ def _service(
     )
     service = ParentAgentService(
         attempt_id=ATTEMPT,
-        binder=ScriptedBinder(backend),
+        binder=ScriptedBinder(backend, extra_profiles=extra_profiles),
         agent_invocation_limit=limit,
         evidence_store=store,
         deadline_monotonic=deadline_monotonic,
@@ -128,6 +129,32 @@ def test_session_invokes_carry_turns_and_evidence(tmp_path: Path) -> None:
     assert service.invocations_completed == 2
     assert service.evidence_store is not None
     assert len(service.evidence_store.list_invocations()) == 2
+
+
+def test_seal_run_refuses_solver_and_keeps_judge_on_evaluate_surface(
+    tmp_path: Path,
+) -> None:
+    service, backend = _service(tmp_path, extra_profiles=("judge",))
+    solver = _open(service, "solver")
+    assert service.invoke(session_id=solver, prompt="solve")["ok"] is True
+    assert service.evidence_store is not None
+    assert len(service.evidence_store.list_invocations()) == 1
+    assert service.evidence_store.list_evaluation_invocations() == []
+
+    service.seal_run()
+    refused = service.open_session(profile_id="solver")
+    assert refused["error"] == "solver_writers_stopped"
+    closed = service.invoke(session_id=solver, prompt="after-gold")
+    assert closed["error"] == "session_closed"
+    assert backend.prompts == ["solve"]
+
+    judge = _open(service, "judge")
+    answer = service.invoke(session_id=judge, prompt="GOLD BODY must not be layer C user")
+    assert answer["ok"] is True
+    assert len(service.evidence_store.list_invocations()) == 1
+    eval_dirs = service.evidence_store.list_evaluation_invocations()
+    assert len(eval_dirs) == 1
+    assert "evaluation/invocations/" in str(eval_dirs[0])
 
 
 def test_unknown_profile_never_opens(tmp_path: Path) -> None:

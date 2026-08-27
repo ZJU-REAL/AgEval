@@ -29,8 +29,9 @@ async def run(ctx: AttemptCtx) -> None:
             raise RuntimeError(error)
     finally:
         if ctx.agent_service is not None:
-            await _stop_agent_service(ctx)
-        # No Agent can write after this point; evaluate may now start.
+            await _seal_run_agent_service(ctx)
+        # Solver writers cannot write after this point; evaluate may now start.
+        # The Agent Service socket stays up so evaluator.py can still session().
         ctx.mark_writers_stopped()
     await harvest_workspace_artifacts(ctx)
     await emit(ctx, AFTER_RUN)
@@ -42,7 +43,13 @@ async def _run_task_entry(ctx: AttemptCtx) -> dict[str, object]:
     return await launch_task_worker(ctx)
 
 
-async def _stop_agent_service(ctx: AttemptCtx) -> None:
+async def _seal_run_agent_service(ctx: AttemptCtx) -> None:
+    seal = getattr(ctx.agent_service, "seal_run", None)
+    if callable(seal):
+        result = seal()
+        if hasattr(result, "__await__"):
+            await result
+        return
     stop = getattr(ctx.agent_service, "stop", None)
     if stop is None:
         return

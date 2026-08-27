@@ -199,6 +199,53 @@ async def test_seal_winner_writes_after_collect(tmp_path: Path) -> None:
 
 
 @pytest.mark.asyncio
+async def test_record_seals_evaluate_invokes_to_observation_not_trajectory(
+    tmp_path: Path,
+) -> None:
+    import json
+
+    registry = ExtensionRegistry()
+    register_defaults(registry)
+    graph = resolve(BindingIntent(profile_id="solver"), registry)
+    ctx = _ctx(tmp_path, registry=registry, graph=graph)
+    agent = ctx.evidence.root / "agent" / "invocations" / "0001-solver"
+    agent.mkdir(parents=True)
+    (agent / "metadata.json").write_text(
+        '{"seq": 1, "status": "completed", "profile_id": "solver"}',
+        encoding="utf-8",
+    )
+    (agent / "final-response.json").write_text('{"content": "done"}', encoding="utf-8")
+    (agent / "request.json").write_text(
+        '{"messages": [{"content": "solve this"}]}',
+        encoding="utf-8",
+    )
+    (agent / "events.jsonl").write_text("", encoding="utf-8")
+    judge = ctx.evidence.root / "evaluation" / "invocations" / "0001-judge"
+    judge.mkdir(parents=True)
+    (judge / "metadata.json").write_text(
+        '{"seq": 1, "status": "completed", "profile_id": "judge"}',
+        encoding="utf-8",
+    )
+    (judge / "final-response.json").write_text('{"content": "1.0"}', encoding="utf-8")
+    (judge / "request.json").write_text(
+        '{"messages": [{"content": "hidden gold body"}]}',
+        encoding="utf-8",
+    )
+    (judge / "events.jsonl").write_text("", encoding="utf-8")
+    await record.run(ctx)
+    traj = (ctx.evidence.root / "trajectory.jsonl").read_text(encoding="utf-8")
+    obs = (ctx.evidence.root / "evaluation" / "observation.jsonl").read_text(encoding="utf-8")
+    assert "solve this" in traj
+    assert "hidden gold body" not in traj
+    assert "hidden gold body" not in obs
+    assert "1.0" in obs
+    assert '"profile_id": "judge"' in obs
+    assert not any(
+        json.loads(line).get("role") == "user" for line in obs.splitlines() if line.strip()
+    )
+
+
+@pytest.mark.asyncio
 async def test_collect_usage_extra_lands_on_terminal(tmp_path: Path) -> None:
     import json
 

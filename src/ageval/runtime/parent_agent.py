@@ -122,6 +122,8 @@ class ParentAgentService:
     invocations_completed: int = 0
     _sessions: dict[str, SessionBinding] = field(default_factory=dict, repr=False)
     _lock: threading.Lock = field(default_factory=threading.Lock, repr=False)
+    _run_sealed: bool = field(default=False, repr=False)
+    _run_profile_ids: set[str] = field(default_factory=set, repr=False)
 
     def __post_init__(self) -> None:
         if self.invoke_quota is None:
@@ -131,9 +133,29 @@ class ParentAgentService:
 
     # --- sessions ------------------------------------------------------------
 
+    def seal_run(self) -> None:
+        """Stop solver writers; keep the socket so evaluate can still invoke.
+
+        Profiles that already opened a session during run may not invoke after
+        gold lands. New profiles (e.g. ``judge``) still may.
+        """
+        with self._lock:
+            self._run_sealed = True
+            self._run_profile_ids = {binding.profile_id for binding in self._sessions.values()}
+            session_ids = [sid for sid, binding in self._sessions.items() if not binding.closed]
+        for session_id in session_ids:
+            self.close_session(session_id=session_id)
+
     def open_session(self, *, profile_id: str, actor_id: str | None = None) -> dict[str, Any]:
         if self._wall_expired():
             return {"ok": False, "error": "wall_time_exceeded", "profile_id": profile_id}
+        with self._lock:
+            if self._run_sealed and profile_id in self._run_profile_ids:
+                return {
+                    "ok": False,
+                    "error": "solver_writers_stopped",
+                    "profile_id": profile_id,
+                }
         actor = str(actor_id).strip() if actor_id and str(actor_id).strip() else None
         try:
             bound = self.binder.bind(profile_id)
@@ -417,6 +439,7 @@ class ParentAgentService:
             profile_id=binding.profile_id,
             executor_kind=binding.executor_kind,
             model=binding.model,
+            surface="evaluate" if self._run_sealed else "agent",
         )
         try:
             write_invoke_request(

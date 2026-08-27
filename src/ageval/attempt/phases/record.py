@@ -7,13 +7,14 @@ fails the phase. ``summary_enrich`` runs once after a successful seal.
 
 from __future__ import annotations
 
+from pathlib import Path
 from typing import Any
 
 from ageval.attempt.ctx import AttemptCtx
 from ageval.attempt.emit import emit
 from ageval.evidence.invocation import read_invocation_payload
 from ageval.evidence.slim import slim_sealed_attempt
-from ageval.evidence.trajectory import turn_rows
+from ageval.evidence.trajectory import turn_rows, write_evaluation_observation
 from ageval.plugins.binding import bind_winner
 from ageval.plugins.slots import (
     SUMMARY_ENRICH,
@@ -27,12 +28,7 @@ PHASE = "record"
 
 async def run(ctx: AttemptCtx) -> None:
     ctx.phase = PHASE
-    turns: list[list[dict[str, Any]]] = []
-    for directory in ctx.evidence.list_invocations():
-        payload = read_invocation_payload(directory)
-        shaped = await emit(ctx, TRAJECTORY_COLLECT, payload)
-        shaped = await emit(ctx, TRAJECTORY_ENRICH, shaped)
-        turns.append(turn_rows(**_fields(shaped, payload)))
+    turns = await _fold_invocations(ctx, ctx.evidence.list_invocations(), include_user=True)
     impl = bind_winner(ctx.registry, ctx.bindings, TRAJECTORY_SEAL)
     plugin_id = ctx.bindings.winners[TRAJECTORY_SEAL].plugin_id
     ctx.services.register(TRAJECTORY_SEAL, impl, plugin_id=plugin_id)
@@ -40,6 +36,19 @@ async def run(ctx: AttemptCtx) -> None:
     if not path.is_file():
         raise RuntimeError("trajectory_seal did not write the trajectory file")
     ctx.record_fact("trajectory_recorded", {"turns": len(turns), "file": path.name})
+    eval_turns = await _fold_invocations(
+        ctx, ctx.evidence.list_evaluation_invocations(), include_user=False
+    )
+    if eval_turns:
+        obs = write_evaluation_observation(
+            ctx.evidence.root,
+            eval_turns,
+            redaction_sentinels=ctx.evidence.sentinels,
+        )
+        ctx.record_fact(
+            "evaluation_observation_recorded",
+            {"turns": len(eval_turns), "file": obs.name},
+        )
     if ctx.keep_vendor_raw:
         ctx.record_fact("vendor_raw_kept", {"keep_vendor_raw": True})
     else:
@@ -47,6 +56,21 @@ async def run(ctx: AttemptCtx) -> None:
         ctx.record_fact("vendor_raw_dropped", {"keep_vendor_raw": False})
     bag = await emit(ctx, SUMMARY_ENRICH, {})
     ctx.summary_extra = bag if isinstance(bag, dict) and bag else None
+
+
+async def _fold_invocations(
+    ctx: AttemptCtx,
+    directories: list[Path],
+    *,
+    include_user: bool,
+) -> list[list[dict[str, Any]]]:
+    turns: list[list[dict[str, Any]]] = []
+    for directory in directories:
+        payload = read_invocation_payload(directory)
+        shaped = await emit(ctx, TRAJECTORY_COLLECT, payload)
+        shaped = await emit(ctx, TRAJECTORY_ENRICH, shaped)
+        turns.append(turn_rows(**_fields(shaped, payload), include_user=include_user))
+    return turns
 
 
 def _fields(shaped: Any, original: dict[str, Any]) -> dict[str, Any]:

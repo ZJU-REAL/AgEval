@@ -19,7 +19,7 @@ PHASE = "evaluate"
 
 async def run(ctx: AttemptCtx) -> None:
     ctx.phase = PHASE
-    ctx.assert_writers_stopped()
+    ctx.assert_writers_stopped()  # solver writers; Agent Service may still be up
     await emit(ctx, BEFORE_EVALUATE)
     await _upload_task_artifacts(ctx)
     if ctx.evaluation_src is not None and ctx.evaluation_src.is_dir():
