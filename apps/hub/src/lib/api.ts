@@ -45,6 +45,8 @@ export type PackageRelease = {
   package_digest: string;
   blob_digest: string;
   size: number;
+  /** Dataset member task count from the package task summary. */
+  task_count?: number;
   media_type?: string;
   /** Registry package_kind: dataset | plugin | agent. */
   package_kind?: "dataset" | "plugin" | "agent" | string;
@@ -675,13 +677,15 @@ export async function listPackageTasks(
   datasetId: string,
   digest: string,
   token: string | null,
-  opts?: { limit?: number; offset?: number },
+  opts?: { limit?: number; offset?: number; q?: string },
 ): Promise<PackageTaskPage> {
   const id = packageIdPath(datasetId);
   const dig = digestPath(digest);
   const q = new URLSearchParams();
   q.set("limit", String(opts?.limit ?? TASK_PAGE_SIZE));
   q.set("offset", String(opts?.offset ?? 0));
+  const query = (opts?.q || "").trim();
+  if (query) q.set("q", query);
   const data = await requestJson<Partial<PackageTaskPage>>(
     `/v1/packages/${id}/by-digest/${dig}/tasks?${q.toString()}`,
     { token },

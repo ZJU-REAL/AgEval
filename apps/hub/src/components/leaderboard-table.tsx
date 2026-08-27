@@ -32,10 +32,8 @@ import {
 } from "@/lib/utils";
 import {
   formatPassMetric,
-  metricsNAttempts,
   passAtPrimaryK,
   passPowerPrimaryK,
-  primaryDisplayK,
 } from "@/lib/suite-metrics";
 import { BrandMark } from "@/components/brand-mark";
 import { HoverTip, TruncateTip } from "@/components/hover-tip";
@@ -43,9 +41,23 @@ import { ModelLabel } from "@/components/model-label";
 import { resolveMechanismMark } from "@/lib/brand-marks";
 import { shortSuiteId, SuiteInspector } from "@/components/suite-inspector";
 
-/** Shared column widths — keep Harness/Model tight so columns stay similar. */
-const COL_TEXT = "w-[6.5rem] max-w-[6.5rem] overflow-hidden";
-const COL_METRIC = "w-[5.5rem] max-w-[5.5rem]";
+const COL_TEXT = "max-w-[12rem] overflow-hidden";
+const COL_METRIC = "w-[6.5rem]";
+
+export const LEADERBOARD_OPTIONAL_COLUMNS = [
+  { id: "pass_at_k", label: "pass@k" },
+  { id: "pass_power_k", label: "pass^k" },
+  { id: "suite_run_id", label: "Suite run" },
+] as const;
+
+export type LeaderboardOptionalColumn =
+  (typeof LEADERBOARD_OPTIONAL_COLUMNS)[number]["id"];
+
+export const LEADERBOARD_OPTIONAL_IDS = LEADERBOARD_OPTIONAL_COLUMNS.map(
+  (col) => col.id,
+);
+export const LEADERBOARD_OPTIONAL_DEFAULT: readonly LeaderboardOptionalColumn[] =
+  [];
 
 type SortKey =
   | "agent_label"
@@ -53,7 +65,6 @@ type SortKey =
   | "environment"
   | "pass_rate"
   | "mean_score"
-  | "n_attempts"
   | "pass_at_k"
   | "pass_power_k"
   | "tasks"
@@ -73,8 +84,6 @@ function suiteSortValue(s: SuiteRow, key: SortKey): unknown {
       return s.pass_rate ?? null;
     case "mean_score":
       return s.mean_score ?? null;
-    case "n_attempts":
-      return metricsNAttempts(m);
     case "pass_at_k":
       return passAtPrimaryK(m).value;
     case "pass_power_k":
@@ -123,6 +132,7 @@ export function LeaderboardTable({
   versions,
   onSuiteUpdated,
   onSuiteDeleted,
+  optionalColumns = [],
 }: {
   suites: SuiteRow[];
   datasetId: string;
@@ -138,6 +148,7 @@ export function LeaderboardTable({
   versions?: PackageRelease[];
   onSuiteUpdated?: (suiteRunId: string, patch: Partial<SuiteRow>) => void;
   onSuiteDeleted?: (suiteRunId: string) => void;
+  optionalColumns?: readonly LeaderboardOptionalColumn[];
 }) {
   const selfLogin = (getGithubUser() || "").toLowerCase();
   const [localOpenId, setLocalOpenId] = useState<string | null>(null);
@@ -176,9 +187,20 @@ export function LeaderboardTable({
     else setLocalOpenId(next);
   }
 
-  const showKColumns = suites.some(
-    (s) => primaryDisplayK(s.metrics || {}) != null,
-  );
+  const show = new Set(optionalColumns);
+
+  useEffect(() => {
+    if (
+      sortKey === "pass_at_k" ||
+      sortKey === "pass_power_k" ||
+      sortKey === "suite_run_id"
+    ) {
+      if (!optionalColumns.includes(sortKey)) {
+        setSortKey("pass_rate");
+        setSortDir("desc");
+      }
+    }
+  }, [optionalColumns, sortKey]);
 
   const rows = useMemo(() => {
     const list = [...suites];
@@ -237,10 +259,12 @@ export function LeaderboardTable({
         <span>{datasetId}</span>
         {" · "}metrics only (not suite PASS)
         {" · "}click headers to sort
-        {showKColumns ? " · pass@k uses job max k" : null}
+        {show.has("pass_at_k") || show.has("pass_power_k")
+          ? " · pass@k uses job max k"
+          : null}
       </p>
       <div className="rounded-[8px] border border-hairline overflow-x-auto">
-        <Table className="table-fixed w-full">
+        <Table className="w-full">
           <TableHeader>
             <TableRow>
               <TableHead className={COL_TEXT}>
@@ -258,22 +282,19 @@ export function LeaderboardTable({
               <TableHead className={`text-right ${COL_METRIC}`}>
                 {head("mean_score", "Mean score", true)}
               </TableHead>
-              {showKColumns ? (
-                <>
-                  <TableHead className={`text-right ${COL_METRIC}`}>
-                    {head("n_attempts", "n_attempts", true)}
-                  </TableHead>
-                  <TableHead className={`text-right ${COL_METRIC}`}>
-                    <HoverTip content="Largest k from metrics.k_values / n_attempts; cell labels @k">
-                      <span className="inline-flex">{head("pass_at_k", "pass@k", true)}</span>
-                    </HoverTip>
-                  </TableHead>
-                  <TableHead className={`text-right ${COL_METRIC}`}>
-                    <HoverTip content="Same display k as pass@k; cell labels ^k">
-                      <span className="inline-flex">{head("pass_power_k", "pass^k", true)}</span>
-                    </HoverTip>
-                  </TableHead>
-                </>
+              {show.has("pass_at_k") ? (
+                <TableHead className={`text-right ${COL_METRIC}`}>
+                  <HoverTip content="Largest k from metrics.k_values / n_attempts; cell labels @k">
+                    <span className="inline-flex">{head("pass_at_k", "pass@k", true)}</span>
+                  </HoverTip>
+                </TableHead>
+              ) : null}
+              {show.has("pass_power_k") ? (
+                <TableHead className={`text-right ${COL_METRIC}`}>
+                  <HoverTip content="Same display k as pass@k; cell labels ^k">
+                    <span className="inline-flex">{head("pass_power_k", "pass^k", true)}</span>
+                  </HoverTip>
+                </TableHead>
               ) : null}
               <TableHead className={`text-right ${COL_METRIC}`}>
                 {head("tasks", "Tasks", true)}
@@ -281,9 +302,11 @@ export function LeaderboardTable({
               <TableHead className={COL_TEXT}>
                 {head("uploaded_by", "Uploader")}
               </TableHead>
-              <TableHead className={COL_METRIC}>
-                {head("suite_run_id", "Suite run")}
-              </TableHead>
+              {show.has("suite_run_id") ? (
+                <TableHead className={COL_METRIC}>
+                  {head("suite_run_id", "Suite run")}
+                </TableHead>
+              ) : null}
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -297,7 +320,6 @@ export function LeaderboardTable({
                     : null;
               const nPass = typeof m.n_pass === "number" ? m.n_pass : null;
               const open = openId === s.suite_run_id;
-              const nAtt = metricsNAttempts(m);
               const atK = passAtPrimaryK(m);
               const powK = passPowerPrimaryK(m);
               const derived = displayLabelsFromOverlay(s.job_overlay);
@@ -380,42 +402,37 @@ export function LeaderboardTable({
                     >
                       {formatScore(s.mean_score)}
                     </TableCell>
-                    {showKColumns ? (
-                      <>
-                        <TableCell
-                          className={`text-right tabular-nums ${COL_METRIC}`}
-                        >
-                          {nAtt == null ? "—" : String(nAtt)}
-                        </TableCell>
-                        <TableCell
-                          className={`text-right tabular-nums ${COL_METRIC}`}
-                        >
-                          {atK.value == null ? (
-                            "—"
-                          ) : (
-                            <HoverTip content={`pass@${atK.k}`}>
-                              <span>
+                    {show.has("pass_at_k") ? (
+                      <TableCell
+                        className={`text-right tabular-nums ${COL_METRIC}`}
+                      >
+                        {atK.value == null ? (
+                          "—"
+                        ) : (
+                          <HoverTip content={`pass@${atK.k}`}>
+                            <span>
                               {formatPassMetric(atK.value)}
                               <span className="ml-1 text-mute">@{atK.k}</span>
-                              </span>
-                            </HoverTip>
-                          )}
-                        </TableCell>
-                        <TableCell
-                          className={`text-right tabular-nums ${COL_METRIC}`}
-                        >
-                          {powK.value == null ? (
-                            "—"
-                          ) : (
-                            <HoverTip content={`pass^${powK.k}`}>
-                              <span>
+                            </span>
+                          </HoverTip>
+                        )}
+                      </TableCell>
+                    ) : null}
+                    {show.has("pass_power_k") ? (
+                      <TableCell
+                        className={`text-right tabular-nums ${COL_METRIC}`}
+                      >
+                        {powK.value == null ? (
+                          "—"
+                        ) : (
+                          <HoverTip content={`pass^${powK.k}`}>
+                            <span>
                               {formatPassMetric(powK.value)}
                               <span className="ml-1 text-mute">^{powK.k}</span>
-                              </span>
-                            </HoverTip>
-                          )}
-                        </TableCell>
-                      </>
+                            </span>
+                          </HoverTip>
+                        )}
+                      </TableCell>
                     ) : null}
                     <TableCell
                       className={`text-right tabular-nums ${COL_METRIC}`}
@@ -429,15 +446,15 @@ export function LeaderboardTable({
                     <TableCell className={`${COL_TEXT}`}>
                       <TruncateTip text={s.uploaded_by || ""} copyable />
                     </TableCell>
-                    <TableCell
-                      className={`${COL_METRIC}`}
-                    >
-                      <TruncateTip
-                        text={shortSuiteId(s.suite_run_id)}
-                        copyValue={s.suite_run_id}
-                        copyable
-                      />
-                    </TableCell>
+                    {show.has("suite_run_id") ? (
+                      <TableCell className={`${COL_METRIC}`}>
+                        <TruncateTip
+                          text={shortSuiteId(s.suite_run_id)}
+                          copyValue={s.suite_run_id}
+                          copyable
+                        />
+                      </TableCell>
+                    ) : null}
                   </TableRow>
               );
             })}

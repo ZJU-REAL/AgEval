@@ -8,12 +8,27 @@ import { UnderlineTabs } from "@/components/underline-tabs";
 import { CommandStrip } from "@/components/command-strip";
 import { DisplayNameEditor } from "@/components/display-name-editor";
 import { FileSplitPanel } from "@/components/file-split-panel";
-import { LeaderboardTable } from "@/components/leaderboard-table";
+import {
+  LEADERBOARD_OPTIONAL_COLUMNS,
+  LEADERBOARD_OPTIONAL_DEFAULT,
+  LEADERBOARD_OPTIONAL_IDS,
+  LeaderboardTable,
+} from "@/components/leaderboard-table";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { TableColumnPicker } from "@/components/ui/table-column-picker";
+import { useTableColumns } from "@/hooks/use-table-columns";
 import { OfficialMark } from "@/components/official-mark";
 import { OverlayFilePanel } from "@/components/overlay-file-panel";
 import { Markdown } from "@/components/markdown";
 import { PackageOwnerOps } from "@/components/package-owner-ops";
 import { VersionSwitcher } from "@/components/version-switcher";
+import { Input } from "@/components/ui/input";
 import {
   Table,
   TableBody,
@@ -53,6 +68,13 @@ import { formatScore } from "@/lib/utils";
 type Tab = "readme" | "tasks" | "shared" | "overlays" | "leaderboard";
 type BoardView = "public" | "internal";
 
+const TASK_OPTIONAL_COLUMNS = [
+  { id: "readme", label: "README" },
+  { id: "job_count", label: "Recent jobs" },
+] as const;
+const TASK_OPTIONAL_IDS = TASK_OPTIONAL_COLUMNS.map((col) => col.id);
+const TASK_OPTIONAL_DEFAULT: typeof TASK_OPTIONAL_IDS = ["job_count"];
+
 function isInternalSuite(suite: SuiteRow): boolean {
   return suite.complete !== true || suite.bound_kind !== "release";
 }
@@ -89,6 +111,17 @@ export function DatasetDetailPage() {
   const [sharedFileLoading, setSharedFileLoading] = useState(false);
   const [overlayPrefixes, setOverlayPrefixes] = useState<string[]>([]);
   const [canEditName, setCanEditName] = useState(false);
+  const [leaderboardColumns, setLeaderboardColumns] = useTableColumns(
+    "ageval.hub.columns.leaderboard",
+    LEADERBOARD_OPTIONAL_IDS,
+    LEADERBOARD_OPTIONAL_DEFAULT,
+  );
+  const [taskColumns, setTaskColumns] = useTableColumns(
+    "ageval.hub.columns.dataset-tasks",
+    TASK_OPTIONAL_IDS,
+    TASK_OPTIONAL_DEFAULT,
+  );
+  const [taskQuery, setTaskQuery] = useState("");
   const token = getToken();
   const packageParts = useMemo(() => splitPackageId(datasetId), [datasetId]);
   const taskOffsetRaw = Number.parseInt(search.get("offset") || "0", 10);
@@ -202,6 +235,7 @@ export function DatasetDetailPage() {
     listPackageTasks(datasetId, release.package_digest, token, {
       limit: TASK_PAGE_SIZE,
       offset: taskOffset,
+      q: taskQuery,
     })
       .then((page) => {
         if (cancelled) return;
@@ -225,7 +259,7 @@ export function DatasetDetailPage() {
     return () => {
       cancelled = true;
     };
-  }, [datasetId, release, token, taskOffset]);
+  }, [datasetId, release, token, taskOffset, taskQuery]);
 
   useEffect(() => {
     if (!release || tab !== "leaderboard") return;
@@ -548,19 +582,47 @@ export function DatasetDetailPage() {
           </div>
         )
       ) : tab === "tasks" ? (
-        tasksLoading && taskRows.length === 0 ? (
+        tasksLoading && taskRows.length === 0 && !taskQuery.trim() ? (
           <p className="text-sm text-mute">Loading tasks…</p>
-        ) : taskTotal === 0 ? (
+        ) : taskTotal === 0 && !taskQuery.trim() && !tasksLoading ? (
           <p className="text-sm text-mute">No tasks/ members found.</p>
         ) : (
           <div>
+            <div className="mb-2 flex items-center gap-2">
+              <Input
+                value={taskQuery}
+                onChange={(e) => {
+                  setTaskQuery(e.target.value);
+                  if (taskOffset > 0) setTaskOffset(0);
+                }}
+                placeholder="Search tasks…"
+                aria-label="Search tasks"
+                className="min-w-0 w-full max-w-sm focus-visible:border-hairline"
+              />
+              <TableColumnPicker
+                className="ml-auto"
+                options={TASK_OPTIONAL_COLUMNS}
+                value={taskColumns}
+                onChange={setTaskColumns}
+                ariaLabel="Optional task columns"
+              />
+            </div>
+            {taskRows.length === 0 ? (
+              <p className="text-sm text-mute">
+                {tasksLoading ? "Loading tasks…" : "No matching tasks."}
+              </p>
+            ) : (
             <div className="rounded-[8px] border border-hairline overflow-hidden">
             <Table>
               <TableHeader>
                 <TableRow className="hover:bg-transparent">
                   <TableHead>Task</TableHead>
-                  <TableHead>README</TableHead>
-                  <TableHead>Recent jobs</TableHead>
+                  {taskColumns.includes("readme") ? (
+                    <TableHead>README</TableHead>
+                  ) : null}
+                  {taskColumns.includes("job_count") ? (
+                    <TableHead>Recent jobs</TableHead>
+                  ) : null}
                   <TableHead>Last result</TableHead>
                 </TableRow>
               </TableHeader>
@@ -584,12 +646,16 @@ export function DatasetDetailPage() {
                       <TableCell className="font-medium">
                         {tid}
                       </TableCell>
-                      <TableCell className="text-body">
-                        {row.has_readme ? "yes" : "no"}
-                      </TableCell>
-                      <TableCell className="tabular">
-                        {row.job_count ?? 0}
-                      </TableCell>
+                      {taskColumns.includes("readme") ? (
+                        <TableCell className="text-body">
+                          {row.has_readme ? "yes" : "no"}
+                        </TableCell>
+                      ) : null}
+                      {taskColumns.includes("job_count") ? (
+                        <TableCell className="tabular">
+                          {row.job_count ?? 0}
+                        </TableCell>
+                      ) : null}
                       <TableCell className="tabular">
                         {row.last_status
                           ? `${row.last_status}${
@@ -605,6 +671,7 @@ export function DatasetDetailPage() {
               </TableBody>
             </Table>
             </div>
+            )}
             <ListPager
               offset={taskOffset}
               limit={TASK_PAGE_SIZE}
@@ -639,24 +706,45 @@ export function DatasetDetailPage() {
         </div>
       ) : (
         <div className="space-y-3">
-          {demoLeaderboard ? (
-            <p className="text-xs text-mute">
-              Demo fixtures loaded (
-              <code className="font-mono">?demo=1</code>) — mock pass@k rows for
-              local smoke only; not Registry data.
-            </p>
-          ) : (
-            <UnderlineTabs
-              size="sm"
-              ariaLabel="Leaderboard visibility"
-              value={boardView}
-              onChange={setBoardView}
-              items={[
-                { id: "public", label: "Public" },
-                { id: "internal", label: "Internal" },
-              ]}
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            {demoLeaderboard ? (
+              <p className="text-sm text-mute">
+                Demo fixtures loaded (
+                <code className="font-mono">?demo=1</code>) - mock pass@k rows
+                for local smoke only; not Registry data.
+              </p>
+            ) : (
+              <Select
+                value={boardView}
+                onValueChange={(next) => {
+                  if (next === "public" || next === "internal") {
+                    setBoardView(next);
+                  }
+                }}
+              >
+                <SelectTrigger
+                  aria-label="Leaderboard visibility"
+                  className="h-9 w-auto min-w-[8.5rem]"
+                >
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="public" mono={false}>
+                    Public
+                  </SelectItem>
+                  <SelectItem value="internal" mono={false}>
+                    Internal
+                  </SelectItem>
+                </SelectContent>
+              </Select>
+            )}
+            <TableColumnPicker
+              options={LEADERBOARD_OPTIONAL_COLUMNS}
+              value={leaderboardColumns}
+              onChange={setLeaderboardColumns}
+              ariaLabel="Optional leaderboard columns"
             />
-          )}
+          </div>
           {boardView === "internal" && !demoLeaderboard ? (
             <p className="text-xs text-mute">
               Incomplete or draft-bound suite runs visible to you. Observational
@@ -671,6 +759,7 @@ export function DatasetDetailPage() {
                   ? internalSuites
                   : publicSuites
             }
+            optionalColumns={leaderboardColumns}
             datasetId={datasetId}
             orgId={release?.org_id}
             packageDigest={release?.package_digest}
@@ -712,6 +801,7 @@ export function DatasetDetailPage() {
               </p>
               <LeaderboardTable
                 suites={awaitingListingVisible}
+                optionalColumns={leaderboardColumns}
                 datasetId={datasetId}
                 orgId={release?.org_id}
                 packageDigest={release?.package_digest}

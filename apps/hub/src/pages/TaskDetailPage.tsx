@@ -15,6 +15,8 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { TableColumnPicker } from "@/components/ui/table-column-picker";
+import { useTableColumns } from "@/hooks/use-table-columns";
 import { PillTabs } from "@/components/ui/pill-tabs";
 import { VersionSwitcher } from "@/components/version-switcher";
 import {
@@ -55,6 +57,14 @@ import {
 
 type Tab = "readme" | "files" | "jobs";
 type FilesScope = "local" | "shared" | "overlays";
+
+const JOB_OPTIONAL_COLUMNS = [
+  { id: "dataset", label: "Dataset" },
+  { id: "environment", label: "Environment" },
+  { id: "time", label: "Time" },
+] as const;
+const JOB_OPTIONAL_IDS = JOB_OPTIONAL_COLUMNS.map((col) => col.id);
+const JOB_OPTIONAL_DEFAULT: typeof JOB_OPTIONAL_IDS = ["environment", "time"];
 
 function FilesScopeSwitch({
   filesScope,
@@ -130,6 +140,11 @@ export function TaskDetailPage() {
     }>
   >([]);
   const [error, setError] = useState<string | null>(null);
+  const [jobColumns, setJobColumns] = useTableColumns(
+    "ageval.hub.columns.task-jobs",
+    JOB_OPTIONAL_IDS,
+    JOB_OPTIONAL_DEFAULT,
+  );
   const token = getToken();
   const jobOffsetRaw = Number.parseInt(search.get("offset") || "0", 10);
   const jobOffset =
@@ -563,23 +578,37 @@ export function TaskDetailPage() {
           </div>
         ) : (
           <div className="space-y-3">
-            <p className="text-xs text-mute">
-              Each row is a standalone Attempt or this task inside a suite run.
-              Click a row with full evidence to open the detail view. Grey rows
-              are summary-only.
-            </p>
+            <div className="flex flex-wrap items-start justify-between gap-2">
+              <p className="text-xs text-mute">
+                Each row is a standalone Attempt or this task inside a suite run.
+                Click a row with full evidence to open the detail view. Grey rows
+                are summary-only.
+              </p>
+              <TableColumnPicker
+                options={JOB_OPTIONAL_COLUMNS}
+                value={jobColumns}
+                onChange={setJobColumns}
+                ariaLabel="Optional job columns"
+              />
+            </div>
             <div className="rounded-[8px] border border-hairline overflow-hidden">
               <Table>
                 <TableHeader>
                   <TableRow className="hover:bg-transparent">
                     <TableHead>Job</TableHead>
-                    <TableHead>Dataset</TableHead>
+                    {jobColumns.includes("dataset") ? (
+                      <TableHead>Dataset</TableHead>
+                    ) : null}
                     <TableHead>Status</TableHead>
-                    <TableHead className="text-right">Score</TableHead>
+                    <TableHead>Score</TableHead>
                     <TableHead>Harness</TableHead>
                     <TableHead>Model</TableHead>
-                    <TableHead>Environment</TableHead>
-                    <TableHead>Time</TableHead>
+                    {jobColumns.includes("environment") ? (
+                      <TableHead>Environment</TableHead>
+                    ) : null}
+                    {jobColumns.includes("time") ? (
+                      <TableHead>Time</TableHead>
+                    ) : null}
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -623,13 +652,15 @@ export function TaskDetailPage() {
                             </span>
                           ) : null}
                         </TableCell>
-                        <TableCell className="text-body">
-                          {j.dataset_ref || "-"}
-                        </TableCell>
+                        {jobColumns.includes("dataset") ? (
+                          <TableCell className="text-body">
+                            {j.dataset_ref || "-"}
+                          </TableCell>
+                        ) : null}
                         <TableCell>
                           {j.status || "-"}
                         </TableCell>
-                        <TableCell className="text-right tabular-nums">
+                        <TableCell className="tabular-nums">
                           {formatScore(j.score)}
                         </TableCell>
                         <TableCell className="text-body">
@@ -641,14 +672,18 @@ export function TaskDetailPage() {
                             effort={j.reasoning_effort}
                           />
                         </TableCell>
-                        <TableCell>
-                          {j.environment || "-"}
-                        </TableCell>
-                        <TableCell className="text-mute tabular">
-                          {j.created_at != null && j.created_at !== ""
-                            ? formatDate(j.created_at)
-                            : "-"}
-                        </TableCell>
+                        {jobColumns.includes("environment") ? (
+                          <TableCell>
+                            {j.environment || "-"}
+                          </TableCell>
+                        ) : null}
+                        {jobColumns.includes("time") ? (
+                          <TableCell className="text-mute tabular">
+                            {j.created_at != null && j.created_at !== ""
+                              ? formatDate(j.created_at)
+                              : "-"}
+                          </TableCell>
+                        ) : null}
                       </TableRow>
                     );
                   })}

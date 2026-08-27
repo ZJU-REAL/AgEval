@@ -33,7 +33,15 @@ import {
   RegistryHttpError,
 } from "@/lib/api";
 import { getToken } from "@/lib/auth";
+import { TableColumnPicker } from "@/components/ui/table-column-picker";
+import { useTableColumns } from "@/hooks/use-table-columns";
 import { formatDate } from "@/lib/utils";
+
+const DATASET_OPTIONAL_COLUMNS = [
+  { id: "updated", label: "Updated" },
+] as const;
+const DATASET_OPTIONAL_IDS = DATASET_OPTIONAL_COLUMNS.map((col) => col.id);
+const DATASET_OPTIONAL_DEFAULT: typeof DATASET_OPTIONAL_IDS = ["updated"];
 
 export function DatasetsPage() {
   const navigate = useNavigate();
@@ -44,6 +52,11 @@ export function DatasetsPage() {
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [query, setQuery] = useState("");
+  const [columns, setColumns] = useTableColumns(
+    "ageval.hub.columns.datasets",
+    DATASET_OPTIONAL_IDS,
+    DATASET_OPTIONAL_DEFAULT,
+  );
   const token = getToken();
   const needsAuth = scope === "orgs";
 
@@ -120,6 +133,14 @@ export function DatasetsPage() {
         onQuery={setQuery}
         searchLabel="Search datasets"
         searchPlaceholder="Search datasets…"
+        end={
+          <TableColumnPicker
+            options={DATASET_OPTIONAL_COLUMNS}
+            value={columns}
+            onChange={setColumns}
+            ariaLabel="Optional dataset columns"
+          />
+        }
       />
 
       {scope === "orgs" && !token ? (
@@ -157,8 +178,10 @@ export function DatasetsPage() {
                     <TableHead>Org</TableHead>
                     <TableHead>Version</TableHead>
                     <TableHead>Visibility</TableHead>
-                    <TableHead className="text-right tabular-nums">Size</TableHead>
-                    <TableHead>Updated</TableHead>
+                    <TableHead className="tabular-nums">Tasks</TableHead>
+                    {columns.includes("updated") ? (
+                      <TableHead>Updated</TableHead>
+                    ) : null}
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -196,16 +219,20 @@ export function DatasetsPage() {
                         {versionLabel(row)}
                       </TableCell>
                       <TableCell className="text-body">{row.visibility}</TableCell>
-                      <TableCell className="text-right tabular-nums text-body">
-                        {row.size.toLocaleString()}
-                      </TableCell>
-                      <TableCell className="text-mute">
-                        {typeof row.created_at === "number"
-                          ? formatDate(
-                              new Date(row.created_at * 1000).toISOString(),
-                            )
+                      <TableCell className="tabular-nums text-body">
+                        {typeof row.task_count === "number"
+                          ? row.task_count.toLocaleString()
                           : "-"}
                       </TableCell>
+                      {columns.includes("updated") ? (
+                        <TableCell className="text-mute">
+                          {typeof row.created_at === "number"
+                            ? formatDate(
+                                new Date(row.created_at * 1000).toISOString(),
+                              )
+                            : "-"}
+                        </TableCell>
+                      ) : null}
                     </TableRow>
                   ))}
                 </TableBody>

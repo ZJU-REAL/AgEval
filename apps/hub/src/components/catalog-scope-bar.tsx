@@ -1,3 +1,5 @@
+import type { ReactNode } from "react";
+
 import { UnderlineTabs } from "@/components/underline-tabs";
 import { Input } from "@/components/ui/input";
 
@@ -59,6 +61,7 @@ export function CatalogScopeBar<T extends string>({
   onQuery,
   searchLabel,
   searchPlaceholder,
+  end,
 }: {
   scope: T;
   onScope: (next: T) => void;
@@ -67,6 +70,8 @@ export function CatalogScopeBar<T extends string>({
   onQuery: (next: string) => void;
   searchLabel: string;
   searchPlaceholder: string;
+  /** Trailing chrome on the search row. */
+  end?: ReactNode;
 }) {
   return (
     <div className="mb-4">
@@ -76,14 +81,15 @@ export function CatalogScopeBar<T extends string>({
         onChange={onScope}
         ariaLabel="Catalog scope"
       />
-      <div className="pt-3">
+      <div className="flex items-center gap-2 pt-3">
         <Input
           value={query}
           onChange={(e) => onQuery(e.target.value)}
           placeholder={searchPlaceholder}
           aria-label={searchLabel}
-          className="w-full max-w-sm focus-visible:border-hairline"
+          className="min-w-0 w-full max-w-sm focus-visible:border-hairline"
         />
+        {end ? <div className="ml-auto shrink-0">{end}</div> : null}
       </div>
     </div>
   );

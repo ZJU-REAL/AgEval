@@ -29,7 +29,22 @@ import {
   RegistryHttpError,
 } from "@/lib/api";
 import { getToken } from "@/lib/auth";
+import { TableColumnPicker } from "@/components/ui/table-column-picker";
+import { useTableColumns } from "@/hooks/use-table-columns";
 import { toastError } from "@/lib/toast-error";
+
+const ORG_OPTIONAL_COLUMNS = [
+  { id: "org_id", label: "ID" },
+  { id: "datasets", label: "Datasets" },
+  { id: "plugins", label: "Plugins" },
+  { id: "agents", label: "Agents" },
+] as const;
+const ORG_OPTIONAL_IDS = ORG_OPTIONAL_COLUMNS.map((col) => col.id);
+const ORG_OPTIONAL_DEFAULT: typeof ORG_OPTIONAL_IDS = [
+  "datasets",
+  "plugins",
+  "agents",
+];
 
 export function OrganizationsPage() {
   const navigate = useNavigate();
@@ -41,6 +56,11 @@ export function OrganizationsPage() {
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [query, setQuery] = useState("");
+  const [columns, setColumns] = useTableColumns(
+    "ageval.hub.columns.organizations",
+    ORG_OPTIONAL_IDS,
+    ORG_OPTIONAL_DEFAULT,
+  );
 
   const [joinOpen, setJoinOpen] = useState(false);
   const [inviteKey, setInviteKey] = useState("");
@@ -243,6 +263,12 @@ export function OrganizationsPage() {
               aria-label="Search organizations"
               className="flex-1 min-w-0 focus-visible:border-hairline"
             />
+            <TableColumnPicker
+              options={ORG_OPTIONAL_COLUMNS}
+              value={columns}
+              onChange={setColumns}
+              ariaLabel="Optional organization columns"
+            />
             <HoverTip content="Join with invite key">
             <Button
               type="button"
@@ -294,22 +320,25 @@ export function OrganizationsPage() {
               />
             )
           ) : (
+            <>
             <div className="rounded-[8px] border border-hairline overflow-hidden">
               <Table>
                 <TableHeader>
                   <TableRow className="hover:bg-transparent">
                     <TableHead>Organization</TableHead>
-                    <TableHead>ID</TableHead>
+                    {columns.includes("org_id") ? (
+                      <TableHead>ID</TableHead>
+                    ) : null}
                     <TableHead>Role</TableHead>
-                    <TableHead className="text-right tabular-nums">
-                      Datasets
-                    </TableHead>
-                    <TableHead className="text-right tabular-nums">
-                      Plugins
-                    </TableHead>
-                    <TableHead className="text-right tabular-nums">
-                      Agents
-                    </TableHead>
+                    {columns.includes("datasets") ? (
+                      <TableHead className="tabular-nums">Datasets</TableHead>
+                    ) : null}
+                    {columns.includes("plugins") ? (
+                      <TableHead className="tabular-nums">Plugins</TableHead>
+                    ) : null}
+                    {columns.includes("agents") ? (
+                      <TableHead className="tabular-nums">Agents</TableHead>
+                    ) : null}
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -341,26 +370,35 @@ export function OrganizationsPage() {
                           {org.official ? <OfficialMark kind="org" /> : null}
                         </span>
                       </TableCell>
-                      <TableCell className="text-mute">
-                        @{org.org_id}
-                      </TableCell>
+                      {columns.includes("org_id") ? (
+                        <TableCell className="text-mute">
+                          @{org.org_id}
+                        </TableCell>
+                      ) : null}
                       <TableCell className="text-body capitalize">
                         {org.role || "—"}
                       </TableCell>
-                      <TableCell className="text-right tabular-nums text-body">
-                        {datasetCountByOrg.get(org.org_id) ?? 0}
-                      </TableCell>
-                      <TableCell className="text-right tabular-nums text-body">
-                        {pluginCountByOrg.get(org.org_id) ?? 0}
-                      </TableCell>
-                      <TableCell className="text-right tabular-nums text-body">
-                        {agentCountByOrg.get(org.org_id) ?? 0}
-                      </TableCell>
+                      {columns.includes("datasets") ? (
+                        <TableCell className="tabular-nums text-body">
+                          {datasetCountByOrg.get(org.org_id) ?? 0}
+                        </TableCell>
+                      ) : null}
+                      {columns.includes("plugins") ? (
+                        <TableCell className="tabular-nums text-body">
+                          {pluginCountByOrg.get(org.org_id) ?? 0}
+                        </TableCell>
+                      ) : null}
+                      {columns.includes("agents") ? (
+                        <TableCell className="tabular-nums text-body">
+                          {agentCountByOrg.get(org.org_id) ?? 0}
+                        </TableCell>
+                      ) : null}
                     </TableRow>
                   ))}
                 </TableBody>
               </Table>
             </div>
+            </>
           )}
           <p className="text-xs text-mute mt-3 tabular-nums">
             {filtered.length} organization

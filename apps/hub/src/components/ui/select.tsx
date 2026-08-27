@@ -58,8 +58,10 @@ export const SelectItem = React.forwardRef<
   React.ElementRef<typeof SelectPrimitive.Item>,
   React.ComponentPropsWithoutRef<typeof SelectPrimitive.Item> & {
     trailing?: React.ReactNode;
+    /** Version / numeric values stay mono. Human labels (Public / Internal) use sans. */
+    mono?: boolean;
   }
->(({ className, children, trailing, ...props }, ref) => (
+>(({ className, children, trailing, mono = true, ...props }, ref) => (
   <SelectPrimitive.Item
     ref={ref}
     className={cn(
@@ -77,7 +79,12 @@ export const SelectItem = React.forwardRef<
       </SelectPrimitive.ItemIndicator>
     </span>
     <SelectPrimitive.ItemText asChild>
-      <span className="inline-block min-w-[6ch] shrink-0 font-mono tabular-nums">
+      <span
+        className={cn(
+          "inline-block shrink-0",
+          mono && "min-w-[6ch] font-mono tabular-nums",
+        )}
+      >
         {children}
       </span>
     </SelectPrimitive.ItemText>
