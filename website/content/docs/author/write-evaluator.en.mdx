@@ -35,3 +35,25 @@ evaluation:
 | `tmpfs_mb` | In-environment evaluator `/tmp` only; omit → 32 MiB. Declare a larger sandbox on the **task**, not under `limits` |
 
 The in-environment `evaluator.py` is launched by the exclusive-slot `evaluation_runtime` default winner via `host.exec`. PASS still binds only in the engine. Runtime and evaluation stay separate facts. See [Results and PASS](/docs/reference/results-and-pass).
+
+## Two scoring styles
+
+Default is a **deterministic script**: read published artifacts and gold under `evaluation/`, return `{status, score, metrics}`. No Agent call. No `evaluation/observation.jsonl`. Verifier stays `result.json` plus the file tree.
+
+Optional **LLM-as-judge**: add another role on the same job `profiles.yaml` (e.g. `judge`) and list that id on `task.yaml` `agent_profiles`. After gold is uploaded, `evaluator.py` may `Agent.session("judge").invoke(...)`. The dataset owns the prompt. `invoke` must not override `profile_id` / executor.
+
+```python
+def evaluate(inputs):
+    # inputs["agent"] is injected on a local box (parent socket); omit → script path
+    ...
+    return {"status": "PASS", "score": 1.0, "metrics": {}}
+```
+
+| Point | Note |
+| --- | --- |
+| PASS | Still this return value only. Judge prose / `observation.jsonl` is not a score |
+| Trace | Evaluate-phase steps go to `evaluation/observation.jsonl` (`user` rows omitted so gold stays out of evidence). Not merged into root `trajectory.jsonl` |
+| Budget | `limits.agent_invocations` must cover solver **and** judge |
+| Box | SDK session uses the parent Unix socket; the default projection into the evaluator process is `environment: local` |
+
+No `Agent.session` = today's script path. With observation.jsonl, Verifier reuses the Trajectory step cards; without it, the file tree. See [local Viewer](/docs/run/local-viewer).

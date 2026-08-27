@@ -7,6 +7,7 @@ Authority: `docs/design/06-capability-adapter-visibility.md`, `docs/design/05-ru
 - Put hidden labels under `evaluation/` (paths never mounted to Agent).
 - Gold is uploaded at the start of evaluate, not during run. This is a cut in **time**, not `path_views`.
 - Evaluator receives allowlisted staged inputs only after writer barrier.
+- Optional LLM-as-judge: `Agent.session` is allowed **after** that upload. Solver profiles that already ran must not invoke. Judge prompts stay out of `evaluation/observation.jsonl` user rows.
 
 ## Box kind
 

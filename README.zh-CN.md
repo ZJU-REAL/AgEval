@@ -70,10 +70,10 @@ ageval 把 **Harness** 作为一等评测维度。
 
 **评测**
 
-- **锁定一次实验。** dataset、Harness 与运行环境一并 lock，得到可复现 digest。绑定不同则分数不可比。
+- **锁定一次实验。** dataset、Harness 与运行环境一并 lock，得到可复现 digest。
 - **单题、整包、矩阵与重复。** 可运行单个 task、完整 dataset、同一 task 上的参数矩阵，或同一 job 的多次独立 Attempt（pass@k）。
-- **评分与 Agent 分离。** gold 不进入 Agent 可见范围。PASS 仅来自 `evaluator.py`；轨迹用于检查。
-- **上限在调用前强制。** 墙钟、内存、进程与调用次数由 runtime 在 invoke 之前强制；`run.py` 不得自行提升。
+- **评分与 Agent 分离。** gold 不进入 Agent 可见范围。PASS 仅来自 `evaluator.py`（缺省确定性脚本；可选 `Agent.session` 做 LLM-as-judge）。轨迹用于检查。
+- **上限在调用前强制。** 墙钟、内存、进程与调用次数由 runtime 在 invoke 之前确定。
 
 **组合**
 
