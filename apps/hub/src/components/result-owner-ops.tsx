@@ -64,6 +64,7 @@ export function ResultOwnerOps({
   onDeleted,
   onAttached,
   jobOverlay,
+  variant = "menu",
 }: {
   kind: "attempt" | "suite";
   resultId: string;
@@ -77,6 +78,8 @@ export function ResultOwnerOps({
   onDeleted?: () => void;
   onAttached?: (suite: Partial<SuiteRow>) => void;
   jobOverlay?: JobOverlay | null;
+  /** `menu` = overflow + share modal. `panel` = inline share form. `delete` = overflow delete only. */
+  variant?: "menu" | "panel" | "delete";
 }) {
   const [busy, setBusy] = useState(false);
   const [shares, setShares] = useState<ResultShare[]>([]);
@@ -88,8 +91,10 @@ export function ResultOwnerOps({
   const [withAttempts, setWithAttempts] = useState(false);
   const [agentRef, setAgentRef] = useState("");
 
+  const loadShares = variant === "panel" || shareOpen;
+
   useEffect(() => {
-    if (!shareOpen || !canManage || !token || !resultId) {
+    if (!loadShares || !canManage || !token || !resultId) {
       return;
     }
     let cancelled = false;
@@ -138,7 +143,7 @@ export function ResultOwnerOps({
     return () => {
       cancelled = true;
     };
-  }, [shareOpen, canManage, kind, resultId, token, jobOverlay]);
+  }, [loadShares, canManage, kind, resultId, token, jobOverlay]);
 
   const pendingAppearance = useMemo(
     () =>
@@ -306,6 +311,179 @@ export function ResultOwnerOps({
 
   const current = visibility === "public" ? "public" : "private";
 
+  const shareForm = (
+    <div className="space-y-4">
+      <div className="space-y-2">
+        <p className="text-xs font-medium text-mute uppercase tracking-wide">
+          Visibility
+        </p>
+        <Select
+          value={current}
+          onValueChange={(value) => {
+            if (value === "public" || value === "private") {
+              void changeVisibility(value);
+            }
+          }}
+          disabled={busy}
+        >
+          <SelectTrigger
+            aria-label="Result visibility"
+            className="h-8 min-w-0 w-auto text-xs"
+          >
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="public">public</SelectItem>
+            <SelectItem value="private">private</SelectItem>
+          </SelectContent>
+        </Select>
+      </div>
+
+      {kind === "suite" ? (
+        <div className="space-y-2">
+          <p className="text-xs font-medium text-mute uppercase tracking-wide">
+            Attach agent
+          </p>
+          <div className="flex flex-wrap items-center gap-2">
+            <Input
+              value={agentRef}
+              onChange={(e) => setAgentRef(e.target.value)}
+              placeholder="org/name@version"
+              className="h-8 min-w-0 flex-1 text-xs"
+              disabled={busy}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") void attachOrRequest();
+              }}
+            />
+            <Button
+              type="button"
+              size="sm"
+              variant="outline"
+              disabled={busy || !agentRef.trim() || Boolean(matchingAppearance)}
+              onClick={() => void attachOrRequest()}
+            >
+              {matchingAppearance ? "Pending" : "Attach"}
+            </Button>
+          </div>
+          {matchingAppearance ? (
+            <p className="text-xs text-body">
+              Appearance request pending for{" "}
+              <span>{matchingAppearance.agent_ref}</span>
+              . Waiting on the agent org owner.
+            </p>
+          ) : pendingAppearance.length > 0 ? (
+            <ul className="space-y-1 text-xs text-body">
+              {pendingAppearance.map((row) => (
+                <li key={row.request_id}>
+                  Pending:{" "}
+                  <span>
+                    {row.agent_ref || "agent"}
+                  </span>
+                </li>
+              ))}
+            </ul>
+          ) : null}
+        </div>
+      ) : null}
+
+      {kind === "suite" &&
+      ((complete && boundKind === "release" && !boardListed) ||
+        pendingListing) ? (
+        <div className="space-y-2">
+          <p className="text-xs font-medium text-mute uppercase tracking-wide">
+            Public board
+          </p>
+          {pendingListing ? (
+            <p className="text-xs text-pretty break-words text-body">
+              Listing request pending. Waiting on the dataset org owner.
+            </p>
+          ) : (
+            <Button
+              type="button"
+              size="sm"
+              variant="outline"
+              disabled={busy}
+              onClick={() => void requestListing()}
+            >
+              Request listing
+            </Button>
+          )}
+        </div>
+      ) : null}
+
+      <div className="space-y-2">
+        <p className="text-xs font-medium text-mute uppercase tracking-wide">
+          Share with
+        </p>
+        <div className="flex flex-wrap items-center gap-2">
+          <Select
+            value={targetType}
+            onValueChange={(value) => {
+              if (value === "org" || value === "user") setTargetType(value);
+            }}
+            disabled={busy}
+          >
+            <SelectTrigger className="h-8 min-w-0 w-auto text-xs">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="org">org</SelectItem>
+              <SelectItem value="user">user</SelectItem>
+            </SelectContent>
+          </Select>
+          <Input
+            value={targetId}
+            onChange={(e) => setTargetId(e.target.value)}
+            placeholder={targetType === "org" ? "org-id" : "github-login"}
+            className="h-8 min-w-0 flex-1 text-xs"
+            disabled={busy}
+            onKeyDown={(e) => {
+              if (e.key === "Enter") void share();
+            }}
+          />
+          <Button
+            type="button"
+            size="sm"
+            variant="outline"
+            disabled={busy || !targetId.trim()}
+            onClick={() => void share()}
+          >
+            Share
+          </Button>
+        </div>
+        {shares.length === 0 ? (
+          <p className="text-xs text-mute">Not shared with anyone yet.</p>
+        ) : (
+          <ul className="divide-y divide-hairline rounded-[6px] border border-hairline">
+            {shares.map((row) => (
+              <li
+                key={`${row.target_type}:${row.target_id}`}
+                className="flex items-center justify-between gap-2 px-3 py-1.5"
+              >
+                <span className="text-xs text-body">
+                  {row.target_type}/{row.target_id}
+                </span>
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="ghost"
+                  disabled={busy}
+                  onClick={() => void unshare(row)}
+                >
+                  Revoke
+                </Button>
+              </li>
+            ))}
+          </ul>
+        )}
+      </div>
+    </div>
+  );
+
+  if (variant === "panel") return shareForm;
+
+  const showShare = variant === "menu";
+
   return (
     <>
       <DropdownMenu>
@@ -322,15 +500,17 @@ export function ResultOwnerOps({
           </Button>
         </DropdownMenuTrigger>
         <DropdownMenuContent align="end">
-          <DropdownMenuItem
-            onSelect={() => {
-              setShareOpen(true);
-            }}
-          >
-            <Share2 className="h-3.5 w-3.5" aria-hidden />
-            Share
-          </DropdownMenuItem>
-          <DropdownMenuSeparator />
+          {showShare ? (
+            <DropdownMenuItem
+              onSelect={() => {
+                setShareOpen(true);
+              }}
+            >
+              <Share2 className="h-3.5 w-3.5" aria-hidden />
+              Share
+            </DropdownMenuItem>
+          ) : null}
+          {showShare ? <DropdownMenuSeparator /> : null}
           <DropdownMenuItem
             className="text-error focus:text-error data-[highlighted]:text-error"
             onSelect={() => {
@@ -343,6 +523,7 @@ export function ResultOwnerOps({
         </DropdownMenuContent>
       </DropdownMenu>
 
+      {showShare ? (
       <Modal
         open={shareOpen}
         title="Share"
@@ -357,173 +538,9 @@ export function ResultOwnerOps({
           }
         }}
       >
-        <div className="space-y-4">
-          <div className="space-y-2">
-            <p className="text-xs font-medium text-mute uppercase tracking-wide">
-              Visibility
-            </p>
-            <Select
-              value={current}
-              onValueChange={(value) => {
-                if (value === "public" || value === "private") {
-                  void changeVisibility(value);
-                }
-              }}
-              disabled={busy}
-            >
-              <SelectTrigger
-                aria-label="Result visibility"
-                className="h-8 min-w-0 w-auto text-xs"
-              >
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="public">public</SelectItem>
-                <SelectItem value="private">private</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-
-          {kind === "suite" ? (
-            <div className="space-y-2">
-              <p className="text-xs font-medium text-mute uppercase tracking-wide">
-                Attach agent
-              </p>
-              <div className="flex flex-wrap items-center gap-2">
-                <Input
-                  value={agentRef}
-                  onChange={(e) => setAgentRef(e.target.value)}
-                  placeholder="org/name@version"
-                  className="h-8 min-w-0 flex-1 text-xs"
-                  disabled={busy}
-                  onKeyDown={(e) => {
-                    if (e.key === "Enter") void attachOrRequest();
-                  }}
-                />
-                <Button
-                  type="button"
-                  size="sm"
-                  variant="outline"
-                  disabled={busy || !agentRef.trim() || Boolean(matchingAppearance)}
-                  onClick={() => void attachOrRequest()}
-                >
-                  {matchingAppearance ? "Pending" : "Attach"}
-                </Button>
-              </div>
-              {matchingAppearance ? (
-                <p className="text-xs text-body">
-                  Appearance request pending for{" "}
-                  <span>{matchingAppearance.agent_ref}</span>
-                  . Waiting on the agent org owner.
-                </p>
-              ) : pendingAppearance.length > 0 ? (
-                <ul className="space-y-1 text-xs text-body">
-                  {pendingAppearance.map((row) => (
-                    <li key={row.request_id}>
-                      Pending:{" "}
-                      <span>
-                        {row.agent_ref || "agent"}
-                      </span>
-                    </li>
-                  ))}
-                </ul>
-              ) : null}
-            </div>
-          ) : null}
-
-          {kind === "suite" &&
-          ((complete && boundKind === "release" && !boardListed) ||
-            pendingListing) ? (
-            <div className="space-y-2">
-              <p className="text-xs font-medium text-mute uppercase tracking-wide">
-                Public board
-              </p>
-              {pendingListing ? (
-                <p className="text-xs text-pretty break-words text-body">
-                  Listing request pending. Waiting on the dataset org owner.
-                </p>
-              ) : (
-                <Button
-                  type="button"
-                  size="sm"
-                  variant="outline"
-                  disabled={busy}
-                  onClick={() => void requestListing()}
-                >
-                  Request listing
-                </Button>
-              )}
-            </div>
-          ) : null}
-
-          <div className="space-y-2">
-            <p className="text-xs font-medium text-mute uppercase tracking-wide">
-              Share with
-            </p>
-            <div className="flex flex-wrap items-center gap-2">
-              <Select
-                value={targetType}
-                onValueChange={(value) => {
-                  if (value === "org" || value === "user") setTargetType(value);
-                }}
-                disabled={busy}
-              >
-                <SelectTrigger className="h-8 min-w-0 w-auto text-xs">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="org">org</SelectItem>
-                  <SelectItem value="user">user</SelectItem>
-                </SelectContent>
-              </Select>
-              <Input
-                value={targetId}
-                onChange={(e) => setTargetId(e.target.value)}
-                placeholder={targetType === "org" ? "org-id" : "github-login"}
-                className="h-8 min-w-0 flex-1 text-xs"
-                disabled={busy}
-                onKeyDown={(e) => {
-                  if (e.key === "Enter") void share();
-                }}
-              />
-              <Button
-                type="button"
-                size="sm"
-                variant="outline"
-                disabled={busy || !targetId.trim()}
-                onClick={() => void share()}
-              >
-                Share
-              </Button>
-            </div>
-            {shares.length === 0 ? (
-              <p className="text-xs text-mute">Not shared with anyone yet.</p>
-            ) : (
-              <ul className="divide-y divide-hairline rounded-[6px] border border-hairline">
-                {shares.map((row) => (
-                  <li
-                    key={`${row.target_type}:${row.target_id}`}
-                    className="flex items-center justify-between gap-2 px-3 py-1.5"
-                  >
-                    <span className="text-xs text-body">
-                      {row.target_type}/{row.target_id}
-                    </span>
-                    <Button
-                      type="button"
-                      size="sm"
-                      variant="ghost"
-                      disabled={busy}
-                      onClick={() => void unshare(row)}
-                    >
-                      Revoke
-                    </Button>
-                  </li>
-                ))}
-              </ul>
-            )}
-          </div>
-        </div>
+        {shareForm}
       </Modal>
+      ) : null}
 
       <ConfirmDialog
         open={confirmDelete}

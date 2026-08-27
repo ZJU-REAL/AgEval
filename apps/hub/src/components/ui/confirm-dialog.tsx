@@ -4,10 +4,13 @@ import {
   useId,
   useLayoutEffect,
   useRef,
+  useState,
   type ReactNode,
   type RefObject,
 } from "react";
+import { createPortal } from "react-dom";
 
+import { OverlayRootProvider } from "@/components/overlay-root";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
@@ -94,20 +97,25 @@ export function ConfirmDialog({
   const busyRef = useRef(busy);
   busyRef.current = busy;
   const panelRef = useDialogFocus(open, onCancel, () => busyRef.current);
+  const [host, setHost] = useState<HTMLElement | null>(null);
 
-  if (!open) return null;
+  if (!open || typeof document === "undefined") return null;
 
-  return (
+  return createPortal(
     <div
       data-ageval-scrim=""
-      className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-ink/40"
+      className="fixed inset-0 z-[70] flex items-center justify-center p-4 bg-ink/40"
       role="presentation"
       onClick={() => {
         if (!busy) onCancel();
       }}
     >
+      <OverlayRootProvider value={host}>
       <div
-        ref={panelRef}
+        ref={(node) => {
+          panelRef.current = node;
+          setHost(node);
+        }}
         role="dialog"
         aria-modal="true"
         aria-labelledby={titleId}
@@ -152,7 +160,9 @@ export function ConfirmDialog({
           </Button>
         </div>
       </div>
-    </div>
+      </OverlayRootProvider>
+    </div>,
+    document.body,
   );
 }
 
@@ -177,18 +187,23 @@ export function Modal({
   const titleId = useId();
   const descId = useId();
   const panelRef = useDialogFocus(open, onClose);
+  const [host, setHost] = useState<HTMLElement | null>(null);
 
-  if (!open) return null;
+  if (!open || typeof document === "undefined") return null;
 
-  return (
+  return createPortal(
     <div
       data-ageval-scrim=""
-      className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-ink/40"
+      className="fixed inset-0 z-[70] flex items-center justify-center p-4 bg-ink/40"
       role="presentation"
       onClick={onClose}
     >
+      <OverlayRootProvider value={host}>
       <div
-        ref={panelRef}
+        ref={(node) => {
+          panelRef.current = node;
+          setHost(node);
+        }}
         role="dialog"
         aria-modal="true"
         aria-labelledby={titleId}
@@ -234,6 +249,8 @@ export function Modal({
           <p className="mt-3 text-sm font-mono text-error">{error}</p>
         ) : null}
       </div>
-    </div>
+      </OverlayRootProvider>
+    </div>,
+    document.body,
   );
 }

@@ -1,10 +1,6 @@
-import { Check, Copy } from "lucide-react";
-import { Fragment, useEffect, useMemo, useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { useEffect, useMemo, useState } from "react";
+import { Link } from "react-router-dom";
 
-import { BuiltinMark } from "@/components/builtin-mark";
-import { Button } from "@/components/ui/button";
-import { UnderlineTabs } from "@/components/underline-tabs";
 import {
   compareValues,
   nextSort,
@@ -20,25 +16,20 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import {
-  encodeDatasetId,
   environmentFromOverlay,
   latestPackageByDataset,
   listPackages,
-  overlayAgentProfiles,
-  pluginsUsedBySuite,
   uniqueAgentRefs,
   type PackageRelease,
   type SuiteRow,
 } from "@/lib/api";
 import { agentPackageHref } from "@/lib/agent-models";
 import { getGithubUser, getToken } from "@/lib/auth";
-import { ResultOwnerOps } from "@/components/result-owner-ops";
 import {
   displayLabelsFromOverlay,
   formatScore,
   reasoningEffortFromOverlay,
 } from "@/lib/utils";
-import { CodeHighlight } from "@/lib/code-highlight";
 import {
   formatPassMetric,
   metricsNAttempts,
@@ -50,109 +41,11 @@ import { BrandMark } from "@/components/brand-mark";
 import { HoverTip, TruncateTip } from "@/components/hover-tip";
 import { ModelLabel } from "@/components/model-label";
 import { resolveMechanismMark } from "@/lib/brand-marks";
-import { JobOverlayPreview } from "@/components/overlay-file-panel";
-import { ScrollTable } from "@/components/scroll-table";
+import { shortSuiteId, SuiteInspector } from "@/components/suite-inspector";
 
 /** Shared column widths — keep Harness/Model tight so columns stay similar. */
 const COL_TEXT = "w-[6.5rem] max-w-[6.5rem] overflow-hidden";
 const COL_METRIC = "w-[5.5rem] max-w-[5.5rem]";
-
-/** Compact suite id for cells; full id in title. System ids are bare 8-hex. */
-function shortSuiteId(id: string): string {
-  const raw = id.trim();
-  if (/^[0-9a-f]+$/i.test(raw)) {
-    return raw.length <= 8 ? raw : raw.slice(0, 8);
-  }
-  if (raw.length <= 12) return raw;
-  return `${raw.slice(0, 10)}…`;
-}
-
-/** Render secret-free job_overlay as ageval.profiles/1 YAML for rehydrate display. */
-function jobOverlayToProfilesYaml(overlay: SuiteRow["job_overlay"]): string {
-  const profiles = overlayAgentProfiles(overlay);
-  const environment = environmentFromOverlay(overlay);
-  if (!environment && !Object.keys(profiles).length) {
-    return "# no job_overlay on this suite\n";
-  }
-  const lines: string[] = ["format: ageval.profiles/1"];
-  if (environment) lines.push(`environment: ${environment}`);
-  lines.push("agent_profiles:");
-  const roles = Object.keys(profiles).sort();
-  if (roles.length === 0) {
-    lines.push("  {}");
-    return lines.join("\n") + "\n";
-  }
-  for (const role of roles) {
-    const b = profiles[role];
-    if (!b || typeof b !== "object") continue;
-    lines.push(`  ${role}:`);
-    if (b.executor != null) lines.push(`    executor: ${String(b.executor)}`);
-    if (b.options && typeof b.options === "object" && b.options.entry != null) {
-      lines.push("    options:");
-      lines.push(`      entry: ${String(b.options.entry)}`);
-    }
-    if (b.model != null) lines.push(`    model: ${String(b.model)}`);
-    if (b.base_url != null) lines.push(`    base_url: ${String(b.base_url)}`);
-    // Locator name only — never a secret value.
-    if (b.api_key != null) lines.push(`    api_key: ${String(b.api_key)}`);
-    const overlays = Array.isArray(b.overlays) ? b.overlays.filter(Boolean) : [];
-    if (overlays.length) {
-      lines.push("    overlays:");
-      for (const path of overlays) {
-        lines.push(`      - ${String(path)}`);
-      }
-    }
-  }
-  return lines.join("\n") + "\n";
-}
-
-function CodeBlock({
-  path,
-  content,
-  maxHeightClass = "max-h-56",
-}: {
-  path: string;
-  content: string;
-  maxHeightClass?: string;
-}) {
-  const [copied, setCopied] = useState(false);
-
-  async function onCopy() {
-    try {
-      await navigator.clipboard.writeText(content);
-      setCopied(true);
-      window.setTimeout(() => setCopied(false), 1400);
-    } catch {
-      /* ignore */
-    }
-  }
-
-  return (
-    <div className="relative rounded-[6px] border border-hairline bg-code-bg">
-      <Button
-        type="button"
-        variant="ghost"
-        size="icon"
-        onClick={onCopy}
-        aria-label="Copy"
-        className="absolute right-1.5 top-1.5 z-10 h-7 w-7 shrink-0"
-      >
-        {copied ? (
-          <Check className="h-3.5 w-3.5 text-ink" />
-        ) : (
-          <Copy className="h-3.5 w-3.5 text-mute" />
-        )}
-      </Button>
-      <pre
-        className={`m-0 overflow-auto p-3 pr-10 font-mono text-[12px] leading-5 whitespace-pre ${maxHeightClass}`}
-      >
-        <code>
-          <CodeHighlight path={path} content={content} />
-        </code>
-      </pre>
-    </div>
-  );
-}
 
 type SortKey =
   | "agent_label"
@@ -216,120 +109,8 @@ function defaultCompare(a: SuiteRow, b: SuiteRow): number {
  * Default sort: pass_rate desc → mean_score desc → created_at desc.
  * Column headers are clickable (Viewer Jobs pattern). pass@k / pass^k sort by
  * primary display k (max k_values / n_attempts); not job identity.
+ * Row click opens SuiteInspector (not an in-table expand).
  */
-type ExpandTab = "profiles" | "plugin" | "jobs";
-
-function SuiteJobsList({
-  suite,
-  datasetId,
-  onOpen,
-}: {
-  suite: SuiteRow;
-  datasetId: string;
-  onOpen: (href: string) => void;
-}) {
-  const rows = suiteJobRows(suite);
-  if (rows.length === 0) {
-    return (
-      <p className="text-sm text-mute">
-        No task results on this suite. Upload with{" "}
-        <code className="font-mono">ageval results upload-suite</code>.
-      </p>
-    );
-  }
-  return (
-    <div className="space-y-2">
-      <p className="text-xs text-mute">
-        Each row is this suite&apos;s result for one task. Click a row with
-        uploaded Attempt evidence to open the same job detail as Task Jobs.
-      </p>
-      <ScrollTable
-        headers={["Task", "Status", "Score", "Attempt"]}
-        rows={rows.map((j) => {
-          const href =
-            j.hasAttempt && j.runId
-              ? `/datasets/${encodeDatasetId(datasetId)}/tasks/${encodeURIComponent(j.taskId)}/attempts/${encodeURIComponent(j.runId)}`
-              : null;
-          return {
-            key: j.key,
-            onClick: href ? () => onOpen(href) : undefined,
-            muted: !href,
-            cells: [
-              <span key="t">
-                {j.taskId}
-              </span>,
-              j.status || "—",
-              formatScore(j.score),
-              j.runId ? (
-                <span key="r">
-                  {shortSuiteId(j.runId)}
-                  {!href ? (
-                    <span className="ml-2 font-sans text-[11px] text-mute">
-                      summary only
-                    </span>
-                  ) : null}
-                </span>
-              ) : (
-                "—"
-              ),
-            ],
-          };
-        })}
-      />
-    </div>
-  );
-}
-
-function suiteJobRows(suite: SuiteRow): Array<{
-  key: string;
-  taskId: string;
-  runId: string | null;
-  status: string | null;
-  score: number | null;
-  hasAttempt: boolean;
-}> {
-  const rows: Array<{
-    key: string;
-    taskId: string;
-    runId: string | null;
-    status: string | null;
-    score: number | null;
-    hasAttempt: boolean;
-  }> = [];
-  for (const ref of suite.task_refs || []) {
-    const taskId = (ref.task_id || "").trim();
-    if (!taskId) continue;
-    const ids =
-      Array.isArray(ref.attempt_run_ids) && ref.attempt_run_ids.length
-        ? ref.attempt_run_ids.filter((id): id is string => Boolean(id))
-        : ref.run_id
-          ? [ref.run_id]
-          : [];
-    if (ids.length === 0) {
-      rows.push({
-        key: `${suite.suite_run_id}:${taskId}:none`,
-        taskId,
-        runId: null,
-        status: ref.status ?? null,
-        score: ref.score ?? null,
-        hasAttempt: false,
-      });
-      continue;
-    }
-    for (const runId of ids) {
-      rows.push({
-        key: `${suite.suite_run_id}:${taskId}:${runId}`,
-        taskId,
-        runId,
-        status: ref.status ?? null,
-        score: ref.score ?? null,
-        hasAttempt: Boolean(ref.has_attempt_content) && Boolean(runId),
-      });
-    }
-  }
-  return rows;
-}
-
 export function LeaderboardTable({
   suites,
   datasetId,
@@ -337,6 +118,7 @@ export function LeaderboardTable({
   emptyTitle,
   emptyBody,
   openSuiteId,
+  onOpenSuite,
   packageDigest,
   versions,
   onSuiteUpdated,
@@ -348,28 +130,21 @@ export function LeaderboardTable({
   orgId?: string | null;
   emptyTitle?: string;
   emptyBody?: string;
-  /** Open this public-board row on load; ignored when the suite is absent. */
+  /** Open this suite inspector; ignored when the suite is absent from `suites`. */
   openSuiteId?: string | null;
+  onOpenSuite?: (suiteRunId: string | null) => void;
   /** Currently viewed Dataset release digest (fallback for overlay preview). */
   packageDigest?: string;
   versions?: PackageRelease[];
   onSuiteUpdated?: (suiteRunId: string, patch: Partial<SuiteRow>) => void;
   onSuiteDeleted?: (suiteRunId: string) => void;
 }) {
-  const navigate = useNavigate();
   const selfLogin = (getGithubUser() || "").toLowerCase();
-  const [openId, setOpenId] = useState<string | null>(null);
-  const [expandTab, setExpandTab] = useState<ExpandTab>("profiles");
+  const [localOpenId, setLocalOpenId] = useState<string | null>(null);
   const [sortKey, setSortKey] = useState<string | null>("pass_rate");
   const [sortDir, setSortDir] = useState<SortDir>("desc");
   const [pluginCatalog, setPluginCatalog] = useState<PackageRelease[]>([]);
-
-  useEffect(() => {
-    if (!openSuiteId) return;
-    if (suites.some((s) => s.suite_run_id === openSuiteId)) {
-      setOpenId(openSuiteId);
-    }
-  }, [openSuiteId, suites]);
+  const controlled = typeof onOpenSuite === "function";
 
   useEffect(() => {
     let cancelled = false;
@@ -386,18 +161,24 @@ export function LeaderboardTable({
     };
   }, []);
 
+  const requested = controlled ? (openSuiteId ?? null) : localOpenId;
+  const openId =
+    requested && suites.some((s) => s.suite_run_id === requested)
+      ? requested
+      : null;
+  const openSuite = openId
+    ? (suites.find((s) => s.suite_run_id === openId) ?? null)
+    : null;
+
   function toggleRow(id: string) {
-    setOpenId((cur) => {
-      const next = cur === id ? null : id;
-      if (next !== cur) setExpandTab("profiles");
-      return next;
-    });
+    const next = openId === id ? null : id;
+    if (controlled) onOpenSuite?.(next);
+    else setLocalOpenId(next);
   }
 
   const showKColumns = suites.some(
     (s) => primaryDisplayK(s.metrics || {}) != null,
   );
-  const colCount = showKColumns ? 11 : 8;
 
   const rows = useMemo(() => {
     const list = [...suites];
@@ -516,19 +297,6 @@ export function LeaderboardTable({
                     : null;
               const nPass = typeof m.n_pass === "number" ? m.n_pass : null;
               const open = openId === s.suite_run_id;
-              const yamlText = jobOverlayToProfilesYaml(s.job_overlay);
-              const overlayDigest =
-                versions?.find((row) => row.version === s.dataset_version)
-                  ?.package_digest || packageDigest;
-              const plugins = pluginsUsedBySuite(s, pluginCatalog, orgId);
-              const rehydrateScript = [
-                "# Export this suite's job binding as profiles.yaml (locators only; no secrets)",
-                `ageval results export-profiles ${s.suite_run_id} --out profiles.from-suite.yaml`,
-                "",
-                "# Re-run with that binding (fill Dataset .env locally for credentials)",
-                "ageval run <dataset-root> --profiles profiles.from-suite.yaml",
-                "",
-              ].join("\n");
               const nAtt = metricsNAttempts(m);
               const atK = passAtPrimaryK(m);
               const powK = passPowerPrimaryK(m);
@@ -540,11 +308,13 @@ export function LeaderboardTable({
               const environmentKey = resolveMechanismMark(environment);
 
               return (
-                <Fragment key={s.suite_run_id}>
                   <TableRow
+                    key={s.suite_run_id}
                     className="cursor-pointer"
                     onClick={() => toggleRow(s.suite_run_id)}
-                    data-state={open ? "open" : undefined}
+                    data-state={open ? "selected" : undefined}
+                    aria-haspopup="dialog"
+                    aria-expanded={open}
                   >
                     {runtimeLinks.length ? (
                       <TableCell className={COL_TEXT}>
@@ -669,141 +439,30 @@ export function LeaderboardTable({
                       />
                     </TableCell>
                   </TableRow>
-                  {open ? (
-                    <TableRow>
-                      <TableCell colSpan={colCount} className="bg-canvas-soft">
-                        <div
-                          className="space-y-3 py-2"
-                          onClick={(e) => e.stopPropagation()}
-                        >
-                          {showKColumns && atK.k != null ? (
-                            <p className="text-xs text-mute">
-                              Observational k metrics for this job (not PASS
-                              authority; not identity). Display k=
-                              <span>{atK.k}</span>
-                              {nAtt != null ? (
-                                <>
-                                  {" "}
-                                  · n_attempts=
-                                  <span>{nAtt}</span>
-                                </>
-                              ) : null}
-                              .
-                            </p>
-                          ) : null}
-                          <div className="flex items-center justify-between gap-2">
-                          <div className="min-w-0 flex-1">
-                          <UnderlineTabs
-                            size="sm"
-                            ariaLabel="Suite details"
-                            value={expandTab}
-                            onChange={setExpandTab}
-                            items={[
-                              { id: "profiles" as const, label: "profiles" },
-                              { id: "plugin" as const, label: "plugin" },
-                              { id: "jobs" as const, label: "jobs" },
-                            ]}
-                          />
-                          </div>
-                          {(s.uploaded_by || "").toLowerCase() === selfLogin ? (
-                            <ResultOwnerOps
-                              kind="suite"
-                              resultId={s.suite_run_id}
-                              visibility={s.visibility}
-                              complete={s.complete}
-                              boundKind={s.bound_kind}
-                              boardListed={s.board_listed}
-                              jobOverlay={s.job_overlay}
-                              canManage
-                              token={getToken()}
-                              onVisibility={(next) =>
-                                onSuiteUpdated?.(s.suite_run_id, {
-                                  visibility: next,
-                                })
-                              }
-                              onAttached={(row) =>
-                                onSuiteUpdated?.(s.suite_run_id, row)
-                              }
-                              onDeleted={() => {
-                                setOpenId(null);
-                                onSuiteDeleted?.(s.suite_run_id);
-                              }}
-                            />
-                          ) : null}
-                          </div>
-                          {expandTab === "profiles" ? (
-                            <>
-                              <CodeBlock
-                                path="profiles.yaml"
-                                content={yamlText}
-                                maxHeightClass="max-h-56"
-                              />
-                              <CodeBlock
-                                path="rehydrate.sh"
-                                content={rehydrateScript}
-                                maxHeightClass="max-h-40"
-                              />
-                              <JobOverlayPreview
-                                overlay={s.job_overlay}
-                                datasetId={datasetId}
-                                datasetDigest={overlayDigest || ""}
-                              />
-                            </>
-                          ) : expandTab === "plugin" ? (
-                            <div className="space-y-2">
-                              {plugins.length === 0 ? (
-                                <p className="text-sm text-mute">
-                                  No plugins recorded for this job.
-                                </p>
-                              ) : (
-                                <ul className="divide-y divide-hairline rounded-[6px] border border-hairline bg-canvas">
-                                  {plugins.map((p) => {
-                                    const bundled = pluginCatalog.some(
-                                      (row) =>
-                                        row.dataset_id === p.plugin_id &&
-                                        row.builtin,
-                                    );
-                                    return (
-                                    <li key={p.plugin_id}>
-                                      <Link
-                                        to={`/plugins/${encodeDatasetId(p.plugin_id)}`}
-                                        className="flex items-center justify-between gap-3 px-3 py-2 text-sm hover:bg-row-hover"
-                                      >
-                                        <span className="inline-flex min-w-0 items-center gap-1.5 text-link hover:text-link-deep">
-                                          {p.plugin_id}
-                                          {bundled ? <BuiltinMark /> : null}
-                                        </span>
-                                        <span className="text-xs text-mute">
-                                          {bundled
-                                            ? "bundled"
-                                            : p.version
-                                              ? `v${p.version}`
-                                              : "marketplace"}
-                                        </span>
-                                      </Link>
-                                    </li>
-                                    );
-                                  })}
-                                </ul>
-                              )}
-                            </div>
-                          ) : (
-                            <SuiteJobsList
-                              suite={s}
-                              datasetId={datasetId}
-                              onOpen={(href) => navigate(href)}
-                            />
-                          )}
-                        </div>
-                      </TableCell>
-                    </TableRow>
-                  ) : null}
-                </Fragment>
               );
             })}
           </TableBody>
         </Table>
       </div>
+      {openSuite ? (
+        <SuiteInspector
+          suite={openSuite}
+          datasetId={datasetId}
+          overlayDigest={
+            versions?.find((row) => row.version === openSuite.dataset_version)
+              ?.package_digest || packageDigest
+          }
+          pluginCatalog={pluginCatalog}
+          orgId={orgId}
+          canManage={
+            Boolean(selfLogin) &&
+            (openSuite.uploaded_by || "").toLowerCase() === selfLogin
+          }
+          onClose={() => toggleRow(openSuite.suite_run_id)}
+          onSuiteUpdated={onSuiteUpdated}
+          onSuiteDeleted={onSuiteDeleted}
+        />
+      ) : null}
     </div>
   );
 }

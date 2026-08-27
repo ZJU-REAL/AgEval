@@ -349,6 +349,15 @@ export function DatasetDetailPage() {
     n.set("tab", "leaderboard");
     if (next === "public") n.delete("board");
     else n.set("board", "internal");
+    n.delete("suite");
+    setSearch(n, { replace: true });
+  }
+
+  function setSuite(id: string | null) {
+    const n = new URLSearchParams(search);
+    n.set("tab", "leaderboard");
+    if (id) n.set("suite", id);
+    else n.delete("suite");
     setSearch(n, { replace: true });
   }
 
@@ -679,12 +688,10 @@ export function DatasetDetailPage() {
                 rows.filter((row) => row.suite_run_id !== id);
               setJobSuites(drop);
               setBoardSuites(drop);
+              if (search.get("suite") === id) setSuite(null);
             }}
-            openSuiteId={
-              boardView === "public" && !demoLeaderboard
-                ? search.get("suite")
-                : null
-            }
+            openSuiteId={demoLeaderboard ? null : search.get("suite")}
+            onOpenSuite={demoLeaderboard ? undefined : setSuite}
             emptyTitle={
               boardView === "internal" && !demoLeaderboard
                 ? "No internal suite runs"
@@ -722,7 +729,10 @@ export function DatasetDetailPage() {
                     rows.filter((row) => row.suite_run_id !== id);
                   setJobSuites(drop);
                   setBoardSuites(drop);
+                  if (search.get("suite") === id) setSuite(null);
                 }}
+                openSuiteId={search.get("suite")}
+                onOpenSuite={setSuite}
               />
             </div>
           ) : null}
