@@ -330,8 +330,7 @@ class AcpExecutor(AgentExecutor):
         }
         if error_detail:
             meta["error_detail"] = error_detail
-        vendor_events = tuple(self._client.events) if self._client else ()
-        events = tuple(acp_session_events_to_ageval(vendor_events))
+        mapped = self._mapped_events()
         # Dual-source normalize: tokens from PromptResponse.usage; cost/context
         # from latest UsageUpdate. Never maps context.used → prompt_tokens.
         usage = extra = None
@@ -345,7 +344,7 @@ class AcpExecutor(AgentExecutor):
             usage=usage,
             extra=extra,
             actual_model=self._actual_model,
-            events=events,
+            events=mapped,
         )
         if health:
             meta["result_health"] = health
@@ -355,7 +354,7 @@ class AcpExecutor(AgentExecutor):
             structured=structured,
             ok=ok,
             error=error,
-            events=events,
+            events=mapped,
             usage=usage,
             extra=extra,
             metadata=meta,
@@ -385,6 +384,48 @@ class AcpExecutor(AgentExecutor):
                 return "acp_auth_required"
             return "acp_protocol_error"
         return None
+
+    def _mapped_events(self) -> tuple[dict[str, Any], ...]:
+        if self._client is None:
+            return ()
+        return tuple(acp_session_events_to_ageval(self._client.snapshot_events()))
+
+    def _write_vendor(self, collect_dir: str | None) -> None:
+        if not collect_dir or self._client is None:
+            return
+        dump = self._client.snapshot_events()
+        if not dump:
+            return
+        root = Path(collect_dir)
+        root.mkdir(parents=True, exist_ok=True)
+        (root / "acp_events.jsonl").write_text(
+            "\n".join(json.dumps(e, ensure_ascii=False, sort_keys=True) for e in dump) + "\n",
+            encoding="utf-8",
+        )
+
+    def _timeout_result(self, started: float, collect_dir: str | None) -> AgentResult:
+        """Keep in-flight ACP updates; do not replace them with a lone timeout row."""
+        with contextlib_suppress(Exception):
+            self._run(self._cancel(), timeout=5.0)
+        self._write_vendor(collect_dir)
+        timeout_ev: dict[str, Any] = {
+            "type": "lifecycle",
+            "phase": "timeout",
+            "source": "acp_adapter",
+            "elapsed_ms": (time.monotonic() - started) * 1000.0,
+        }
+        return AgentResult(
+            model=self.model,
+            text="",
+            structured=None,
+            ok=False,
+            error="acp_timeout",
+            events=(*self._mapped_events(), timeout_ev),
+            metadata={
+                "executor_kind": "acp",
+                "acp_entry_id": self.entry_id,
+            },
+        )
 
     def invoke(
         self,
@@ -433,27 +474,7 @@ class AcpExecutor(AgentExecutor):
         try:
             result = self._run(self._prompt_once(prompt), timeout=timeout)
         except TimeoutError:
-            with contextlib_suppress(Exception):
-                self._run(self._cancel(), timeout=5.0)
-            return AgentResult(
-                model=self.model,
-                text="",
-                structured=None,
-                ok=False,
-                error="acp_timeout",
-                events=(
-                    {
-                        "type": "lifecycle",
-                        "phase": "timeout",
-                        "source": "acp_adapter",
-                        "elapsed_ms": (time.monotonic() - started) * 1000.0,
-                    },
-                ),
-                metadata={
-                    "executor_kind": "acp",
-                    "acp_entry_id": self.entry_id,
-                },
-            )
+            return self._timeout_result(started, collect_dir)
         except Exception as exc:  # noqa: BLE001
             return AgentResult(
                 model=self.model,
@@ -475,19 +496,7 @@ class AcpExecutor(AgentExecutor):
                     "acp_entry_id": self.entry_id,
                 },
             )
-
-        if collect_dir is not None:
-            root = Path(collect_dir)
-            root.mkdir(parents=True, exist_ok=True)
-            # Vendor-native ACP stream (layer A). Layer C is Core-owned.
-            vendor = tuple(self._client.events) if self._client else ()
-            dump = vendor or result.events
-            if dump:
-                (root / "acp_events.jsonl").write_text(
-                    "\n".join(json.dumps(e, ensure_ascii=False, sort_keys=True) for e in dump)
-                    + "\n",
-                    encoding="utf-8",
-                )
+        self._write_vendor(collect_dir)
         return result
 
     async def _cancel(self) -> None:

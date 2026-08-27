@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import threading
 from collections.abc import Sequence
 from contextlib import suppress as contextlib_suppress
 from dataclasses import dataclass, field
@@ -79,6 +80,7 @@ class _AgevalAcpClient:
     prompt_usage: dict[str, Any] | None = None
     permission_decisions: list[dict[str, Any]] = field(default_factory=list)
     _conn: Any = None
+    _lock: threading.Lock = field(default_factory=threading.Lock, repr=False, compare=False)
 
     def on_connect(self, conn: Any) -> None:
         self._conn = conn
@@ -220,11 +222,16 @@ class _AgevalAcpClient:
     async def complete_elicitation(self, elicitation_id: str, **kwargs: Any) -> None:
         return None
 
+    def snapshot_events(self) -> tuple[dict[str, Any], ...]:
+        with self._lock:
+            return tuple(self.events)
+
     def record(self, event: dict[str, Any]) -> None:
         """Append a vendor event and stamp receive-time ``at`` when missing."""
         if "at" not in event:
             event["at"] = _utc_now_iso()
-        self.events.append(event)
+        with self._lock:
+            self.events.append(event)
 
     async def ext_method(self, method: str, params: dict[str, Any]) -> dict[str, Any]:
         return {}
