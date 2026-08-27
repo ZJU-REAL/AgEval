@@ -71,7 +71,7 @@ Current 实现把前四相放进循环并在相位失败时记 `phase_failed`，
 
 槽名权威：`src/ageval/plugins/slots.py`。新**时间线**槽仍要改 attempt 宿主；插件不可自造槽名。
 
-Current 独占槽：`environment`、`executor`、`evaluation_runtime`、`trajectory_seal`。后两者的默认赢家是引擎（`plugin_id: default`，`is_default=True`）：盒内 `evaluator.py`（via `host.exec`）与层 C 写入（run 相位 `trajectory.jsonl`；evaluate 相位若有 SDK invoke 则另写 `evaluation/observation.jsonl`）。没有 job 字段糖；替换只能走显式 `extensions` 行（`slot` + `plugin`）。缺默认注册 → lock fail-closed。
+Current 独占槽：`environment`、`executor`、`evaluation_runtime`、`trajectory_seal`。后两者的默认赢家是引擎（`plugin_id: default`，`is_default=True`）：parent 子进程跑 `evaluator.py`（与 `run.py` 同一 JSON-RPC 口）与层 C 写入（run 相位 `trajectory.jsonl`；evaluate 相位若有 SDK invoke 则另写 `evaluation/observation.jsonl`）。没有 job 字段糖；替换只能走显式 `extensions` 行（`slot` + `plugin`）。缺默认注册 → lock fail-closed。
 
 PASS 仍只经 `AttemptCtx.bind_evaluation` 进入 Result。`evaluation_runtime` 赢家返回 raw，不得自己写 verdict。`pass` / `identity` / `cleanup` / `evidence` 仍不是服务。
 
@@ -124,7 +124,7 @@ async def run(ctx) -> None:
     await emit(ctx, "after_evaluate")            # 不得改 status
 ```
 
-**opt-in**（job `evaluate_host.isolated: true`）：harvest 之后、evaluate 开头，Runtime 用题包 `environment/evaluate.Dockerfile`（或 `evaluation.docker_image`）`start` 第二实例。gold、harvest 快照、`evaluator.py` **只**进这个 Host。Agent 盒永不 mount / upload `evaluation/`。evaluate 相位的 `host.exec` / `attach_stdio` 打第二实例。cleanup 停两个。Current 要求 kind 是 `docker`；不能再起一盒的 kind + `isolated: true` → lock 一次失败（不要报假 cap）。
+**opt-in**（job `evaluate_host.isolated: true`）：harvest 之后、evaluate 开头，Runtime 用题包 `environment/evaluate.Dockerfile`（或 `evaluation.docker_image`）`start` 第二实例。gold 与 harvest 快照只进这个 Host。`evaluator.py` 仍在 parent 跑；evaluate 相位的 ACP `attach_stdio` 打第二实例。Agent 盒永不 mount / upload `evaluation/`。cleanup 停两个。Current 要求 kind 是 `docker`；不能再起一盒的 kind + `isolated: true` → lock 一次失败（不要报假 cap）。
 
 - Agent / `run.py` / `environment_setup` **禁止**看到 `evaluation/`（不 upload、不 mount、不 COPY 进 Agent 用镜像层）。isolated 时这条红线变成 **空间切开 + 时间切开**：gold 根本不进 Agent 盒。
 - 这不是 `path_views`。evidence 记 `gold_materialized`（at evaluate）；isolated 另记第二 Host 的 start/stop，那些事实 **不是** PASS。

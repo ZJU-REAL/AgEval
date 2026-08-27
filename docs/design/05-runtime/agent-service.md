@@ -91,9 +91,9 @@ Agent Service **跨 evaluate 保持**（或 reopen）：`evaluator.py` 才能 `A
 
 `evaluate_host.isolated: true` 时：
 
-- evaluate 相位的 `Agent.session`（judge 等 **未** 在 run 用过的 profile）`attach_stdio` / 盒内 worker `exec` 打 **打分 Host**，不是 Agent Host。solver 仍密封。
-- 盒内 `evaluator.py` 继续 `host.exec` 在打分 Host。要把 parent unix socket 投影进这只盒子：每种能挂 parent socket 的 kind 都设 `AGEVAL_AGENT_SERVICE_SOCK`（加 attempt id）。Current docker：evaluate **开始时** 把 socket 文件 bind-mount 进打分容器的 `/ageval-agent.sock`（不要挂在 `/attempt` 底下，也不要整段 Attempt 挂进 Agent 容器）。local 仍是本机路径，与今日相同。
-- kind 不能挂 socket 时，SDK `inputs["agent"]` 省略（与今日 docker 同盒路径相同）；不要发明第二套 client。isolated + docker 的 in-box `session("judge").invoke` 必须能成功（`openai-http` judge 足够）。
+- `evaluator.py` 与 `run.py` 一样是 **parent 子进程**。`AGEVAL_AGENT_SERVICE_SOCK` 是本机 unix 路径，不 bind-mount 进容器。
+- evaluate 相位的 `Agent.session`（judge 等 **未** 在 run 用过的 profile）走同一 Parent Agent Service。ACP `attach_stdio` 打 **打分 Host**（environment 服务在 evaluate 开头 rebound），不是 Agent Host。solver 仍密封。
+- isolated 打分盒 start 之后，对上述 ACP profile 再跑 `after_environment_ready`（probe / 按 entry `install_command`）。不要把 solver 的 ACP 配方装进打分镜像。
 - Agent 容器 **没有** docker daemon socket。ACP / `attempt` / `run.py` 仍然不见 `container_id`。
 
 observe 这些 invoke：`evaluation/observation.jsonl`（省略 `user` 行）。不是 PASS。

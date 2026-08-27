@@ -54,7 +54,7 @@ docker `environment_options`：
 - work root **独立**（另一份 `BoxSpec.attempt_root`）。禁止把 Agent 的 bind-mount 或 live workspace symlink 进打分盒。
 - 不加入 Agent compose 网络。compose 侧车仍随 Agent `host.start()` 起来，寿命与 Agent 盒相同；不要拿侧车当打分镜像。
 - **禁止**把 docker daemon socket 挂进 **Agent** 盒。打分盒也不挂 daemon socket。locator 只给 parent 的 docker CLI。
-- gold、tree/file 快照、`evaluator.py` 只 upload 到打分实例。Parent Agent Service 的 unix socket 在 evaluate 时 bind-mount 进 **打分** 容器（见 [agent-service](agent-service.md)），不在整段 Attempt 挂进 Agent 容器。
+- gold、tree/file 快照只 upload 到打分实例。`evaluator.py` 在 parent 跑，连本机 Agent Service socket；不要把该 socket bind-mount 进容器。
 - cleanup 先停打分实例再停 Agent 实例（或并行，但两个都要停）。`keep_workspace` 只保留引擎声明要留的 work root，不得把第二盒的盘并回 Agent 盘。
 
 不能再起第二盒的 kind（Current：`local` 以及尚未兑现的云 kind）遇到 `isolated: true` → lock 失败。不要为此发明 cap 名。

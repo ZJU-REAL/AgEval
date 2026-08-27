@@ -60,7 +60,7 @@ from ageval_sdk import (
 
 `run.py` 通过 `ctx.agent.session(...).invoke` 调 Agent。ACP attach 发生在第一次 invoke。SDK 不拥有 `host.start`、凭据文件内容、final PASS。
 
-evaluate 相位同样可以用 SDK：gold 已 upload 到 **打分 Host** 之后，`evaluator.py` 可以 `Agent.session(<role>).invoke`（role 须在同一份 `profiles.yaml` 里，且不得复用 solver 的 key locator）。这些 invoke 走同一 Parent Agent Service 与该 profile 的 executor。job `evaluate_host.isolated` 时 attach/exec 打打分 Host，不是 Agent 盒。密封进 `evaluation/observation.jsonl`，省略 `user` 行。`evaluator.py` **不得** bind PASS；仍返回 `{status, score, metrics}`。不调 `Agent.session` = 今日路径，无 observation 文件。invoke kwargs 仍不得改 `profile_id` / executor。SDK **仍然** 没有盒子动词。
+evaluate 相位同样可以用 SDK：`evaluator.py` 是 parent 子进程（与 `run.py` 一样），gold 已 materialize 之后可以 `Agent.session(<role>).invoke`（role 须在同一份 `profiles.yaml` 里，且不得复用 solver 的 key locator）。invoke 走本机 Parent Agent Service；ACP `attach_stdio` 打当时的 environment 服务（isolated = 打分 Host）。密封进 `evaluation/observation.jsonl`，省略 `user` 行。`evaluator.py` **不得** bind PASS；仍返回 `{status, score, metrics}`。不调 `Agent.session` = 无 observation 文件。invoke kwargs 仍不得改 `profile_id` / executor。SDK **仍然** 没有盒子动词。
 
 `ctx.publish_tree(id, path)` 是可选登记：告诉 Runtime「这份 tree 已由 Agent 写在 workspace」。**拷贝与 exclude 仍归 harvest**，不在 SDK 里做。题包 yaml 已经声明 `kind: tree` 且 `path` 指向 Agent 写过的工作区时，`run.py` 不必再调。`publish_json` / `publish_file` 仍是单文件。登记成功不是 PASS。
 
