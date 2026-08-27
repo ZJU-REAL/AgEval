@@ -1,0 +1,6 @@
+format: ageval.dataset/1
+dataset_id: test/eval-isolated-min
+version: "0.1.0"
+description: Isolated evaluate host scores a harvested workspace tree; no gold upload
+tasks:
+  root: tasks

@@ -178,6 +178,7 @@ async def run_attempt(
             attempt_root=evidence.path(AGENT_BOX_REL),
         ),
         plugin_layers=_plugin_image_layers(graph),
+        options=_agent_environment_options(lock, graph),
     )
     services.register(ENVIRONMENT, host, plugin_id=graph.winners[ENVIRONMENT].plugin_id)
     await host.preflight()
@@ -326,6 +327,36 @@ def _environment_options(lock: LockedTaskConfig) -> dict[str, Any]:
     overlay = thaw(lock.job_overlay) if lock.job_overlay is not None else {}
     options = overlay.get("environment_options")
     return dict(options) if isinstance(options, dict) else {}
+
+
+def _agent_environment_options(lock: LockedTaskConfig, graph: ExtensionGraph) -> dict[str, Any]:
+    """Winner options plus derived egress allowlist (hostnames only)."""
+    winner = graph.winners.get(ENVIRONMENT)
+    options = dict(winner.options or {}) if winner is not None else _environment_options(lock)
+    if str(options.get("egress") or "") == "llm":
+        options["egress_allowlist"] = _egress_allowlist(lock)
+    return options
+
+
+def _egress_allowlist(lock: LockedTaskConfig) -> list[str]:
+    from urllib.parse import urlparse
+
+    from ageval.config.env_refs import resolve_locked_base_url
+    from ageval.config.errors import ConfigError
+
+    hosts: list[str] = []
+    for row in lock.agent_profiles:
+        raw = row.get("base_url")
+        try:
+            url = resolve_locked_base_url(raw if isinstance(raw, str) else None)
+        except ConfigError:
+            continue
+        if not url:
+            continue
+        host = urlparse(str(url)).hostname
+        if host:
+            hosts.append(host)
+    return sorted(set(hosts))
 
 
 def _box_spec(
