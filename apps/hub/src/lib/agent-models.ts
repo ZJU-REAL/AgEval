@@ -31,20 +31,6 @@ export function registeredModels(
   return out;
 }
 
-export function modelSourceLabel(opts: {
-  model: string;
-  defaultModel: string;
-  appearanceCount: number;
-}): string {
-  const parts: string[] = [];
-  if (opts.model === opts.defaultModel) parts.push("package default");
-  if (opts.appearanceCount === 1) parts.push("1 appearance");
-  else if (opts.appearanceCount > 1) {
-    parts.push(`${opts.appearanceCount} appearances`);
-  }
-  return parts.join(" · ") || "query";
-}
-
 /** Hub landing for a harness package. ``model`` is query state, not a route. */
 export function agentPackageHref(
   packageId: string,

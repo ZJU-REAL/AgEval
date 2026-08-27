@@ -110,13 +110,18 @@ export function BindingPreview({
   binding,
   className,
   onOpenOverlay,
+  runModel,
 }: {
   binding: Record<string, unknown>;
   className?: string;
   onOpenOverlay?: (path: string) => void;
+  /** Selected `?model=` on the Agent page; not package identity. */
+  runModel?: string | null;
 }) {
   const executor = asString(binding.executor);
   const model = asString(binding.model);
+  const override = (runModel || "").trim();
+  const modelOverride = override && override !== (model || "");
   const label = asString(binding.label);
   const overlays = asStringList(binding.overlays);
   const extensions = asExtensions(binding.extensions);
@@ -128,6 +133,7 @@ export function BindingPreview({
   if (
     !executor &&
     !model &&
+    !modelOverride &&
     !label &&
     !overlays.length &&
     !extensions.length &&
@@ -149,9 +155,19 @@ export function BindingPreview({
             <span className="text-[13px]">{executor}</span>
           </Field>
         ) : null}
-        {model ? (
+        {model || modelOverride ? (
           <Field label="model">
-            <span className="text-[13px]">{model}</span>
+            {model ? (
+              <span className="text-[13px]">{model}</span>
+            ) : (
+              <span className="text-mute">—</span>
+            )}
+            {modelOverride ? (
+              <p className="mt-0.5 text-xs text-mute">
+                This run overrides to{" "}
+                <span className="text-ink">{override}</span> (--model)
+              </p>
+            ) : null}
           </Field>
         ) : null}
         {label ? (

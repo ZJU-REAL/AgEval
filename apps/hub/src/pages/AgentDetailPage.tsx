@@ -16,6 +16,8 @@ import { OfficialMark } from "@/components/official-mark";
 import { FileSplitPanel } from "@/components/file-split-panel";
 import { PackageOwnerOps } from "@/components/package-owner-ops";
 import { InlineMarkdown } from "@/components/markdown";
+import { UnderlineTabs } from "@/components/underline-tabs";
+import { Input } from "@/components/ui/input";
 import {
   Table,
   TableBody,
@@ -46,21 +48,27 @@ import {
   RegistryHttpError,
 } from "@/lib/api";
 import {
-  agentPackageHref,
   bindingModel,
   formatAgentRunCommand,
-  modelSourceLabel,
   registeredModels,
 } from "@/lib/agent-models";
 import { getToken } from "@/lib/auth";
 import { buildNestedTree, type TreeNode } from "@/lib/file-tree";
-import { formatScore } from "@/lib/utils";
+import { cn, formatScore } from "@/lib/utils";
+
+type AgentTab = "overview" | "appearances" | "files";
+
+function parseAgentTab(raw: string | null): AgentTab {
+  if (raw === "appearances" || raw === "files") return raw;
+  return "overview";
+}
 
 export function AgentDetailPage() {
   const { agentId: rawId } = useParams();
   const agentId = decodeDatasetId(rawId || "");
-  const [searchParams] = useSearchParams();
+  const [searchParams, setSearchParams] = useSearchParams();
   const selectedModel = (searchParams.get("model") || "").trim();
+  const pageTab = parseAgentTab(searchParams.get("tab"));
   const token = getToken();
   const navigate = useNavigate();
   const [reloadAt, setReloadAt] = useState(0);
@@ -78,6 +86,7 @@ export function AgentDetailPage() {
   const [loading, setLoading] = useState(true);
   const [canEditName, setCanEditName] = useState(false);
   const [appearances, setAppearances] = useState<AgentAppearance[]>([]);
+  const [modelQuery, setModelQuery] = useState("");
 
   useEffect(() => {
     let cancelled = false;
@@ -261,12 +270,35 @@ export function AgentDetailPage() {
       ),
     [appearances, defaultModel, selectedModel],
   );
+  const shownModels = useMemo(() => {
+    const q = modelQuery.trim().toLowerCase();
+    if (!q) return models;
+    return models.filter((model) => model.toLowerCase().includes(q));
+  }, [models, modelQuery]);
   const visibleAppearances = useMemo(() => {
     if (!selectedModel) return appearances;
     return appearances.filter(
       (row) => (row.model || "").trim() === selectedModel,
     );
   }, [appearances, selectedModel]);
+
+  function agentHref(next?: { model?: string | null; tab?: AgentTab }) {
+    const n = new URLSearchParams();
+    const model = next && "model" in next ? next.model : selectedModel;
+    const tab = next?.tab ?? pageTab;
+    const m = (model || "").trim();
+    if (m) n.set("model", m);
+    if (tab !== "overview") n.set("tab", tab);
+    const qs = n.toString();
+    return `/agents/${encodeDatasetId(agentId)}${qs ? `?${qs}` : ""}`;
+  }
+
+  function setTab(next: AgentTab) {
+    const n = new URLSearchParams(searchParams);
+    if (next === "overview") n.delete("tab");
+    else n.set("tab", next);
+    setSearchParams(n, { replace: true });
+  }
 
   function openOverlayPath(declared: string) {
     const prefix = declared.endsWith("/") ? declared : `${declared}/`;
@@ -275,9 +307,7 @@ export function AgentDetailPage() {
       filePaths.find((p) => p.startsWith(prefix)) ||
       declared;
     setSelectedPath(resolved);
-    document
-      .getElementById("agent-files")
-      ?.scrollIntoView({ behavior: "smooth", block: "start" });
+    setTab("files");
   }
 
   const appearancesByVersion = useMemo(() => {
@@ -448,9 +478,60 @@ export function AgentDetailPage() {
           ) : null}
 
           <section className="space-y-2">
-            <h2 className="text-sm font-medium text-ink">
-              {builtin ? "Run (CLI)" : "Install & run (CLI)"}
-            </h2>
+            <div className="flex flex-wrap items-center gap-2">
+              <h2 className="shrink-0 text-sm font-medium text-ink">Model</h2>
+              {models.length > 0 ? (
+                <Input
+                  value={modelQuery}
+                  onChange={(e) => setModelQuery(e.target.value)}
+                  placeholder="Search models…"
+                  aria-label="Search models"
+                  className="h-9 w-[min(100%,24rem)] max-w-sm focus-visible:border-hairline"
+                />
+              ) : null}
+            </div>
+            <p className="text-xs text-mute">
+              {builtin
+                ? "Models from plaza overlay runs of this harness. Selecting one is query state on this page, not a second package."
+                : "Package default plus models that appeared on consented plaza suites. Selecting one is query state on this harness page, not a second package."}
+            </p>
+            {models.length === 0 ? (
+              <p className="text-sm text-mute">
+                No registered model yet. The package default is empty.
+              </p>
+            ) : shownModels.length === 0 ? (
+              <p className="text-sm text-mute">
+                No models match “{modelQuery.trim()}”.
+              </p>
+            ) : (
+              <ul className="m-0 flex flex-wrap gap-1.5 p-0 list-none">
+                {shownModels.map((model) => {
+                  const selected = model === selectedModel;
+                  return (
+                    <li key={model}>
+                      <Link
+                        to={agentHref({
+                          model: selected ? null : model,
+                        })}
+                        replace
+                        aria-current={selected ? "page" : undefined}
+                        className={cn(
+                          "inline-flex max-w-full truncate rounded-[6px] border px-2 py-1 text-sm transition-colors duration-200 ease-smooth",
+                          selected
+                            ? "bg-link/10 text-ink"
+                            : "border-hairline text-body hover:bg-row-hover hover:text-ink",
+                        )}
+                      >
+                        {model}
+                      </Link>
+                    </li>
+                  );
+                })}
+              </ul>
+            )}
+          </section>
+
+          <section className="space-y-2">
             {builtin ? null : <CommandStrip command={installCmd} />}
             <CommandStrip command={runCmd} />
             <p className="text-xs text-mute">
@@ -471,184 +552,129 @@ export function AgentDetailPage() {
             </p>
           </section>
 
-          <section className="space-y-2">
-            <h2 className="text-sm font-medium text-ink">Job binding</h2>
-            {hasBinding ? (
-              <BindingPreview binding={binding} onOpenOverlay={openOverlayPath} />
-            ) : (
-              <p className="text-sm text-mute">No binding preview available.</p>
-            )}
-          </section>
+          <UnderlineTabs
+            ariaLabel="Agent sections"
+            value={pageTab}
+            onChange={setTab}
+            items={[
+              { id: "overview", label: "Overview" },
+              { id: "appearances", label: "Appearances" },
+              { id: "files", label: "Files" },
+            ]}
+          />
 
-          <section className="space-y-3">
-            <div className="flex flex-wrap items-baseline justify-between gap-2">
-              <h2 className="text-sm font-medium text-ink">Registered models</h2>
-              {selectedModel ? (
-                <Link
-                  to={agentPackageHref(agentId)}
-                  replace
-                  className="text-xs text-link hover:text-link-deep hover:underline underline-offset-2"
-                >
-                  Clear model focus
-                </Link>
-              ) : null}
-            </div>
-            <p className="text-xs text-mute">
-              {builtin
-                ? "Models from plaza overlay runs of this harness. Selecting one is query state on this page, not a second package."
-                : "Package default plus models that appeared on consented plaza suites. Selecting one is query state on this harness page, not a second package."}
-            </p>
-            {models.length === 0 ? (
-              <p className="text-sm text-mute">
-                No registered model yet. The package default is empty.
-              </p>
-            ) : (
-              <div className="rounded-[8px] border border-hairline overflow-hidden">
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>Model</TableHead>
-                      <TableHead>Source</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {models.map((model) => {
-                      const selected = model === selectedModel;
-                      const appearanceCount = appearances.filter(
-                        (row) => (row.model || "").trim() === model,
-                      ).length;
-                      return (
-                        <TableRow
-                          key={model}
-                          data-state={selected ? "selected" : undefined}
-                        >
-                          <TableCell>
-                            <Link
-                              to={agentPackageHref(
-                                agentId,
-                                selected ? null : model,
-                              )}
-                              replace
-                              aria-current={selected ? "page" : undefined}
-                              className="text-link hover:text-link-deep hover:underline underline-offset-2"
-                            >
-                              {model}
-                            </Link>
-                          </TableCell>
-                          <TableCell className="text-mute">
-                            {modelSourceLabel({
-                              model,
-                              defaultModel,
-                              appearanceCount,
-                            })}
-                          </TableCell>
-                        </TableRow>
-                      );
-                    })}
-                  </TableBody>
-                </Table>
-              </div>
-            )}
-          </section>
+          {pageTab === "overview" ? (
+            <section className="space-y-2">
+              <h2 className="text-sm font-medium text-ink">Job binding</h2>
+              {hasBinding ? (
+                <BindingPreview
+                  binding={binding}
+                  runModel={selectedModel}
+                  onOpenOverlay={openOverlayPath}
+                />
+              ) : (
+                <p className="text-sm text-mute">
+                  No binding preview available.
+                </p>
+              )}
+            </section>
+          ) : null}
 
-          <section className="space-y-3">
-            <h2 className="text-sm font-medium text-ink">
-              {selectedModel
-                ? `Appearances · ${selectedModel}`
-                : "Appearances"}
-            </h2>
-            <p className="text-xs text-mute">
-              {builtin
-                ? "Official public complete release-bound suites whose overlay harness matches this card. Observational metrics only — PASS stays on the independent evaluator."
-                : "Official public complete release-bound suites with this Agent org’s consent (direct attach or an approved appearance request). Observational metrics only — PASS stays on the independent evaluator."}
-            </p>
-            {appearancesByVersion.length === 0 ? (
-              <p className="text-sm text-mute">
-                {selectedModel
-                  ? builtin
-                    ? "No plaza appearances for this model yet."
-                    : "No consented appearances for this model yet."
-                  : builtin
-                    ? "No plaza appearances yet. Upload a public complete suite on an official Dataset that ran this harness."
-                    : (
-                      <>
-                        No Hub appearances yet. Attach a published{" "}
-                        <span>org/name@version</span> as this
-                        Agent’s org owner, or approve an appearance request.
-                      </>
-                    )}
+          {pageTab === "appearances" ? (
+            <section className="space-y-3">
+              <p className="text-xs text-mute">
+                {builtin
+                  ? "Official public complete release-bound suites whose overlay harness matches this card. Observational metrics only — PASS stays on the independent evaluator."
+                  : "Official public complete release-bound suites with this Agent org’s consent (direct attach or an approved appearance request). Observational metrics only — PASS stays on the independent evaluator."}
               </p>
-            ) : (
-              appearancesByVersion.map(([version, rows]) => (
-                <div key={version} className="space-y-2">
-                  <h3 className="text-xs text-mute">v{version}</h3>
-                  <div className="rounded-[8px] border border-hairline overflow-hidden">
-                    <Table>
-                      <TableHeader>
-                        <TableRow>
-                          <TableHead>Dataset</TableHead>
-                          <TableHead>Role</TableHead>
-                          <TableHead>Model</TableHead>
-                          <TableHead className="text-right">Pass rate</TableHead>
-                          <TableHead className="text-right">Mean</TableHead>
-                        </TableRow>
-                      </TableHeader>
-                      <TableBody>
-                        {rows.map((row) => {
-                          const key = `${row.suite_run_id}:${row.role}`;
-                          return (
-                            <TableRow key={key}>
-                              <TableCell>
-                                <Link
-                                  to={`/datasets/${encodeDatasetId(row.dataset_id)}?tab=leaderboard&suite=${encodeURIComponent(row.suite_run_id)}`}
-                                  onClick={(e) => e.stopPropagation()}
-                                  className="text-link hover:text-link-deep hover:underline underline-offset-2"
-                                >
-                                  {row.dataset_id}
-                                </Link>
-                              </TableCell>
-                              <TableCell>
-                                {row.role}
-                              </TableCell>
-                              <TableCell>
-                                {row.model || "—"}
-                              </TableCell>
-                              <TableCell className="text-right tabular-nums">
-                                {formatScore(row.pass_rate)}
-                              </TableCell>
-                              <TableCell className="text-right tabular-nums">
-                                {formatScore(row.mean_score)}
-                              </TableCell>
-                            </TableRow>
-                          );
-                        })}
-                      </TableBody>
-                    </Table>
+              {appearancesByVersion.length === 0 ? (
+                <p className="text-sm text-mute">
+                  {selectedModel
+                    ? builtin
+                      ? "No plaza appearances for this model yet."
+                      : "No consented appearances for this model yet."
+                    : builtin
+                      ? "No plaza appearances yet. Upload a public complete suite on an official Dataset that ran this harness."
+                      : (
+                        <>
+                          No Hub appearances yet. Attach a published{" "}
+                          <span>org/name@version</span> as this
+                          Agent’s org owner, or approve an appearance request.
+                        </>
+                      )}
+                </p>
+              ) : (
+                appearancesByVersion.map(([version, rows]) => (
+                  <div key={version} className="space-y-2">
+                    <h3 className="text-xs text-mute">v{version}</h3>
+                    <div className="rounded-[8px] border border-hairline overflow-hidden">
+                      <Table>
+                        <TableHeader>
+                          <TableRow>
+                            <TableHead>Dataset</TableHead>
+                            <TableHead>Role</TableHead>
+                            <TableHead>Model</TableHead>
+                            <TableHead className="text-right">Pass rate</TableHead>
+                            <TableHead className="text-right">Mean</TableHead>
+                          </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                          {rows.map((row) => {
+                            const key = `${row.suite_run_id}:${row.role}`;
+                            return (
+                              <TableRow key={key}>
+                                <TableCell>
+                                  <Link
+                                    to={`/datasets/${encodeDatasetId(row.dataset_id)}?tab=leaderboard&suite=${encodeURIComponent(row.suite_run_id)}`}
+                                    className="text-link hover:text-link-deep hover:underline underline-offset-2"
+                                  >
+                                    {row.dataset_id}
+                                  </Link>
+                                </TableCell>
+                                <TableCell>
+                                  {row.role}
+                                </TableCell>
+                                <TableCell>
+                                  {row.model || "—"}
+                                </TableCell>
+                                <TableCell className="text-right tabular-nums">
+                                  {formatScore(row.pass_rate)}
+                                </TableCell>
+                                <TableCell className="text-right tabular-nums">
+                                  {formatScore(row.mean_score)}
+                                </TableCell>
+                              </TableRow>
+                            );
+                          })}
+                        </TableBody>
+                      </Table>
+                    </div>
                   </div>
-                </div>
-              ))
-            )}
-          </section>
+                ))
+              )}
+            </section>
+          ) : null}
 
-          <section id="agent-files" className="space-y-2">
-            <h2 className="text-sm font-medium text-ink">Files</h2>
-            <p className="text-xs text-mute">
-              Read-only preview of this package, including any bundled{" "}
-              <span>overlays/</span> files. Locator names
-              only, never secret values.
-            </p>
-            <div className="rounded-[8px] border border-hairline overflow-hidden">
-              <FileSplitPanel
-                tree={tree}
-                treeLoading={treeLoading}
-                selectedPath={selectedPath}
-                onSelect={setSelectedPath}
-                fileContent={fileContent}
-                fileLoading={fileLoading}
-                fileNote={fileNote}
-              />
-            </div>
-          </section>
+          {pageTab === "files" ? (
+            <section className="space-y-2">
+              <p className="text-xs text-mute">
+                Read-only preview of this package, including any bundled{" "}
+                <span>overlays/</span> files. Locator names
+                only, never secret values.
+              </p>
+              <div className="rounded-[8px] border border-hairline overflow-hidden">
+                <FileSplitPanel
+                  tree={tree}
+                  treeLoading={treeLoading}
+                  selectedPath={selectedPath}
+                  onSelect={setSelectedPath}
+                  fileContent={fileContent}
+                  fileLoading={fileLoading}
+                  fileNote={fileNote}
+                />
+              </div>
+            </section>
+          ) : null}
         </div>
       )}
     </>
