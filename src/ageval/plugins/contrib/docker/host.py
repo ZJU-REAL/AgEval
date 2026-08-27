@@ -23,6 +23,7 @@ from collections.abc import Mapping, Sequence
 from pathlib import Path
 
 from ageval.environments.protocol import (
+    AGENT_SERVICE_SOCK_PATH,
     ARTIFACTS_PATH,
     EVALUATION_PATH,
     HOME_PATH,
@@ -112,6 +113,8 @@ class DockerHost:
         # The Agent runs inside the box and has to reach its provider.
         self._network = _text(opts.get("network")) or "bridge"
         self._user = _box_user(opts.get("user"))
+        socket = spec.agent_service_socket
+        self._agent_socket = socket.expanduser().resolve(strict=False) if socket else None
         self._container: str | None = None
         self._compose_project: str | None = None
         self._image: str | None = None
@@ -161,8 +164,7 @@ class DockerHost:
             "no-new-privileges",
             "--network",
             network,
-            "-v",
-            f"{self._root}:{BOX_ROOT}",
+            *self._volume_flags(),
             "-w",
             WORKSPACE_PATH,
             "--entrypoint",
@@ -319,6 +321,19 @@ class DockerHost:
     def root(self) -> Path:
         return self._root
 
+    def projected_agent_socket(self) -> str | None:
+        """In-box path of the parent Agent Service socket, when mounted."""
+        if self._agent_socket is None:
+            return None
+        return AGENT_SERVICE_SOCK_PATH
+
+    def _volume_flags(self) -> list[str]:
+        """Bind mounts. Never the docker daemon socket."""
+        flags = ["-v", f"{self._root}:{BOX_ROOT}"]
+        if self._agent_socket is not None:
+            flags.extend(["-v", f"{self._agent_socket}:{AGENT_SERVICE_SOCK_PATH}"])
+        return flags
+
     def host_path(self, box_path: str) -> Path:
         """Where an in-box path lands on this machine (the bind mount source)."""
         text = str(box_path or "").strip()
@@ -343,6 +358,10 @@ class DockerHost:
             directory = self.host_path(path)
             directory.mkdir(parents=True, exist_ok=True)
             _make_box_writable(directory)
+        if self._agent_socket is not None:
+            sock_parent = self.host_path(str(Path(AGENT_SERVICE_SOCK_PATH).parent))
+            sock_parent.mkdir(parents=True, exist_ok=True)
+            _make_box_writable(sock_parent)
         # Gold arrives in the evaluate phase; nothing creates it before that.
         assert not self.host_path(EVALUATION_PATH).exists()
 
@@ -354,6 +373,8 @@ class DockerHost:
             "AGEVAL_EVALUATION": EVALUATION_PATH,
             **{k: v for k, v in (env or {}).items() if k not in _DAEMON_ENV_KEYS and v},
         }
+        if self._agent_socket is not None:
+            projected["AGEVAL_AGENT_SERVICE_SOCK"] = AGENT_SERVICE_SOCK_PATH
         flags: list[str] = []
         for key, value in projected.items():
             flags.extend(["-e", f"{key}={value}"])

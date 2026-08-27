@@ -53,13 +53,10 @@ async def evaluate_in_box(ctx: AttemptCtx) -> dict[str, Any]:
                 [str(ctx.dataset_root.resolve()), str(ctx.task_root.resolve())]
             )
         }
-    sock = getattr(ctx.agent_service, "socket_path", None)
-    # The parent socket is a host Unix path. Local exec shares that filesystem;
-    # other kinds must not inherit a path they cannot open. Docker isolated
-    # mounts the socket in the evaluate phase (see package_evaluator callers).
-    if sock is not None and getattr(host, "kind", None) == "local":
+    sock = _projected_agent_socket(ctx, host)
+    if sock is not None:
         exec_env = dict(exec_env or {})
-        exec_env["AGEVAL_AGENT_SERVICE_SOCK"] = str(sock)
+        exec_env["AGEVAL_AGENT_SERVICE_SOCK"] = sock
         exec_env["AGEVAL_ATTEMPT_ID"] = ctx.attempt_id
     result = await host.exec(
         [*host.python_command, _RUNNER_NAME, json.dumps(request)],
@@ -87,6 +84,20 @@ def _read_verdict(ctx: AttemptCtx, stdout: str) -> dict[str, Any]:
         raise RuntimeError("evaluator verdict must be a JSON object")
     ctx.evidence.write_evaluation("evaluator_raw", doc)
     return doc
+
+
+def _projected_agent_socket(ctx: AttemptCtx, host: Any) -> str | None:
+    """In-box socket path the evaluator can open, or None."""
+    projected = getattr(host, "projected_agent_socket", None)
+    if callable(projected):
+        path = projected()
+        if path:
+            return str(path)
+    # Local shares the parent filesystem; the host path is the in-box path.
+    if getattr(host, "kind", None) != "local":
+        return None
+    sock = getattr(ctx.agent_service, "socket_path", None)
+    return str(sock) if sock is not None else None
 
 
 def _runner_source_path() -> Path:

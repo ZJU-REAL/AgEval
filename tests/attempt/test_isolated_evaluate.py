@@ -17,7 +17,7 @@ from ageval.plugins.protocol import BindingIntent, ExplicitBinding
 from ageval.plugins.registry import ExtensionRegistry
 from ageval.plugins.resolve import resolve
 from ageval.plugins.services import ServiceTable
-from ageval.plugins.slots import EVALUATION_RUNTIME
+from ageval.plugins.slots import ENVIRONMENT, EVALUATION_RUNTIME
 from ageval.runtime.cancellation import CancellationSignal
 
 
@@ -131,10 +131,12 @@ async def test_isolated_evaluate_uploads_gold_only_to_scoring_host(tmp_path: Pat
         lock=_lock(),
         evaluation_src=gold,
     )
+    ctx.services.register(ENVIRONMENT, agent, plugin_id="docker")
     await evaluate.run(ctx)
     assert scoring.started is True
     assert scoring.preflighted is True
     assert agent.started is False
+    assert ctx.services.require(ENVIRONMENT) is scoring
     assert any(dest == EVALUATION_PATH for _src, dest in scoring.uploads)
     assert not any(dest == EVALUATION_PATH for _src, dest in agent.uploads)
     assert ctx.evaluation_result == {"status": "PASS", "score": 1}

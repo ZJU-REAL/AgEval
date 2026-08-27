@@ -17,7 +17,7 @@ from ageval.config.model import thaw
 from ageval.environments.protocol import ARTIFACTS_PATH, EVALUATION_PATH, WORKSPACE_PATH
 from ageval.evidence.store import TASK_ARTIFACTS_REL
 from ageval.plugins.binding import bind_winner
-from ageval.plugins.slots import AFTER_EVALUATE, BEFORE_EVALUATE, EVALUATION_RUNTIME
+from ageval.plugins.slots import AFTER_EVALUATE, BEFORE_EVALUATE, ENVIRONMENT, EVALUATION_RUNTIME
 
 PHASE = "evaluate"
 
@@ -51,6 +51,9 @@ async def _ensure_evaluate_host(ctx: AttemptCtx) -> None:
     await host.preflight()
     await host.start(force_build=ctx.lock.force_build)
     ctx.record_fact("evaluate_host_started", {"kind": getattr(host, "kind", "")})
+    winner = ctx.bindings.winners.get(ENVIRONMENT)
+    plugin_id = winner.plugin_id if winner is not None else getattr(host, "kind", "environment")
+    ctx.services.register(ENVIRONMENT, host, plugin_id=plugin_id)
 
 
 async def _upload_task_artifacts(ctx: AttemptCtx) -> None:
