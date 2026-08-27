@@ -69,9 +69,7 @@ def bind_winner(
         )
     bound_options = dict(winner.options or {}) if options is None else dict(options)
     try:
-        return registration.impl(
-            options=bound_options, **_accepted(registration.impl, context)
-        )
+        return registration.impl(options=bound_options, **_accepted(registration.impl, context))
     except ExtensionMaterializeError:
         raise
     except Exception as exc:  # noqa: BLE001 — one bind failure, no retry

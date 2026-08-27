@@ -107,11 +107,7 @@ def _lock(*, artifacts: list[dict[str, object]] | None = None) -> SimpleNamespac
         force_build=False,
         resolved_references={
             "artifacts": artifacts or [],
-            "evaluation_inputs": [
-                {"artifact": "repo", "target": "workspace"}
-            ]
-            if artifacts
-            else [],
+            "evaluation_inputs": [{"artifact": "repo", "target": "workspace"}] if artifacts else [],
         },
         job_overlay={"evaluate_host": {"isolated": True}},
     )
