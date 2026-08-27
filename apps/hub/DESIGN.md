@@ -19,12 +19,13 @@ The look is already chosen. Shared anti-slop (copy, type, reject list, landing-p
 | Dial | Value | Meaning |
 | --- | --- | --- |
 | Variance | 3/10 | Predictable chrome. Sidebar + main column, not a marketing grid. |
-| Motion | 3/10 | CSS hover / focus plus the named exceptions in docs/13. Not cinematic. |
+| Motion | 3/10 | CSS hover / focus plus liquid-gooey Move and the other named exceptions in docs/13. Not cinematic. |
 | Density | 6/10 | Catalog cards where identity matters; hairline tables where rows compare. |
 
 ### Hub chrome
 
-- Sidebar + top bar: opaque `canvas-soft`. Main column: `canvas`. No glass, no blur wash on the top bar.
+- Left/right shell: entire aside opaque `canvas-soft` + `border-r`; header and main `canvas`. Logo row `border-b`; GitHub / Documentation footer `border-t`. No glass, no blur wash.
+- Selected sidebar row is Liquid Move fill `canvas`. Hover is `canvas/50`. Do not reuse `canvas-soft-2` on the rail — it disappears against the soft aside.
 - `nav-*` paints lucide only. Labels stay `ink` / `body`, sans, body-sm. Do not flood the page with those colors.
 - Marketplace entities (plugin / agent) are `CatalogCard`. Comparable rows (datasets, jobs, leaderboard, members) are tables. Do not put a dataset in a card "to match plugins".
 - Star on a card is a count. The write control is on the package, not the list cell.
@@ -48,9 +49,10 @@ Token values, type stacks, radii, and motion curves: the YAML in Viewer `DESIGN.
 | Role | Use |
 | --- | --- |
 | Page title | `PageHead` |
-| Section switcher | `UnderlineTabs` |
+| Section switcher | `UnderlineTabs` (Liquid Move) |
 | In-page exclusive choice | `Select` |
 | Compact in-panel segment | `PillTabs` |
+| Wrapping label / model chip | `Chip` |
 | Marketplace plugin / agent | `CatalogCard` / `CatalogCardGrid` |
 | Catalog list (scope + search) | `CatalogScopeBar` |
 | Comparable rows (datasets, jobs, leaderboard, members) | hairline `Table` |

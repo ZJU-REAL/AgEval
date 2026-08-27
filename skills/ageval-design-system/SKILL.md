@@ -55,14 +55,15 @@ If they disagree, fix the copies to match docs/13 + the script.
 - `mute` is never body text. `canvas*` is surface, `hairline` is line,
   `ink` / `body` / `mute` are type.
 - Anton is wordmark-only. Body is Geist (+ CJK fallback). Mono is Geist Mono.
-- Radii are 6 / 8 / 12px only. Primary CTA (SPA Button `default`) is IKB fill +
-  `rounded-[6px]` + mono 13px + `focus-visible:ring-2 ring-link/70`. Do not use
-  clip-path chamfer on buttons.
-- Underline tabs use `UnderlineTabs` (sans `text-sm`, sliding IKB bar). Page heads use
-  `PageHead` (h1 + optional sub + hairline; no numbered kicker). One underline strip
-  per view; a second exclusive choice is `Select`.
+- Radii are 8 / 10 / 14px only. Primary CTA (SPA Button `default`) is IKB fill +
+  `rounded-[8px]` + mono 13px + pop shadow + `focus-visible:ring-2 ring-link/70`.
+  Search is stadium. Do not use clip-path chamfer on buttons.
+- Section tabs use `UnderlineTabs` (sans `text-sm`, liquid-gooey Move thumb, fill
+  `canvas-soft-2`). Do not draw an IKB underline. Page heads use `PageHead`
+  (h1 + optional sub + hairline; no numbered kicker). One tab strip per view; a
+  second exclusive choice is `Select`. Wrapping chips use `Chip`, not `bg-link/10`.
 - Operator-facing controls and table column labels use body-sm 14px. Caption is
-  timestamps and mute meta, not column names. Do not invent a smaller clickable size. A button group is one hairline box with vertical rules; selected fill
+  timestamps and mute meta, not column names. Do not invent a smaller clickable size. A button group is one hairline box; selected fill
   is `canvas-soft-2`. New chrome joins the toolbar already on the page — do not open a
   vacant band for a single control. Layout: SPA DESIGN.md **Composition**.
 - List / table row text (non-numeric): always default sans. Mono only for
@@ -70,18 +71,21 @@ If they disagree, fix the copies to match docs/13 + the script.
 - Plugin / agent marketplace lists are `CatalogCard` grids. Datasets, jobs,
   leaderboard, and members are hairline tables. Do not put slot/binding tags
   on cards.
-- Motion is CSS only on hub/viewer. Default `200ms` / `ease-smooth`. Named
-  exceptions in docs/design/13: `--ease-spring` (toast, star burst, squish
-  release), `--ease-glide` (PillTabs), `--t-press` 80ms. Landing may stagger
-  the hero and reveal sections 8px; no GSAP/Motion, pin/scrub, magnetic hover,
-  or cursor trail.
+- Motion is CSS only on hub/viewer, plus two named exceptions in docs/13:
+  `ThinkingLogo` canvas and `liquid-gooey` Move (tabs / Hub sidebar). Default
+  `200ms` / `ease-smooth`. Also `--ease-spring` (toast, star burst, squish
+  release), `--ease-glide` (thumb CSS), `--t-press` 80ms. Morph does not ship.
+  Website docs/landing do not take the library. Landing may stagger the hero and
+  reveal sections 8px; no GSAP/Motion, pin/scrub, magnetic hover, or cursor trail.
 - Focus is role-based (docs/13), not "every field goes IKB":
   buttons / links / cards `ring-2 ring-link/70`; **edit** fields 1px
   `border-link`; **scan** chrome (search, filter, Select trigger) keeps
   `border-hairline` — no border color change. Landing 3px outline.
   Hub search copies `CatalogScopeBar`, not `Input`'s default.
-- Popover shadow is `--viewer-shadow-pop` only. Phase charts use
-  `--viewer-phase-1..6` only.
+- Popover / card shadow is `--viewer-shadow-pop` only (tight pop; no
+  `--viewer-shadow-liquid`). Phase charts use `--viewer-phase-1..6` only.
+  Hub shell is left/right (`canvas-soft` aside, `canvas` main). Viewer header is
+  `canvas-soft`; docs sidebar matches the aside.
 - Icons: product brand uses owl; function icons use lucide; plugin/agent entity
   marks default to the uploader GitHub avatar, or a closed color catalog /
   GitHub login override. Do not add a third-party logo component library as a
