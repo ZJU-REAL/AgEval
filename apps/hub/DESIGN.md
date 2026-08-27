@@ -25,10 +25,11 @@ The look is already chosen. Shared anti-slop (copy, type, reject list, landing-p
 ### Hub chrome
 
 - Sidebar + top bar: opaque `canvas-soft`. Main column: `canvas`. No glass, no blur wash on the top bar.
-- `nav-*` paints lucide only. Labels stay `ink` / `body`, mono 13px. Do not flood the page with those colors.
+- `nav-*` paints lucide only. Labels stay `ink` / `body`, sans, body-sm. Do not flood the page with those colors.
 - Marketplace entities (plugin / agent) are `CatalogCard`. Comparable rows (datasets, jobs, leaderboard, members) are tables. Do not put a dataset in a card "to match plugins".
 - Star on a card is a count. The write control is on the package, not the list cell.
 - Search on a catalog list copies `CatalogScopeBar`.
+- Layout: Viewer DESIGN.md **Composition**. New chrome joins the band already scanning the page. Density 6/10 is not an excuse for a vacant half-row.
 
 ## Reuse first
 
@@ -48,10 +49,12 @@ Token values, type stacks, radii, and motion curves: the YAML in Viewer `DESIGN.
 | --- | --- |
 | Page title | `PageHead` |
 | Section switcher | `UnderlineTabs` |
-| Segmented switch | `PillTabs` |
+| In-page exclusive choice | `Select` |
+| Compact in-panel segment | `PillTabs` |
 | Marketplace plugin / agent | `CatalogCard` / `CatalogCardGrid` |
 | Catalog list (scope + search) | `CatalogScopeBar` |
 | Comparable rows (datasets, jobs, leaderboard, members) | hairline `Table` |
+| Optional table columns | `TableColumnPicker` |
 | Version list | `VersionSwitcher` (`Select` + human label + trailing date) |
 | Filter / overflow menu | `Select` / `DropdownMenu` |
 | Persistable name / description | `FloatingField` / `DisplayNameEditor` / `DescriptionEditor` |

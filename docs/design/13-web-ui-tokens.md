@@ -56,6 +56,8 @@ landing 的 oklch 系(`oklch(15.4% 0.018 264)` 底等)是本表的 oklch 等值�
 | mono | `Geist Mono` → `ui-monospace` → `Menlo` | 代码块 / 命令条 / 数字对齐（`tabular-nums`）；列表与表格里的非数字可读字段用 sans |
 | display | `Anton`(wordmark 专用) | 只用于品牌瞬间(hero、logo),**永不**进正文或工具 UI |
 
+字号档只有 YAML 里那几档。`body-sm`(14px / `text-sm`)是操作者要读的字号:控件、表列名、单元格里的非数字正文。`caption`(12px)只给时间戳和 mute 说明,不当列名。禁止再发明第三档可点击小字。PillTabs 的 11px 是已记录的面板内紧凑例外,不是默认。
+
 ## 形状与动效
 
 - **圆角**:6 / 8 / 12px 三档(sm 控件、md 默认、lg 卡片);不发明新档,hero 面板上限 16px。
@@ -86,8 +88,9 @@ landing 的 oklch 系(`oklch(15.4% 0.018 264)` 底等)是本表的 oklch 等值�
 | 语汇 | 规则 |
 | --- | --- |
 | 主按钮(SPA Button `default`) | IKB 填充 + `rounded-[6px]` + `font-mono text-[13px] font-semibold` + `focus-visible:ring-2 ring-link/70`,hover `link-deep`。`:active` 为 Squish(`scale` 约 0.94、80ms 按下 / spring 松开) |
-| 下划线 tab | `UnderlineTabs`:sans `text-sm font-medium` + 滑动 IKB 条(`transform`/`width` 200ms)。不要再复制 `border-b-2` 手写条 |
-| 分段 pill | `PillTabs`:测量目标宽后 glide 指示条。同类分段切换都用这个,不要手写 `bg-canvas-soft` 硬切 |
+| 下划线 tab | `UnderlineTabs`:sans `text-sm font-medium` + 滑动 IKB 条(`transform`/`width` 200ms)。一页一条。不要再复制 `border-b-2` 手写条 |
+| 分段 pill | `PillTabs`:测量目标宽后 glide 指示条。只用于面板内紧凑分段。同页再出现互斥选择用 `Select`,不要叠第二条下划线 |
+| 按钮组 | 并列选项收进**一个** hairline 容器(6px 圆角),段间竖线、无间隙。选中 `canvas-soft-2` + `ink`,未选 `canvas` + `body`。字号 `body-sm`。不要散开 chip,不要 IKB 填充 |
 | 扫描字段 | 搜索 / 过滤:焦点描边保持 `hairline`。不要给新搜索叠 `border-link` |
 | Toast | 底中 Overshoot 进场;只用于没有本地成功态的写操作。Copy / star 等控件自身已有反馈的不要再 toast。实色 `*-soft` 次底 + `--viewer-shadow-pop`,无描边、无第三方面包。图标走对应功能色,正文走 `body` |
 | Select / 下拉 | `Select` / `DropdownMenu` 用 `data-ageval-menu` 进场(220ms smooth, 随 `data-side` 上下),触发器 chevron 旋转 + squish;选项 `data-highlighted` 色过渡,选中勾 `ease-spring` pop。触发器焦点走扫描字段,不是 IKB 描边 |
@@ -98,7 +101,7 @@ landing 的 oklch 系(`oklch(15.4% 0.018 264)` 底等)是本表的 oklch 等值�
 | 弹层(tooltip/select/dropdown/dialog) | hairline 边框 + `--viewer-shadow-pop`。Portal 到 `document.body` 或 `OverlayRoot`;不要挂在已有 `transform` 的 pop 里(`position:fixed` 会跟错) |
 | 危险确认 | Modal：较大标题 + mute 说明后果 + Cancel / Confirm 两枚按钮 |
 | Hub 壳 | 侧栏与顶栏同一实底 `canvas-soft`(不透明,顶栏不做半透明/blur)。正文列 `canvas`。选中侧栏行底走 `canvas`,hover 同;不要再铺 `canvas-soft`(会与壳糊在一起) |
-| 侧栏字形色 | Hub 目的地 lucide 只涂对应 `nav-*`。标签 `font-mono text-[13px]`(侧栏 chrome 例外,不是正文)。未选:该令牌与 `mute` 的 `color-mix`,标签 `font-normal`,描边 2;选中:令牌本体 + 行底 `canvas`,标签 `font-semibold`,描边 2.5。字重与描边用默认 200ms `--ease-smooth` 过渡;不要 fill。`prefers-reduced-motion: reduce` 时瞬时到位。焦点环仍是 IKB。不要拿字形色铺页面或涂正文。Viewer 无 Hub 侧栏;功能图标继续 `mute` |
+| 侧栏字形色 | Hub 目的地 lucide 只涂对应 `nav-*`。标签走正文 sans + `body-sm`(`text-sm`),不是 mono。未选:该令牌与 `mute` 的 `color-mix`,标签 `font-normal`,描边 2;选中:令牌本体 + 行底 `canvas`,标签 `font-semibold`,描边 2.5。字重与描边用默认 200ms `--ease-smooth` 过渡;不要 fill。`prefers-reduced-motion: reduce` 时瞬时到位。焦点环仍是 IKB。不要拿字形色铺页面或涂正文。Viewer 无 Hub 侧栏;功能图标继续 `mute` |
 | Loading | 与 empty **分开**。正在拉取时:`ThinkingLogo` + 一行「Loading …」,不要骨架栅格,也不要用 empty 的虚线井。画布停在屏外/隐藏页时不转 |
 | Empty | 在剩余主列里**双轴居中**。栈:大图标(owl 或该目的地 lucide,静态,无 thinking) → 一行标题 → **要么**一行说明 **要么**一个控件,不要一段里两者都有。无 thinking 动效 |
 

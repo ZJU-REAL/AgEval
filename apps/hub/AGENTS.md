@@ -41,9 +41,14 @@ Same family as Viewer. Role → component map: [DESIGN.md](./DESIGN.md).
 5. **Catalog cards for plugins and agents.** Marketplace packages use
    `CatalogCard` / `CatalogCardGrid`. Datasets, jobs, leaderboard, members,
    and suites stay hairline tables.
-6. **Underline tabs / pills.** Section switchers use `UnderlineTabs`.
-   Segmented switches use `PillTabs`. Do not add another `border-b-2`
-   tab strip or hard-cut segmented fills.
+6. **One language per job.** Section switchers use `UnderlineTabs`.
+   Compact in-panel segments use `PillTabs`. A second exclusive choice
+   on the same view uses `Select`. Do not stack two tab strips or
+   hand-roll `border-b-2`.
+7. **Compose, then draw.** New chrome joins the toolbar already on
+   the page. Do not open a vacant band for a single control. Operator
+   labels use body-sm. How a primitive is drawn: [DESIGN.md](./DESIGN.md)
+   plus Viewer Taste **Composition**.
 
 New chrome requires a new `src/components/ui/` primitive first, used by both
 Hub and Viewer. Do not one-off style a native element.

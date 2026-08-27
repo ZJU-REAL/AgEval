@@ -117,8 +117,18 @@ The look is already chosen. Do not run a greenfield identity exercise. Skills li
 
 - Sentence case. `PageHead` is h1 + optional sub + hairline. No numbered kicker. No `uppercase tracking` eyebrow as section rhythm.
 - Sans for readable row text. Mono only for commands, digests, and `tabular-nums`.
+- Operator-facing controls and table column labels use **body-sm / `text-sm` (14px)**. Caption is timestamps and mute meta, not column names. Do not invent a third, smaller clickable size.
 - One radius scale (6 / 8 / 12). One pop shadow (`--viewer-shadow-pop`). No new easing.
 - Semantic tokens only (`text-ink`, `border-hairline`). No `slate-` / `zinc-` / `gray-` / raw hex in app code.
+
+### Composition
+
+A new control joins the chrome already on the page. It does not start a new band unless the existing band cannot hold it.
+
+- Read the page before drawing. Match density, alignment, and language of the strip you are entering.
+- Fill the row you occupy. A toolbar with one occupant and a vacant stretch is unfinished.
+- One job, one language. Section switching is underline tabs. A second exclusive choice on that view is a Select, not another tab strip.
+- Visible table columns share the row. Leftover width is not dumped into the first column. A column aligns with its neighbors; a right-aligned shrink cell next to a left-aligned one reads as glued.
 
 ### Copy
 
@@ -157,6 +167,7 @@ Before drawing a control:
 | --- | --- |
 | Page title | `PageHead` |
 | Jobs / tasks rows | hairline `Table` |
+| Optional table columns | `TableColumnPicker` |
 | Jobs search | `Input` + `focus-visible:border-hairline` |
 | Kind / source / time filter | `Select` |
 | Row / theme overflow | `DropdownMenu` |

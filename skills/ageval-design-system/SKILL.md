@@ -59,7 +59,12 @@ If they disagree, fix the copies to match docs/13 + the script.
   `rounded-[6px]` + mono 13px + `focus-visible:ring-2 ring-link/70`. Do not use
   clip-path chamfer on buttons.
 - Underline tabs use `UnderlineTabs` (sans `text-sm`, sliding IKB bar). Page heads use
-  `PageHead` (h1 + optional sub + hairline; no numbered kicker).
+  `PageHead` (h1 + optional sub + hairline; no numbered kicker). One underline strip
+  per view; a second exclusive choice is `Select`.
+- Operator-facing controls and table column labels use body-sm 14px. Caption is
+  timestamps and mute meta, not column names. Do not invent a smaller clickable size. A button group is one hairline box with vertical rules; selected fill
+  is `canvas-soft-2`. New chrome joins the toolbar already on the page — do not open a
+  vacant band for a single control. Layout: SPA DESIGN.md **Composition**.
 - List / table row text (non-numeric): always default sans. Mono only for
   `<code>` / `<pre>` / command strips, and numeric `tabular-nums` alignment.
 - Plugin / agent marketplace lists are `CatalogCard` grids. Datasets, jobs,
