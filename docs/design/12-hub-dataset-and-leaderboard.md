@@ -10,7 +10,7 @@
 
 机制卡（builtin 短 id）的已登记 model 从 plaza overlay 按 `resolve_agent_id` 归堆，**不**经 Agent org 同意。定制 upload 包的 Appearances 仍要该包 org 同意：owner 自己 attach，或批准 `agent_appearance` 请求。Leaderboard 上榜门（listing）不因此放宽。
 
-Leaderboard 两列保持 Harness / Model。plaza 行上的 `agent_refs` 变链：机制卡短 id（`--agent pi` / attach `pi`）不经 Agent org 同意；定制 `org/name` 仍要同意。Harness 打开 `/agents/{package_id}`，Model 打开同一 harness 页 `?model=`（overlay `model`）。无 ref 则两列都是观测文本，不要按 executor / overlay 文案猜包。不要 `/agents/…/models/…`。Environment 仍是机制标。行展开仍走整行点击；链 `stopPropagation`。
+Leaderboard 两列保持 Harness / Model。plaza 行上的 `agent_refs` 变链：机制卡短 id（`--agent pi` / attach `pi`）不经 Agent org 同意；定制 `org/name` 仍要同意。Harness 打开 `/agents/{package_id}`，Model 打开同一 harness 页 `?model=`（overlay `model`）。无 ref 则两列都是观测文本，不要按 executor / overlay 文案猜包。不要 `/agents/…/models/…`。Environment 仍是机制标。
 
 Inbox：Registry 一等 request 行（`pending` / `approved` / `rejected`）。两种 kind：`leaderboard_list`（收件人 = Dataset org owner）、`agent_appearance`（收件人 = Agent 包 org owner）。批准只跑已有写入（listing 标记，或同一条 attach 路径）。申请人已是该 Agent org owner 时出场走 attach、不建请求。加入 org 仍是 invite key。
 
@@ -44,7 +44,7 @@ Hub 列表 tab **就是**这些查询参数（不要再叠一层 `scope=`）。�
 | `?orgs=1` | Your organizations（请求带 `orgs=1`） |
 | `?favorited=1` | Stars（仅 `/plugins`、`/agents`） |
 
-卡片把 `favorite_count` 与 `download_count` **同一行**展示（star 只是计数）。详情页头右侧用 icon 按钮 star/unstar；未登录点它去登录页。组织详情用 `?tab=settings`（默认 overview 省略 `tab`）。
+列表上的 star 是计数，不是写入口。写收藏只在包上；未登录走登录。组织详情的 settings 用 `?tab=settings`（默认 overview 省略 `tab`）。
 
 ## Dataset Tasks / Jobs 分页
 
@@ -60,7 +60,7 @@ Hub 表分页**就是**查询参数（不要再叠 `page=` 之外的 scope 层�
 
 `GET /v1/results/suites` 增加可选 `task_id`、`limit`、`offset`。省略 `limit` 时返回全量（兼容现有客户端）。`task_id` 按 suite `task_refs` 过滤。
 
-Hub Dataset / Task 详情：README 不进整包文件树闸门。默认 README tab 只拉版本元数据与对应 `README.md`；Tasks / Files / Jobs / Leaderboard 按 tab 懒加载。
+README 预览不经过整包文件树闸门；其它区块按需拉取。不要为打开包就把文件树和 suite 一次拉完。
 
 ## 组织成员顺序
 
@@ -81,6 +81,6 @@ Owner `PATCH /v1/packages/{id}` 可改写（与 `display_name` 同权，不进 b
 
 解析顺序：已存 `icon_key` → 已存 `icon_github` → `uploaded_by` 的 `https://github.com/{login}.png?size=64` → 字母占位。裂图走字母。不把图片字节写入 Registry。
 
-闭包目录是 **彩色真实标**（官方 kit / Lobe static SVG / Simple Icons 路径 + 官方 hex）。禁止自造厂商 logo。黑标（ink，如 OpenAI）固定白底；白标（paper，如 Kimi）固定黑底。底板不跟主题反相。详情页（`canEdit`）点标打开 modal：搜目录，或填 GitHub link。卡片整卡导航，不在卡上开 picker。Viewer 本轮不做。
+闭包目录是 **彩色真实标**（官方 kit / Lobe static SVG / Simple Icons 路径 + 官方 hex）。禁止自造厂商 logo。黑标（ink，如 OpenAI）固定白底；白标（paper，如 Kimi）固定黑底。底板不跟主题反相。改标是包级写，不在列表卡上开 picker。Viewer 本轮不做。
 
 机制标（Leaderboard Environment 的 `docker` / `e2b` 等）仍走闭包精确 id，不是 uploader 头像。

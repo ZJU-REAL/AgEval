@@ -1,5 +1,7 @@
 # ageval Website Design System
 
+**令牌与跨面不变量**以 [`docs/design/13-web-ui-tokens.md`](../docs/design/13-web-ui-tokens.md) 为准。本文件只写 website 的 landing / docs 例外（Anton 字标、hero stagger、像素标、ThreeUI），不另开一套色板，也不写 Hub / Viewer 页面清单。
+
 本文档是 `website/` 的视觉与交互规范。
 
 **色板策略：** 全站统一为 PPT / landing 的克莱因蓝（IKB `#002FA7`，暗底提亮 `#5B7BFF`）+ 冷墨中性色。文档站与 landing 共用同一套色相，不再使用暖棕 canvas。

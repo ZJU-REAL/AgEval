@@ -1,76 +1,73 @@
 ---
-version: alpha
-name: ageval-Viewer-IKB
-description: >
-  Local ageval dataset results viewer. Product chrome on the shared Klein Blue
-  / cool-ink system (website landing + docs). Hairline tables, Geist/Inter +
-  mono captions. Surface is Jobs → Tasks → Trial drill-down — not a marketing site.
-
+# Shared Hub / Viewer theme constants. Must match docs/design/13-web-ui-tokens.md
+# (machine-checked). Hub inherits this listing — do not fork a second palette.
+# Do not put page layout here (search height, route chrome, which tab sits where).
 colors:
-  primary: "#14161f"
-  on-primary: "#f4f5f8"
-  ink: "#14161f"
-  body: "#4a4e5c"
-  mute: "#5e6376"
-  hairline: "#d5d8e2"
-  hairline-strong: "#9aa0b4"
-  canvas: "#f4f5f8"
-  canvas-soft: "#eeeff4"
-  canvas-soft-2: "#e4e7f0"
-  link: "#002FA7"
-  link-deep: "#001f73"
-  success: "#002FA7"
-  error: "#d40000"
-  error-soft: "#f7d4d6"
-  warning: "#f5a623"
-  selection-bg: "#002FA7"
-  selection-fg: "#14161f"
-  row-hover: "#eeeff4"
-
+  light:
+    canvas: "#F4F5F8"
+    canvas-soft: "#EEEFF4"
+    canvas-soft-2: "#E4E7F0"
+    hairline: "#D5D8E2"
+    hairline-strong: "#9AA0B4"
+    ink: "#14161F"
+    body: "#4A4E5C"
+    mute: "#5E6376"
+    link: "#1B54E8"
+    link-deep: "#001F73"
+    link-soft: "#DAE2F6"
+    error: "#D40000"
+    error-soft: "#F7D4D6"
+    warning: "#F5A623"
+    warning-soft: "#F4ECDE"
+    star: "#E3B341"
+    code-bg: "#F4F5F8"
+    nav-home: "#2F6E4A"
+    nav-datasets: "#187A8C"
+    nav-plugins: "#9A5C16"
+    nav-agents: "#5A4AA8"
+    nav-inbox: "#B34A3C"
+    nav-orgs: "#3E5F7A"
+  dark:
+    canvas: "#11141C"
+    canvas-soft: "#161A24"
+    canvas-soft-2: "#222738"
+    hairline: "#2A2F3E"
+    hairline-strong: "#52586A"
+    ink: "#EEF0F6"
+    body: "#9AA0B4"
+    mute: "#8A90A4"
+    link: "#5B7BFF"
+    link-deep: "#8AA0FF"
+    link-soft: "#1E2645"
+    error: "#FF5C5C"
+    error-soft: "#3B1414"
+    warning: "#F5A623"
+    warning-soft: "#3A2E1D"
+    star: "#F5C84C"
+    code-bg: "#0C0E14"
+    nav-home: "#6FBF93"
+    nav-datasets: "#5EC4D4"
+    nav-plugins: "#D4924A"
+    nav-agents: "#A898E8"
+    nav-inbox: "#E08A7A"
+    nav-orgs: "#8AA8C0"
+aliases:
+  row-hover: canvas-soft
 typography:
-  sans: "Geist, Inter, system-ui, -apple-system, sans-serif"
+  sans: "Geist, Inter, system-ui, -apple-system, PingFang SC, Microsoft YaHei, sans-serif"
   mono: "Geist Mono, ui-monospace, SFMono-Regular, Menlo, Monaco, monospace"
-  display-md:
-    fontSize: 24px
-    fontWeight: 600
-    lineHeight: 32px
-    letterSpacing: -0.96px
-  display-sm:
-    fontSize: 20px
-    fontWeight: 600
-    lineHeight: 28px
-    letterSpacing: -0.6px
-  body-sm:
-    fontSize: 14px
-    fontWeight: 400
-    lineHeight: 20px
-  body-sm-strong:
-    fontSize: 14px
-    fontWeight: 500
-    lineHeight: 20px
-  caption:
-    fontSize: 12px
-    fontWeight: 400
-    lineHeight: 16px
-  caption-mono:
-    fontSize: 12px
-    fontWeight: 400
-    lineHeight: 16px
-    fontFamily: mono
-  code:
-    fontSize: 13px
-    fontWeight: 400
-    lineHeight: 20px
-    fontFamily: mono
-
+  display: "Anton (wordmark only)"
+type-scale:
+  display-md: { fontSize: 24px, fontWeight: 600, lineHeight: 32px, letterSpacing: -0.96px }
+  display-sm: { fontSize: 20px, fontWeight: 600, lineHeight: 28px, letterSpacing: -0.6px }
+  body-sm: { fontSize: 14px, fontWeight: 400, lineHeight: 20px }
+  body-sm-strong: { fontSize: 14px, fontWeight: 500, lineHeight: 20px }
+  caption: { fontSize: 12px, fontWeight: 400, lineHeight: 16px }
+  code: { fontSize: 13px, fontWeight: 400, lineHeight: 20px, fontFamily: mono }
 rounded:
-  none: 0px
-  xs: 4px
   sm: 6px
   md: 8px
   lg: 12px
-  full: 9999px
-
 spacing:
   xxs: 4px
   xs: 8px
@@ -78,154 +75,94 @@ spacing:
   md: 16px
   lg: 24px
   xl: 32px
-
-components:
-  page-shell:
-    backgroundColor: "{colors.canvas}"
-    maxWidth: 1400px
-    padding: "{spacing.md} {spacing.lg}"
-  top-bar:
-    height: 56px
-    borderBottom: "1px solid {colors.hairline}"
-    backgroundColor: "{colors.canvas}"
-  breadcrumb:
-    typography: "{typography.body-sm}"
-    separator: ">"
-    muteColor: "{colors.mute}"
-    linkColor: "{colors.body}"
-    currentColor: "{colors.ink}"
-  search-input:
-    height: 36px
-    border: "1px solid {colors.hairline}"
-    rounded: "{rounded.sm}"
-    placeholderColor: "{colors.mute}"
-  filter-select:
-    height: 36px
-    border: "1px solid {colors.hairline}"
-    rounded: "{rounded.sm}"
-    backgroundColor: "{colors.canvas-soft}"
-  data-table:
-    headerBackground: "{colors.canvas}"
-    headerTypography: "{typography.caption}"
-    headerColor: "{colors.mute}"
-    bodyTypography: "{typography.body-sm}"
-    bodyColor: "{colors.ink}"
-    rowBorder: "{colors.hairline}"
-    rowHover: "{colors.row-hover}"
-    cellPadding: "10px 12px"
-  command-bar:
-    backgroundColor: "{colors.canvas-soft}"
-    border: "1px solid {colors.hairline}"
-    rounded: "{rounded.md}"
-    typography: "{typography.code}"
-    linkColor: "{colors.link}"
-  status-error:
-    textColor: "{colors.error}"
-  status-pass:
-    textColor: "{colors.ink}"
-  numeric:
-    fontFamily: mono
-    fontVariantNumeric: tabular-nums
+motion:
+  duration: 200ms
+  ease-smooth: "cubic-bezier(0.22, 1, 0.36, 1)"
+  ease-spring: "cubic-bezier(0.34, 1.56, 0.64, 1)"
+  ease-glide: "cubic-bezier(0.65, 0, 0.35, 1)"
+  press: 80ms
 ---
 
-## Overview
+# ageval Viewer design
 
-ageval Viewer is a **local results console** for one opened dataset (no Registry).
+**Visual constitution:** [`docs/design/13-web-ui-tokens.md`](../../docs/design/13-web-ui-tokens.md).
+The YAML above is the **SPA-facing token listing** (Hub inherits it). Hex and stacks must match docs/13; the machine check fails if they drift.
 
-1. **Jobs** — suite runs under `.ageval/suite-runs/` and unclaimed single Attempts
-2. **Tasks** — per-task rows inside a job summary
-3. **Trial / task detail** — run meta, reward/status, copyable `ageval` command
-4. **Job row menu** — action slot is note, else pin, else hover settings.
-   Hover a note icon for the text. Click for Pin / Note / Delete.
-   Checkboxes select rows; with a selection, the filter-row count becomes
-   a bulk delete. Pin and notes live in this browser only. Delete still
-   previews, then confirms; suite delete always cascades Attempts. Hub
-   write stays out.
+This file does **not** inventory routes or page chrome. Product scope lives in [AGENTS.md](./AGENTS.md).
 
-Design is **product chrome on Klein Blue / cool ink**, not a marketing hero:
+This SPA is a **local results console** for one opened dataset (no Registry). It is not the Hub catalog and not a marketing site.
 
-- Cool paper / cool ink canvas, ink text, hairline dividers
-- Accent and links use IKB `#002FA7` (light) / `#5B7BFF` (dark)
-- No decorative multi-color mesh gradients in this app
-- Tables + filters + breadcrumbs carry the UI
-- Geist / Inter + mono for numbers and commands
+Do not invent a second accent palette, a catalog-card Jobs list, or hand-rolled chrome over shadcn.
 
-## Information architecture
+## Taste
 
-| Route | Content |
+The look is already chosen. Do not run a greenfield identity exercise. Skills like `frontend-design` and `design-taste-frontend` are for landings and portfolios; their hero, bento, GSAP, magnetic-hover, and "take an aesthetic risk" playbooks **do not apply**. What does apply: do not ship LLM defaults, and do not ship shadcn's default skin.
+
+**Read:** Jobs → Tasks → Trial for someone who already ran `ageval view`. Scan, compare, copy a command. Cool-ink product chrome, not a gallery.
+
+| Dial | Value | Meaning |
+| --- | --- | --- |
+| Variance | 3/10 | Predictable chrome. No asymmetric marketing layout. |
+| Motion | 3/10 | CSS hover / focus plus the named exceptions in docs/13. Not cinematic. |
+| Density | 8/10 | Cockpit. Hairline tables, tight padding, tabular nums. |
+
+### Locked identity
+
+- Cool paper / cool ink. Not warm cream, not black + neon, not newspaper zero-radius.
+- One brand accent: IKB. `error` / `warning` / `star` are functional, not a second brand.
+- Geist + Geist Mono. Anton never enters this SPA. No serif.
+- Hierarchy is hairline, type, and space. A card is not the default wrapper.
+
+### Type and chrome
+
+- Sentence case. `PageHead` is h1 + optional sub + hairline. No numbered kicker. No `uppercase tracking` eyebrow as section rhythm.
+- Sans for readable row text. Mono only for commands, digests, and `tabular-nums`.
+- One radius scale (6 / 8 / 12). One pop shadow (`--viewer-shadow-pop`). No new easing.
+- Semantic tokens only (`text-ink`, `border-hairline`). No `slate-` / `zinc-` / `gray-` / raw hex in app code.
+
+### Copy
+
+- Name what the operator controls, not the system (`Delete`, not `suite_run_id` in a menu).
+- Active, specific, short. The same verb through the whole flow.
+- Empty and error say what to do. They do not apologize or decorate.
+- Hyphen `-`. Never em-dash `—`. No "Elevate / Seamless / Next-gen / Unleash".
+
+### Interaction
+
+- Full cycle: loading is `ThinkingLogo` + one line; empty is a centered static stack; error uses the `error` token, inline when it is about a field.
+- Scan vs edit focus (docs/13). Motion is feedback or state change. Honor `prefers-reduced-motion`.
+
+### Reject
+
+- AI-purple, glow, mesh, glass on chrome, gradient headlines
+- Three equal feature cards, bento, div-built fake screenshots
+- Decorative status dots, `01 / 02` labels, middle-dot metadata soup
+- Skeleton grids, Inter + slate restyle, a second icon family
+- A marketing hero inside the console
+- Magnetic hover, cursor trail, GSAP, Motion library, scroll hijack
+
+## Reuse first
+
+Before drawing a control:
+
+1. Find the same job already shipped here or in Hub (`src/components/` / `src/components/ui/`).
+2. Copy that instance — including focus, radius, and type classes.
+3. If the primitive is missing a slot, extend `src/components/ui/` so Hub and Viewer stay aligned. Do not one-off a native `<select>` / `<input>` / `border-b-2` tab.
+
+`Input`'s default `focus-visible:border-link` is the **edit-field** language in docs/13. Jobs search and other scan chrome keep `border-hairline` on focus (same as Hub `CatalogScopeBar`). Do not accept the primitive default for a new search.
+
+## Role → component
+
+| Role | Use |
 | --- | --- |
-| `/` | Jobs table: search, filters, select, hover-reveal click menu (pin / note / delete) |
-| `/jobs/:jobId` | Tasks table for that suite run (no per-Attempt delete) |
-| `/jobs/:jobId/tasks/:taskId` | Trial-level detail + command strip |
+| Page title | `PageHead` |
+| Jobs / tasks rows | hairline `Table` |
+| Jobs search | `Input` + `focus-visible:border-hairline` |
+| Kind / source / time filter | `Select` |
+| Row / theme overflow | `DropdownMenu` |
+| Evidence section switcher | `UnderlineTabs` |
+| Command | `CommandStrip` (shell highlight on `code-bg`, not flat link-blue) |
+| Dialog / confirm | existing confirm / pop (`data-ageval-pop`); portal to body / overlay root |
+| Loading / empty | `ThinkingLogo` loading vs centered empty stack (docs/13) |
 
-Breadcrumb: `Jobs > {jobId} > {taskId}` with `>` separators; every non-current
-segment is clickable.
-
-## Visual rules
-
-### Do
-- Use hairline borders (`#d5d8e2` light / `#2a2f3e` dark) for table rows and toolbars
-- Tabular numbers for Result / score / duration / trial counts
-- Mono only for commands, digests, technical labels
-- Primary action = ink (copy, primary buttons); links use IKB
-- Error / exception text in `#d40000`
-- Row hover = soft canvas `#eeeff4` / `#161a24`
-- Max content width ~1400px, generous but calm padding
-
-### Motion
-
-- Default duration `200ms`, easing `ease-smooth` (`cubic-bezier(0.22, 1, 0.36, 1)`). Tooltip intent delay `80ms`.
-- Named exceptions (docs/design/13): `--ease-spring` (toast enter, button release), `--t-press` 80ms on `:active`.
-- Evidence tabs use `UnderlineTabs` (sliding IKB bar). Do not copy per-page `border-b-2` tabs.
-- Toast after key writes that have no local success state (save note, delete job), overshoot from below. Copy stays on the control. Select / dropdown lists enter with `data-ageval-menu`. Confirm dialog / tooltip enter with `data-ageval-pop` / `data-ageval-scrim`. Honor `prefers-reduced-motion`.
-- Jobs / tasks stay hairline tables. No catalog cards, GSAP, Motion, magnetic hover, cursor trail, 3D tilt, or scroll hijack on Viewer.
-- Named canvas exception: `ThinkingLogo` on list/detail fetch (`LoadingState` + one caption). Empty is a centered static stack (icon → title → caption **or** one control), never the thinking mark. `prefers-reduced-motion: reduce` freezes the canvas. Viewer has no Hub sidebar; existing chrome glyphs stay `mute` and do not invent extra destination colors.
-
-Viewer has no Hub-style sidebar. Header brand is the owl lockup; page-action icons stay functional (`mute`).
-
-### Don't
-- Don't invent a second accent palette (no purple AI glow)
-- Don't use heavy drop shadows on tables
-- Don't use all-caps section eyebrows as decoration
-- Don't hand-roll table / select / button primitives — use shadcn
-- Don't ship dark-only or neon terminal skins as default
-- Don't put em-dashes in UI copy (use hyphen)
-
-## Components (implementation)
-
-Prefer **shadcn/ui** (Radix + Tailwind), tokens mapped to CSS variables in
-`src/index.css`:
-
-| shadcn | Role |
-| --- | --- |
-| `Input` | Search boxes |
-| `Select` / `DropdownMenu` | Harness / model / time filters |
-| `Table` | Jobs, tasks, trials |
-| `Button` | Copy command, ghost icon actions |
-| `Breadcrumb` | Path navigation |
-| `Badge` | Optional status chips (restrained) |
-
-## Theme modes
-
-| Mode | Behavior |
-| --- | --- |
-| `light` | Cool paper canvas (`#f4f5f8`), ink text, IKB links |
-| `dark` | Cool ink canvas (`#11141c`), light ink, `#5B7BFF` links |
-| `system` | Follow `prefers-color-scheme` (default) |
-
-Toggle lives in the top-right header. Persist preference client-side.
-
-## CLI command strip
-
-Commands render as **shell code** on a dark code surface — not flat link-blue.
-Token roles: command name, flags (`--task`), paths, strings, plain args.
-
-## Motion (chrome)
-
-Default 200ms `ease-smooth` on hover/focus color. Squish on buttons, toast overshoot on key writes. No scroll hijack, no marquees, no mesh hero, no cursor trail.
-
-## Accessibility
-
-- WCAG AA contrast on body and table text
-- Keyboard: table row Enter opens detail; Escape not required but focus rings visible
-- Sortable columns announce via `aria-sort`
+Viewer has no Hub sidebar. Header brand is the owl lockup; page-action icons stay `mute`.

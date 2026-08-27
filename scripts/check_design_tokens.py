@@ -3,8 +3,9 @@
 
 Checks:
   1. Doc table and the CANONICAL dict in this script agree (both directions).
-  2. Mapped CSS variables in the three apps only ever hold canonical values.
-  3. No raw hex outside the token/theme files and owl brand assets.
+  2. apps/viewer/DESIGN.md YAML lists the same SPA tokens (Hub inherits that file).
+  3. Mapped CSS variables in the three apps only ever hold canonical values.
+  4. No raw hex outside the token/theme files and owl brand assets.
 
 Run: python3 scripts/check_design_tokens.py  (exit 1 on any failure)
 """
@@ -17,6 +18,8 @@ from pathlib import Path
 
 REPO = Path(__file__).resolve().parent.parent
 DOC = REPO / "docs/design/13-web-ui-tokens.md"
+SPA_DESIGN = REPO / "apps/viewer/DESIGN.md"
+SPA_SKIP = {"accent"}  # landing-only; not in Hub/Viewer YAML
 
 # token -> (light, dark)
 CANONICAL: dict[str, tuple[str, str]] = {
@@ -24,6 +27,7 @@ CANONICAL: dict[str, tuple[str, str]] = {
     "canvas-soft": ("#EEEFF4", "#161A24"),
     "canvas-soft-2": ("#E4E7F0", "#222738"),
     "hairline": ("#D5D8E2", "#2A2F3E"),
+    "hairline-strong": ("#9AA0B4", "#52586A"),
     "ink": ("#14161F", "#EEF0F6"),
     "body": ("#4A4E5C", "#9AA0B4"),
     "mute": ("#5E6376", "#8A90A4"),
@@ -56,6 +60,7 @@ VAR_MAP: list[tuple[str, str, str, bool]] = [
             ("canvas-soft", "canvas-soft"),
             ("canvas-soft-2", "canvas-soft-2"),
             ("hairline", "hairline"),
+            ("hairline-strong", "hairline-strong"),
             ("ink", "ink"),
             ("body", "body"),
             ("mute", "mute"),
@@ -140,6 +145,46 @@ def check_doc(errors: list[str]) -> None:
             errors.append(f"doc: row '{name}' lacks canonical value(s) {sorted(absent)}")
 
 
+FRONTMATTER_RE = re.compile(r"^---\n(.*?)\n---\n", re.S)
+YAML_HEX_RE = re.compile(r"^\s+([a-z0-9-]+):\s*\"(#[0-9A-Fa-f]{6})\"\s*$")
+
+
+def check_spa_design(errors: list[str]) -> None:
+    """Viewer DESIGN.md YAML is the SPA-facing token listing (Hub inherits it)."""
+    if not SPA_DESIGN.is_file():
+        errors.append("apps/viewer/DESIGN.md: missing")
+        return
+    text = SPA_DESIGN.read_text(encoding="utf-8")
+    block = FRONTMATTER_RE.match(text)
+    if not block:
+        errors.append("apps/viewer/DESIGN.md: missing YAML frontmatter token listing")
+        return
+    found: dict[str, set[str]] = {}
+    for line in block.group(1).splitlines():
+        m = YAML_HEX_RE.match(line)
+        if not m:
+            continue
+        found.setdefault(m.group(1), set()).add(m.group(2).lower())
+    for name, pair in CANONICAL.items():
+        if name in SPA_SKIP:
+            continue
+        have = found.get(name, set())
+        want = norm(list(pair))
+        if name not in found:
+            errors.append(f"apps/viewer/DESIGN.md: token '{name}' missing from YAML")
+            continue
+        absent = want - have
+        extra = have - want
+        if absent:
+            errors.append(
+                f"apps/viewer/DESIGN.md: '{name}' lacks canonical value(s) {sorted(absent)}"
+            )
+        if extra:
+            errors.append(
+                f"apps/viewer/DESIGN.md: '{name}' has non-canonical value(s) {sorted(extra)}"
+            )
+
+
 def check_vars(errors: list[str]) -> None:
     by_file: dict[str, dict[str, set[str]]] = {}
     for rel, var, _token, _req in VAR_MAP:
@@ -175,6 +220,7 @@ def check_raw_hex(errors: list[str]) -> None:
 def main() -> int:
     errors: list[str] = []
     check_doc(errors)
+    check_spa_design(errors)
     check_vars(errors)
     check_raw_hex(errors)
     if errors:

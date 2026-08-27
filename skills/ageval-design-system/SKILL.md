@@ -4,29 +4,46 @@ description: >
   ageval web UI style rules for coding agents editing website (landing + docs),
   apps/hub, or apps/viewer: canonical color tokens (cool paper/ink + IKB
   #1B54E8/#5B7BFF), font stacks (Geist/Anton wordmark-only), radius,
-  focus and selection language, the ten invariants, and the machine check
+  role-based focus (scan chrome keeps hairline; edit fields use IKB border),
+  reuse of shipped components, the ten invariants, and the machine check
   scripts/check_design_tokens.py. Use when adding or restyling UI in any of the
   three web surfaces, picking colors or fonts, adding icons, or when a change
-  touches raw hex, focus rings, buttons, or the owl brand assets. Authority is
-  docs/design/13-web-ui-tokens.md; this skill only routes and summarizes.
+  touches raw hex, focus rings, buttons, search fields, or the owl brand assets.
+  Authority is docs/design/13-web-ui-tokens.md; apps/viewer/DESIGN.md YAML is
+  the SPA token listing (Hub inherits it); SPA DESIGN.md Taste is anti-slop
+  (product chrome, not landing) plus the reuse map.
+  This skill only routes and summarizes — it is not a page inventory.
 ---
 
 # ageval web UI design system
 
 Three surfaces, one language: website landing, website docs (fumadocs),
-hub SPA, viewer SPA. Authority: `docs/design/13-web-ui-tokens.md`.
+hub SPA, viewer SPA. Authority: `docs/design/13-web-ui-tokens.md`
+(constitution: tokens, focus roles, motion — **not** a page inventory).
+
+On Hub / Viewer, also read `apps/viewer/DESIGN.md` YAML (shared theme constants),
+that SPA's `DESIGN.md` **Taste** (anti-slop) and role table, and `AGENTS.md`
+(scope). Copy a shipped instance. Do not restyle a shadcn primitive default
+and call it on-brand.
+
+Hub and Viewer are **product consoles**. Do not apply landing/portfolio
+playbooks (`frontend-design`, `design-taste-frontend` hero / bento / GSAP /
+magnetic / "invent a new identity"). Identity is already locked: cool paper
++ IKB + Geist. Spend the skill budget on not looking like default shadcn.
 
 ## Where tokens live
 
 | Surface      | Token file                                                              |
 | ------------ | ----------------------------------------------------------------------- |
+| constitution | `docs/design/13-web-ui-tokens.md`                                       |
+| SPA listing  | `apps/viewer/DESIGN.md` YAML (Hub inherits; do not fork)                |
 | hub / viewer | `apps/{hub,viewer}/src/index.css` (`--viewer-*` + `@theme`)             |
 | docs         | `website/src/app/global.css` (`--color-fd-*`, `--ageval-link*`)           |
 | landing      | Token block at the top of `website/src/components/landing/landing.css`  |
 
-Change order: edit the table in `docs/design/13` first → sync script `CANONICAL` →
-sync the surface files → run the machine check. If the three surfaces disagree,
-fix the surfaces to match docs/13 + the script.
+Change order: edit the table in `docs/design/13` first → sync script `CANONICAL`
+→ sync `apps/viewer/DESIGN.md` YAML and the surface CSS → run the machine check.
+If they disagree, fix the copies to match docs/13 + the script.
 
 ## Quick rules (full list in docs/design/13)
 
@@ -45,22 +62,26 @@ fix the surfaces to match docs/13 + the script.
   `PageHead` (h1 + optional sub + hairline; no numbered kicker).
 - List / table row text (non-numeric): always default sans. Mono only for
   `<code>` / `<pre>` / command strips, and numeric `tabular-nums` alignment.
-- Plugin / agent marketplace lists are `CatalogCard` grids (20px entity mark +
-  `org/name` + date, two-line description, tags at the bottom). Datasets, jobs,
-  leaderboard, and members are hairline tables.
+- Plugin / agent marketplace lists are `CatalogCard` grids. Datasets, jobs,
+  leaderboard, and members are hairline tables. Do not put slot/binding tags
+  on cards.
 - Motion is CSS only on hub/viewer. Default `200ms` / `ease-smooth`. Named
   exceptions in docs/design/13: `--ease-spring` (toast, star burst, squish
   release), `--ease-glide` (PillTabs), `--t-press` 80ms. Landing may stagger
   the hero and reveal sections 8px; no GSAP/Motion, pin/scrub, magnetic hover,
   or cursor trail.
-- Focus: buttons `ring-2 ring-link/70`; fields `border-link` 1px, no extra ring;
-  landing 3px outline.
+- Focus is role-based (docs/13), not "every field goes IKB":
+  buttons / links / cards `ring-2 ring-link/70`; **edit** fields 1px
+  `border-link`; **scan** chrome (search, filter, Select trigger) keeps
+  `border-hairline` — no border color change. Landing 3px outline.
+  Hub search copies `CatalogScopeBar`, not `Input`'s default.
 - Popover shadow is `--viewer-shadow-pop` only. Phase charts use
   `--viewer-phase-1..6` only.
 - Icons: product brand uses owl; function icons use lucide; plugin/agent entity
   marks default to the uploader GitHub avatar, or a closed color catalog /
   GitHub login override. Do not add a third-party logo component library as a
   runtime dependency. Catalog hex lives only in `brand-marks/assets/`.
+- SPA anti-slop lives in that SPA's `DESIGN.md` **Taste**. Do not copy it here.
 
 ## Machine check
 
@@ -68,7 +89,8 @@ fix the surfaces to match docs/13 + the script.
 python3 scripts/check_design_tokens.py
 ```
 
-Checks: docs/13 table ↔ script `CANONICAL` both ways; mapped variables stay
-inside the canonical set; no raw hex in app code (outside the allowlist).
+Checks: docs/13 table ↔ script `CANONICAL` ↔ Viewer DESIGN.md YAML; mapped
+variables stay inside the canonical set; no raw hex in app code (outside the
+allowlist).
 CI job `design-tokens` runs the same command. Run it locally after token or
 style edits.

@@ -19,7 +19,9 @@ artifacts were uploaded.
 ## Stack
 
 Vite + React + TypeScript · Tailwind + shadcn/ui · pnpm only  
-Visual tokens: inherit [`apps/viewer/DESIGN.md`](../viewer/DESIGN.md).
+Visual tokens: [`docs/design/13-web-ui-tokens.md`](../../docs/design/13-web-ui-tokens.md).
+SPA constants listing: YAML in [`apps/viewer/DESIGN.md`](../viewer/DESIGN.md).
+Reuse map: [DESIGN.md](./DESIGN.md).
 
 ## Dev
 

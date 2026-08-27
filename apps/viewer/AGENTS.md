@@ -7,14 +7,14 @@ Python serves the built SPA; React app lives here.
 
 | Doc | Role |
 | --- | --- |
-| [DESIGN.md](./DESIGN.md) | Visual + IA authority (IKB / cool-ink product chrome) |
-| This file | Implementation constraints for agents |
+| [`docs/design/13-web-ui-tokens.md`](../../docs/design/13-web-ui-tokens.md) | Visual constitution (tokens, focus, motion) |
+| [DESIGN.md](./DESIGN.md) | YAML constants + Taste (anti-slop) + which component to reuse |
+| This file | Product scope + stack + API |
 | `src/ageval/viewer/` | HTTP API + static file serving (stdlib) |
 
-When UI conflicts with taste: **DESIGN.md wins**. Evidence tabs use
-`UnderlineTabs`. Jobs/tasks stay tables. Motion is CSS only (`ease-smooth`,
-named spring/glide exceptions in docs/design/13, `data-ageval-pop`, toast);
-no GSAP on Viewer. No cursor trail or magnetic hover.
+When UI conflicts with taste: **docs/13** for language; **DESIGN.md Taste** for
+anti-slop; **DESIGN.md** role table for which control. Evidence tabs use
+`UnderlineTabs`. Jobs/tasks stay tables.
 
 ## Product surface (scope lock)
 
@@ -71,31 +71,34 @@ no GSAP on Viewer. No cursor trail or magnetic hover.
 
 ## Design discipline
 
-1. Read [DESIGN.md](./DESIGN.md) before changing colors, type, or density.
-2. Keep **product chrome**: cool paper (light) or cool ink (dark) canvas, ink text, hairline borders.
+1. Read [`docs/design/13-web-ui-tokens.md`](../../docs/design/13-web-ui-tokens.md)
+   and [DESIGN.md](./DESIGN.md) (**Taste** + YAML + role table) before changing
+   colors, type, or density.
+2. Do not describe or invent page layout in this file. Copy a shipped control.
 3. **Tabular nums** for scores, rates, durations, trial fractions.
 4. Mono **only** for commands, digests, technical IDs.
-5. No em-dash (`—`) in UI strings.
-6. Primary CTA color is ink; IKB for true hyperlinks only (CLI strips use shell highlight).
-7. Error / exception text uses the design-token error color.
-8. Prefer density of a results console, not an art gallery landing page.
+5. No em-dash (`—`) in UI strings. No `uppercase tracking` section eyebrows.
+6. Prefer density of a results console, not an art gallery landing page.
+7. Semantic tokens only. No `slate-` / `zinc-` / `gray-` utilities.
 
 ## UI reuse (mandatory)
 
-Same stack as Hub: shadcn/ui in `src/components/ui/`. **Reuse what is already
-shipped** (`Select` on Jobs filters, `DropdownMenu` on theme / row actions,
-`Table`, `Button`).
+Same stack as Hub: shadcn/ui in `src/components/ui/`. Role → component:
+[DESIGN.md](./DESIGN.md).
 
-1. Version / filter / action lists go through `@/components/ui/select` or
+1. **Copy an existing instance**, including focus classes. Version / filter /
+   action lists go through `@/components/ui/select` or
    `@/components/ui/dropdown-menu`. Match Hub `VersionSwitcher` (label +
    trailing date on `SelectItem`).
 2. **No native `<select>` / `<option>`** and no hand-rolled dropdown for
    product chrome. If the primitive is missing a slot (e.g. `trailing`),
    extend `src/components/ui/select.tsx` so Hub and Viewer stay aligned.
-3. Operator-facing list text is a short label plus time. Slot history:
+3. **Scan vs edit focus** (docs/13): Jobs search keeps `hairline` on focus.
+   Do not accept `Input`'s default `border-link` for a new search.
+4. Operator-facing list text is a short label plus time. Slot history:
    `patch N` + `formatDate` / `formatDay`. Do **not** put `run_id` or sha256
    in the trigger or the menu. Digests stay on the trial heading / breadcrumb.
-4. Do not add a second component library or a one-off styled native control.
+5. Do not add a second component library or a one-off styled native control.
 
 ## Backend contract
 
@@ -167,8 +170,8 @@ Dev: `ageval view --dev` starts the API and tries to spawn Vite. If that cannot 
 
 ## Anti-patterns (reject in review)
 
+- Visual slop: [DESIGN.md](./DESIGN.md) **Taste** (hero / purple / eyebrows / em-dash / search IKB focus)
 - Recreating ad-hoc full-page CSS SPA as default
-- Fake marketing hero inside the results console
 - Ignoring breadcrumb click-through
 - Unsortable tables when columns are metric-like
 - Shipping unbuilt `src/` only (always produce `dist/` for `ageval view`)

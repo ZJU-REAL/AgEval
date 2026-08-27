@@ -1,5 +1,9 @@
 # apps/hub — agent scope lock
 
+Visual language: [`docs/design/13-web-ui-tokens.md`](../../docs/design/13-web-ui-tokens.md).
+Theme constants: YAML in [`apps/viewer/DESIGN.md`](../viewer/DESIGN.md) (shared).
+Which component to reuse: [DESIGN.md](./DESIGN.md). This file is product scope.
+
 | Do | Do not |
 | --- | --- |
 | Browse Registry packages (Datasets) | Replace local `ageval view` Jobs IA |
@@ -11,29 +15,34 @@
 
 Registry API is the data plane. Token stays in browser storage only.
 
+Do not describe page layout in this file. Hub product rules stay in docs/12 and docs/14.
+Taste: [DESIGN.md](./DESIGN.md) plus Viewer DESIGN.md **Taste**. Not a landing.
+
 ## UI reuse (mandatory)
 
-Stack is Vite + React + Tailwind + **shadcn/ui** under `src/components/ui/`
-(`Select`, `DropdownMenu`, `Table`, `Button`, tooltip). Same family as Viewer.
+Stack is Vite + React + Tailwind + **shadcn/ui** under `src/components/ui/`.
+Same family as Viewer. Role → component map: [DESIGN.md](./DESIGN.md).
 
-1. **Reuse a shipped control.** Version / filter / menu lists use
+1. **Reuse a shipped control.** Copy an existing instance, including its
+   focus classes. Version / filter / menu lists use
    `@/components/ui/select` (see `VersionSwitcher`) or
-   `@/components/ui/dropdown-menu`. Do not invent a parallel widget.
+   `@/components/ui/dropdown-menu`. Catalog search uses `CatalogScopeBar`.
 2. **No native chrome.** Product UI must not use raw `<select>`, `<option>`,
    or unstyled `<button>` as the visible control. Radix/shadcn owns focus,
    trigger, and list.
-3. **Operator labels, not digests.** Dropdown rows show a human label
+3. **Do not trust primitive defaults.** `Input` defaults to edit-field IKB
+   focus (`border-link`). Scan chrome (search / filter / `Select` trigger)
+   keeps `hairline` on focus — docs/13. A new search that "uses Input" and
+   keeps the default is wrong.
+4. **Operator labels, not digests.** Dropdown rows show a human label
    (`versionLabel`, `patch N`) plus a date via `SelectItem` `trailing` /
    `formatDay` / `formatDate`. `run_id`, sha256, and other identity strings
    stay in the breadcrumb / mono heading, not in the list text.
-4. **Copy an existing pattern.** Package versions → `VersionSwitcher`. Slot
-   history on Attempt evidence → the same `Select` shape (label + trailing
-   time). Jobs filters in Viewer are the same `Select` primitive.
 5. **Catalog cards for plugins and agents.** Marketplace packages use
-   `CatalogCard` / `CatalogCardGrid` (see `DESIGN.md`). Datasets, jobs,
-   leaderboard, members, and suites stay hairline tables.
-6. **Underline tabs.** Section switchers use `UnderlineTabs`. File-tree
-   Local / Shared / Overlays use `PillTabs`. Do not add another `border-b-2`
+   `CatalogCard` / `CatalogCardGrid`. Datasets, jobs, leaderboard, members,
+   and suites stay hairline tables.
+6. **Underline tabs / pills.** Section switchers use `UnderlineTabs`.
+   Segmented switches use `PillTabs`. Do not add another `border-b-2`
    tab strip or hard-cut segmented fills.
 
 New chrome requires a new `src/components/ui/` primitive first, used by both

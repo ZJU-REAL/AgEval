@@ -27,8 +27,9 @@ SPA lives under `src/`; Python serves the built `dist/` only.
 
 ## Design
 
-- [DESIGN.md](./DESIGN.md) — IKB / cool-ink tokens + IA
-- [AGENTS.md](./AGENTS.md) — implementation constraints (shadcn, no hand-rolled chrome)
+- [`docs/design/13-web-ui-tokens.md`](../../docs/design/13-web-ui-tokens.md) — visual constitution
+- [DESIGN.md](./DESIGN.md) — YAML constants, Taste, reuse map
+- [AGENTS.md](./AGENTS.md) — scope, stack, API
 
 ## Develop
 

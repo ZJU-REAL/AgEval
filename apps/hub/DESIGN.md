@@ -1,47 +1,62 @@
 # ageval Hub design
 
-**Visual authority:** inherits [`apps/viewer/DESIGN.md`](../viewer/DESIGN.md)
-(Klein Blue / cool-ink product chrome, hairline tables, tabular nums).
-Token and invariant authority: [`docs/design/13-web-ui-tokens.md`](../../docs/design/13-web-ui-tokens.md).
+**Visual constitution:** [`docs/design/13-web-ui-tokens.md`](../../docs/design/13-web-ui-tokens.md).
+**SPA token listing:** YAML frontmatter in [`apps/viewer/DESIGN.md`](../viewer/DESIGN.md) (shared Hub/Viewer constants; machine-checked against docs/13). Do not fork a second palette here.
+**Hub product** (Registry, listing, appearances, `?model=`): [`docs/design/12-hub-dataset-and-leaderboard.md`](../../docs/design/12-hub-dataset-and-leaderboard.md), [`docs/design/14-agent-hub.md`](../../docs/design/14-agent-hub.md).
 
-This SPA is **Registry catalog** (Datasets → Task files / Jobs list / Leaderboard),
-**not** the local Jobs → Trial evidence browser (`ageval view`).
+This file does **not** inventory routes, tabs, or where a control sits on a page. It tells implementers which shipped component to reuse so a new control matches the product, not the shadcn default.
+
+This SPA is the **Registry catalog**. It is not `apps/viewer` / `ageval view`.
 
 Do not invent a second marketing skin or hand-rolled full-page CSS over shadcn.
 
-## Catalog vs table
+## Taste
 
-| Surface | UI | Why |
+The look is already chosen. Shared anti-slop (copy, type, reject list, landing-playbook ban) is in [`apps/viewer/DESIGN.md`](../viewer/DESIGN.md) **Taste**. This section only adds Hub dials and catalog rules.
+
+**Read:** Registry catalog for benchmark authors. Browse packages, open a dataset, scan a leaderboard. Same cool-ink chrome as Viewer, slightly less dense.
+
+| Dial | Value | Meaning |
 | --- | --- | --- |
-| Plugins (`/plugins`, Home, org, user public) | **Catalog cards** (`CatalogCard` / `CatalogCardGrid`) | Marketplace identity: `org/name` + official, **or** builtin short id + lucide builtin mark (Explore only; no org) |
-| Agents (`/agents`, Home, org, user public) | **Catalog cards** | One harness package per card; model is a run parameter (`?model=` on the package page) |
-| Datasets, jobs, leaderboard, members, suites | **Hairline tables** | Dense comparable rows (sort, scan, bulk) |
+| Variance | 3/10 | Predictable chrome. Sidebar + main column, not a marketing grid. |
+| Motion | 3/10 | CSS hover / focus plus the named exceptions in docs/13. Not cinematic. |
+| Density | 6/10 | Catalog cards where identity matters; hairline tables where rows compare. |
 
-### Catalog card rules
+### Hub chrome
 
-- Radius 12px, hairline border, `canvas` fill. Hover: `canvas-soft`. Focus: `ring-2 ring-link/70`.
-- Motion: default `200ms` / `ease-smooth`. PillTabs / toast / star burst / squish use the named exceptions in docs/design/13.
-- Grid: `1 / 2 / 3` columns (`grid-cols-1 sm:grid-cols-2 xl:grid-cols-3`). N packages → N cells.
-- Header: published packages use `org/name` plus official mark. Builtin contrib rows use the short id (no `org/` prefix). Left mark is the GitHub avatar of the sidebar repo link (`githubRepoUrl()`, default `https://github.com/ZJU-REAL/ageval`), via the same `BrandMark` github path. Name-right mark is lucide `HousePlug` in `link` (IKB) — not `OfficialMark` / `BadgeCheck`.
-- Description: fixed two-line block (`h-10` / `leading-5` / `line-clamp-2`). Missing description uses `ageval.plugin/1 package` / `ageval.agent/1 package`. List rows without preview load by-digest meta. Builtin rows **must** ship `plugin_preview` on the list payload (from contrib `plugin.yaml`); there is no blob to fetch.
-- Builtin plugin detail (`/plugins/<short-id>`): description + declared slots from the catalog, plus the contrib file tree (`plugin.yaml`, README, sources) for preview. Hide install `CommandStrip`, visibility/delete.
-- Leaderboard / suite plugin chips: builtin short ids (`acp`, `openai-http`, environments) stay on the row and link to `/plugins/<id>`. Distinguish them from `org/name` marketplace packages. Do not drop them via a client-side builtin-executor denylist.
-- Footer is one row: mute counts (`download_count` + star count) on the left (lucide `Download` / `Star` + number; star on a card is a count, not a control), updated date on the right. Do not draw slot/binding tags. Builtin overlay rows have no blob and no timestamp, so omit the footer.
-- Builtin overlay rows appear on **Explore** `/plugins` only. They must not appear in Your organizations / mine, org detail, Home, or user public lists (no uploader, no org).
-- Loading uses `ThinkingLogo` + one “Loading …” line (`LoadingState`). Empty is a centered stack (icon → title → one caption **or** one control), never the thinking mark.
+- Sidebar + top bar: opaque `canvas-soft`. Main column: `canvas`. No glass, no blur wash on the top bar.
+- `nav-*` paints lucide only. Labels stay `ink` / `body`, mono 13px. Do not flood the page with those colors.
+- Marketplace entities (plugin / agent) are `CatalogCard`. Comparable rows (datasets, jobs, leaderboard, members) are tables. Do not put a dataset in a card "to match plugins".
+- Star on a card is a count. The write control is on the package, not the list cell.
+- Search on a catalog list copies `CatalogScopeBar`.
 
-## Motion
+## Reuse first
 
-- Default duration `200ms`, easing `ease-smooth` (`cubic-bezier(0.22, 1, 0.36, 1)`). Close/dismiss can be faster than open; tooltip wait is `80ms` (intent delay, not a travel duration).
-- Named exceptions (docs/design/13): `--ease-spring` (toast enter, star burst, button release), `--ease-glide` (PillTabs indicator, 250ms), `--t-press` 80ms on `:active`.
-- Underline tabs (`UnderlineTabs`) slide the IKB bar with `transform` + `width`. File-tree Local / Shared / Overlays use `PillTabs` (gliding pill). Do not reintroduce per-page `border-b-2` tab copies or hard-cut segmented fills.
-- Toast (`Toaster` + `toast()`) after key writes that have no local success state (save description/name, visibility, delete). Copy and star stay on the control. Overshoot from below; reduced-motion shows the card with no travel. Fill is a solid `*-soft` wash (not transparent); no border.
-- Select / dropdown lists enter with `data-ageval-menu`. Modal/tooltip enter with `data-ageval-pop` / `data-ageval-scrim`. Honor `prefers-reduced-motion`.
-- No GSAP or Motion on Hub. No magnetic hover, cursor trail, 3D tilt, or scroll hijack.
-- Named canvas exception: `ThinkingLogo` (docs/design/13). `prefers-reduced-motion: reduce` freezes that canvas on a static frame.
+Before drawing a control:
 
-## Nav glyphs
+1. Find the same job already shipped (`src/components/` or `src/components/ui/`).
+2. Copy that instance — including the classes that encode focus, radius, and type.
+3. If nothing exists, add a primitive under `src/components/ui/` (share with Viewer when the control is chrome). Do not one-off a native `<input>` / `<select>` / `border-b-2` tab.
 
-Sidebar lucide marks use `nav-*` tokens (Home / Datasets / Plugins / Agents / Inbox / Organizations). Color the glyph only. Labels are `font-mono text-[13px]`. Inactive is outline stroke 2 + `font-normal`; active is outline stroke 2.5 + `font-semibold`. Weight and stroke use the default 200ms `ease-smooth` transition. Active / hover row is `canvas` (chrome is `canvas-soft`); labels stay `ink` / `body`; focus stays IKB.
+`Input`'s default `focus-visible:border-link` is the **edit-field** language in docs/13. Search, filter, and other scan chrome keep `border-hairline` on focus. Copy `CatalogScopeBar`, not the primitive default.
 
-Hub chrome (sidebar + top bar) is opaque `canvas-soft`. The main column stays `canvas`. Do not give the top bar a translucent canvas wash.
+Token values, type stacks, radii, and motion curves: the YAML in Viewer `DESIGN.md`. Focus roles and catalog-vs-table: docs/13.
+
+## Role → component
+
+| Role | Use |
+| --- | --- |
+| Page title | `PageHead` |
+| Section switcher | `UnderlineTabs` |
+| Segmented switch | `PillTabs` |
+| Marketplace plugin / agent | `CatalogCard` / `CatalogCardGrid` |
+| Catalog list (scope + search) | `CatalogScopeBar` |
+| Comparable rows (datasets, jobs, leaderboard, members) | hairline `Table` |
+| Version list | `VersionSwitcher` (`Select` + human label + trailing date) |
+| Filter / overflow menu | `Select` / `DropdownMenu` |
+| Persistable name / description | `FloatingField` / `DisplayNameEditor` / `DescriptionEditor` |
+| Command | `CommandStrip` |
+| Dialog / confirm | `FrameModal` / `ConfirmDialog` (portal via `OverlayRoot` / `document.body`) |
+| Loading / empty | `ThinkingLogo` loading vs centered empty stack (docs/13) |
+
+New chrome that both Hub and Viewer need starts as a `src/components/ui/` primitive, used on both sides.

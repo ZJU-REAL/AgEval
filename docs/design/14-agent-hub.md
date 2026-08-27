@@ -10,7 +10,7 @@ format `ageval.agent/1`。不要 `ageval.harness/1`，不要第二套 `package_k
 - 非运输 executor：`openai-http`。
 - 盒子（`docker` / `local` / `e2b` / `ssh` / `daytona`）不是 Agent 卡。外置 executor（`dsh` / `nooa` / `miniswe`）不自动进清单。
 
-文件树有 `overlays/` 就在详情 Binding / Files 展示；没有就不要造。加卡 = 改 JSON + 过检查脚本，不是 `ageval agent publish`，也不是往 packages 表插行。短 id 保留：publish 撞到 fail-closed。
+文件树有 `overlays/` 就暴露给包预览；没有就不要造。加卡 = 改 JSON + 过检查脚本，不是 `ageval agent publish`，也不是往 packages 表插行。短 id 保留：publish 撞到 fail-closed。
 
 **定制卡（upload）。** `ageval agent publish` → `org/name@version`。身份是 executor、ACP entry、overlays/files、secret-free plugin options。
 

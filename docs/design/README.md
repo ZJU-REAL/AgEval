@@ -28,7 +28,7 @@ Issues / 代码
 | [10-examples-database-52.md](10-examples-database-52.md) | 点名示例 |
 | [11-extension-plugins.md](11-extension-plugins.md) | 独占 / 链；export / inject 稳定接口 |
 | [12-hub-dataset-and-leaderboard.md](12-hub-dataset-and-leaderboard.md) | Hub |
-| [13-web-ui-tokens.md](13-web-ui-tokens.md) | UI 令牌 |
+| [13-web-ui-tokens.md](13-web-ui-tokens.md) | UI 令牌与视觉不变量（跨面宪法；不写页面清单） |
 | [14-agent-hub.md](14-agent-hub.md) | `ageval.agent/1` |
 
 Runtime 读序：`lifecycle` → `environment`（四 kind、ssh A/B、能力表）→ `agent-service` → `evaluation`（gold 时间切）→ `evidence` → `campaign-suite`。
