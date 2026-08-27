@@ -73,7 +73,7 @@ def main(argv: list[str]) -> int:
     # "the thing the task produced".
     artifacts_dir.mkdir(parents=True, exist_ok=True)
     os.chdir(artifacts_dir)
-    payload: dict[str, Any] = {
+    inputs: dict[str, Any] = {
         "artifacts": _published(artifacts_dir),
         "artifacts_dir": str(artifacts_dir),
         "workspace_dir": os.environ["AGEVAL_WORKSPACE"],
@@ -83,8 +83,8 @@ def main(argv: list[str]) -> int:
     }
     agent = _maybe_agent()
     if agent is not None:
-        payload["agent"] = agent
-    verdict = func(payload)
+        inputs["agent"] = agent
+    verdict = func(inputs)
     if not isinstance(verdict, dict):
         print(json.dumps({"status": "ERROR", "error": "verdict_not_object"}))
         return 1

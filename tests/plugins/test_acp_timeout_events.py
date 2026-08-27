@@ -38,7 +38,9 @@ def _executor(**kwargs: object) -> AcpExecutor:
     )
 
 
-def _timeout_run(ex: AcpExecutor, client: _AgevalAcpClient, monkeypatch: object) -> None:
+def _timeout_run(
+    ex: AcpExecutor, client: _AgevalAcpClient, monkeypatch: pytest.MonkeyPatch
+) -> None:
     monkeypatch.setattr(ex, "_ensure_session", lambda **_k: None)
     n = {"i": 0}
 
@@ -53,7 +55,7 @@ def _timeout_run(ex: AcpExecutor, client: _AgevalAcpClient, monkeypatch: object)
     monkeypatch.setattr(ex, "_run", fake_run)
 
 
-def test_timeout_returns_mapped_tool_events(monkeypatch: object) -> None:
+def test_timeout_returns_mapped_tool_events(monkeypatch: pytest.MonkeyPatch) -> None:
     ex = _executor()
     client = _AgevalAcpClient()
     ex._client = client
@@ -65,7 +67,7 @@ def test_timeout_returns_mapped_tool_events(monkeypatch: object) -> None:
     assert any(ev.get("phase") == "timeout" for ev in result.events)
 
 
-def test_timeout_writes_vendor_jsonl(monkeypatch: object, tmp_path: Path) -> None:
+def test_timeout_writes_vendor_jsonl(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
     ex = _executor()
     client = _AgevalAcpClient()
     ex._client = client

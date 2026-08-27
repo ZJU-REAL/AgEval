@@ -7,6 +7,9 @@ credential or the box handle.
 
 from __future__ import annotations
 
+import inspect
+from typing import Any
+
 from ageval.attempt.artifact_harvest import harvest_workspace_artifacts
 from ageval.attempt.ctx import AttemptCtx
 from ageval.attempt.emit import emit
@@ -46,13 +49,14 @@ async def _run_task_entry(ctx: AttemptCtx) -> dict[str, object]:
 async def _seal_run_agent_service(ctx: AttemptCtx) -> None:
     seal = getattr(ctx.agent_service, "seal_run", None)
     if callable(seal):
-        result = seal()
-        if hasattr(result, "__await__"):
-            await result
+        await _maybe_await(seal())
         return
     stop = getattr(ctx.agent_service, "stop", None)
     if stop is None:
         return
-    result = stop()
-    if hasattr(result, "__await__"):
+    await _maybe_await(stop())
+
+
+async def _maybe_await(result: Any) -> None:
+    if inspect.isawaitable(result):
         await result
