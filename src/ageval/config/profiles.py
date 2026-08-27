@@ -78,7 +78,7 @@ _ROLE_ID_RE = re.compile(r"^[A-Za-z_][A-Za-z0-9_-]*$")
 class JobDocument:
     """Parsed ``profiles.yaml``: the environment winner plus role profiles."""
 
-    __slots__ = ("environment", "environment_options", "profiles", "source")
+    __slots__ = ("environment", "environment_options", "evaluate_host", "profiles", "source")
 
     def __init__(
         self,
@@ -86,10 +86,12 @@ class JobDocument:
         environment: str,
         profiles: dict[str, dict[str, Any]],
         environment_options: dict[str, Any] | None = None,
+        evaluate_host: dict[str, Any] | None = None,
         source: str | None = None,
     ) -> None:
         self.environment = environment
         self.environment_options = dict(environment_options or {})
+        self.evaluate_host = dict(evaluate_host or {})
         self.profiles = profiles
         self.source = source
 
@@ -173,7 +175,13 @@ def parse_job_mapping(raw: Mapping[str, Any], *, location: str = "profiles.yaml"
                 location=f"{location}:/format",
             )
 
-    unknown_top = set(raw) - {"format", "environment", "environment_options", "agent_profiles"}
+    unknown_top = set(raw) - {
+        "format",
+        "environment",
+        "environment_options",
+        "evaluate_host",
+        "agent_profiles",
+    }
     if unknown_top:
         raise ConfigError(
             ERROR_INVALID_SCHEMA,
@@ -196,6 +204,11 @@ def parse_job_mapping(raw: Mapping[str, Any], *, location: str = "profiles.yaml"
             "environment_options must be a mapping the box kind understands",
             location=f"{location}:/environment_options",
         )
+    _validate_egress(env_options_raw, location=f"{location}:/environment_options")
+
+    evaluate_host_raw = _parse_evaluate_host(
+        raw.get("evaluate_host"), location=f"{location}:/evaluate_host"
+    )
 
     profiles_raw = raw.get("agent_profiles")
     if profiles_raw is None:
@@ -243,9 +256,55 @@ def parse_job_mapping(raw: Mapping[str, Any], *, location: str = "profiles.yaml"
     return JobDocument(
         environment=env_raw.strip(),
         environment_options=copy.deepcopy(env_options_raw),
+        evaluate_host=copy.deepcopy(evaluate_host_raw),
         profiles=out,
         source=location,
     )
+
+
+_EVALUATE_HOST_KEYS = frozenset({"isolated"})
+_EGRESS_VALUES = frozenset({"llm"})
+
+
+def _parse_evaluate_host(raw: Any, *, location: str) -> dict[str, Any]:
+    """Opt-in second scoring box. Omitted = same-box evaluate."""
+    if raw is None:
+        return {}
+    if not isinstance(raw, Mapping):
+        raise ConfigError(
+            ERROR_INVALID_SCHEMA,
+            "evaluate_host must be a mapping",
+            location=location,
+        )
+    unknown = sorted(set(raw) - _EVALUATE_HOST_KEYS)
+    if unknown:
+        raise ConfigError(
+            ERROR_INVALID_SCHEMA,
+            f"unknown evaluate_host keys: {unknown}",
+            location=location,
+        )
+    isolated = raw.get("isolated")
+    if isolated is None:
+        return {}
+    if not isinstance(isolated, bool):
+        raise ConfigError(
+            ERROR_INVALID_SCHEMA,
+            "evaluate_host.isolated must be a boolean",
+            location=f"{location}/isolated",
+        )
+    return {"isolated": isolated}
+
+
+def _validate_egress(options: Mapping[str, Any], *, location: str) -> None:
+    if "egress" not in options:
+        return
+    egress = options.get("egress")
+    if not isinstance(egress, str) or egress not in _EGRESS_VALUES:
+        raise ConfigError(
+            ERROR_INVALID_SCHEMA,
+            "environment_options.egress must be llm when set",
+            location=f"{location}/egress",
+        )
 
 
 def assert_slots_have_no_inline_binding(
@@ -538,6 +597,7 @@ def project_job_overlay(
     *,
     environment: str,
     environment_options: Mapping[str, Any] | None = None,
+    evaluate_host: Mapping[str, Any] | None = None,
     role_ids: Sequence[str] | None = None,
 ) -> dict[str, Any]:
     """Secret-free projection of the job used for this lock.
@@ -576,6 +636,8 @@ def project_job_overlay(
     if environment_options:
         # Locator names only: an option like ``${FLEET_HOST}`` stays unresolved.
         overlay["environment_options"] = secret_free_options(environment_options)
+    if evaluate_host:
+        overlay["evaluate_host"] = copy.deepcopy(dict(evaluate_host))
     return overlay
 
 
@@ -614,6 +676,9 @@ def job_overlay_to_profiles_document(overlay: Mapping[str, Any]) -> dict[str, An
     options = overlay.get("environment_options")
     if isinstance(options, Mapping) and options:
         document["environment_options"] = dict(options)
+    evaluate_host = overlay.get("evaluate_host")
+    if isinstance(evaluate_host, Mapping) and evaluate_host:
+        document["evaluate_host"] = dict(evaluate_host)
     parse_job_mapping(document, location="job_overlay")
     return document
 
