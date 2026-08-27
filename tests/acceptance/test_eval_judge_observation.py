@@ -146,6 +146,9 @@ def test_opt_in_judge_writes_observation_not_trajectory(tmp_path: Path) -> None:
         assert any(row.get("profile_id") == "judge" for row in rows)
         assert any(row.get("type") == "terminal" for row in rows)
         assert "ignored-verdict" in dumped_obs
+        traj_rows = [json.loads(line) for line in dumped_traj.splitlines() if line.strip()]
+        assert all(row.get("profile_id") != "judge" for row in traj_rows)
+        assert "ignored-verdict" not in dumped_traj
         assert not (run_dir / "evaluation" / "evaluator_raw.json").exists()
         result_doc = json.loads((run_dir / "result.json").read_text(encoding="utf-8"))
         assert result_doc["status"] == "PASS"
