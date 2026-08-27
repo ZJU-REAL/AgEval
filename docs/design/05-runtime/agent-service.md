@@ -81,9 +81,22 @@ run.py / evaluator.py  Agent.session(profile).invoke
            evaluate 相位 → evaluation/observation.jsonl（省略 user）
 ```
 
-`ParentAgentService.invoke` 只回 `AgentResult`（含可选 `tool_calls`）。**不**在每次 invoke 后 `download` 盒内 workspace。轨迹来自 executor events。缺的 publishable 文件在 **solver writer 停后** 由 run 相位 harvest（Protocol `download`），evaluate 再把 `task-artifacts` upload 进盒。
+`ParentAgentService.invoke` 只回 `AgentResult`（含可选 `tool_calls`）。**不**在每次 invoke 后 `download` 盒内 workspace。轨迹来自 executor events。publishable 在 **solver writer 停后** 由 run 相位 harvest 一次（Protocol `download`；tree 按 exclude 做快照），evaluate 再把快照 upload 进 **打分 Host**。
 
-Agent Service **跨 evaluate 保持**（或 reopen）：`evaluator.py` 才能 `Agent.session`。run 结束停的是 **solver writer**（该相位已打开的 profile 不得再 invoke），不是把整段服务拆掉再打分。gold 已经在盒内；solver 不得在 gold 之后 invoke。Attempt 结束（cleanup / `run_attempt` finally）才停服务。
+Agent Service **跨 evaluate 保持**（或 reopen）：`evaluator.py` 才能 `Agent.session`。run 结束停的是 **solver writer**（该相位已打开的 profile 不得再 invoke），不是把整段服务拆掉再打分。gold 已经在打分 Host；solver 不得在 gold 之后 invoke。Attempt 结束（cleanup / `run_attempt` finally）才停服务。
+
+## evaluate 相位的 attach 目标与盒内 socket
+
+`executor: acp` 仍 `inject: [service: environment]`，parent 仍是唯一 JSON-RPC client。缺省（同盒）attach 目标就是 run 那只 Host，与今日相同。
+
+`evaluate_host.isolated: true` 时：
+
+- evaluate 相位的 `Agent.session`（judge 等 **未** 在 run 用过的 profile）`attach_stdio` / 盒内 worker `exec` 打 **打分 Host**，不是 Agent Host。solver 仍密封。
+- 盒内 `evaluator.py` 继续 `host.exec` 在打分 Host。要把 parent unix socket 投影进这只盒子：每种能挂 parent socket 的 kind 都设 `AGEVAL_AGENT_SERVICE_SOCK`（加 attempt id）。Current docker：evaluate **开始时** 把 socket 文件 bind-mount 进打分容器（不要整段 Attempt 挂进 Agent 容器）。local 仍是本机路径，与今日相同。
+- kind 不能挂 socket 时，SDK `inputs["agent"]` 省略（与今日 docker 同盒路径相同）；不要发明第二套 client。isolated + docker 的 in-box `session("judge").invoke` 必须能成功（`openai-http` judge 足够）。
+- Agent 容器 **没有** docker daemon socket。ACP / `attempt` / `run.py` 仍然不见 `container_id`。
+
+observe 这些 invoke：`evaluation/observation.jsonl`（省略 `user` 行）。不是 PASS。
 
 ACP attach 发生在第一次 invoke，不是独立 phase。`acp-oneshot` 每次 invoke 都 exec 一次 wrapper，完成 = 该进程退出码 + 解析出的 `AgentResult`。Harness completed / 轨迹 / judge 输出 **不是** PASS。
 

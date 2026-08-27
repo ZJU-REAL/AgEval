@@ -43,10 +43,16 @@ artifacts:
   publishable:
     - id: reply
       path: artifacts/reply.json
+    # kind 省略 / file = 单文件 harvest（今日）。tree = 工作区快照：
+    # - id: repo
+    #   path: workspace
+    #   kind: tree
+    #   exclude: [target, "*.so", .git]
 evaluation:
   inputs:
     - artifact: reply
       target: artifacts/reply.json
+  # docker_image: ageval-eval:grader   # 仅 isolated 时认；与 environment/evaluate.Dockerfile 二选一即可
 ```
 
 ## 薄 task 目录
@@ -57,10 +63,12 @@ tasks/<id>/
   run.py                    # async def run(ctx) — 仅 run phase
   evaluator.py              # 仅 evaluate
   environment/
-    Dockerfile              # 有则用；docker 与 e2b 同一配方
-    setup.sh                # 有则 environment_setup 去 exec
+    Dockerfile              # Agent 盒配方；有则用；docker 与 e2b 同一份
+    evaluate.Dockerfile     # 打分盒配方；仅 job evaluate_host.isolated 时认
+    setup.sh                # 有则 environment_setup 去 exec（只跑在 Agent 盒）
   data/                     # Agent 可见 seed；environment 相位 upload 到 /attempt/workspace
-  evaluation/               # gold；agent 不可见；evaluate 开头才 upload
+  evaluation/               # gold；agent 不可见；evaluate 开头才 upload 到打分 Host
+                            # 禁止把打分 Dockerfile 放这里
 ```
 
 **缺省（有文件就认，不必在 yaml 再写一遍）：**
@@ -69,7 +77,8 @@ tasks/<id>/
 | --- | --- |
 | run 入口 | 存在 `run.py` → `run:run` |
 | evaluator 入口 | 存在 `evaluator.py` → `evaluator:evaluate` |
-| 镜像配方 | 存在 `environment/Dockerfile` → 用之；或 yaml `docker_image` |
+| 镜像配方 | 存在 `environment/Dockerfile` → 用之；或 job `environment_options.image` / `docker_image` |
+| 打分镜像 | 存在 `environment/evaluate.Dockerfile` → isolated 时用之；或成员 `evaluation.docker_image`。省略 `evaluate_host` 则忽略这两项 |
 | setup | 存在 `environment/setup.sh` → `environment_setup` exec；没有则跳过 |
 | `requires.environment` | 空 = 不额外要 cap |
 | seed | 存在 `data/` → environment 相位 upload |
@@ -88,9 +97,11 @@ yaml 显式字段覆盖缺省。旧 `harness.entrypoint` 与未知 format **拒�
 ```yaml
 format: ageval.profiles/1
 environment: local          # 或 docker / e2b / ssh / daytona
-# environment_options:      # docker：image / platform / network / user（`root` 开 root）
+# environment_options:      # docker：image / platform / network / user（`root` 开 root）/ egress
 #                           # ssh：host / user / port / key_env / image
 #                           # daytona：image / snapshot / timeout_seconds
+# evaluate_host:            # 省略 = 同盒 evaluate
+#   isolated: true
 agent_profiles:
   solver:
     executor: acp
@@ -103,7 +114,9 @@ agent_profiles:
       - plugin: local
 ```
 
-`environment_options` 给盒子；locator 在 preflight 解析，密钥不进 digest。
+`environment_options` 给 **run** 盒子；locator 在 preflight 解析，密钥不进 digest。`evaluate_host.isolated: true` 要求成员题有打分配方，且 kind 能再起一盒（Current：docker）；否则 lock 失败。未知顶键一次拒绝。
+
+`artifacts.publishable[]` 允许键：`id`、`path`、`kind`（`file` \| `tree`，省略 = `file`）、`exclude`（仅 `tree`，字符串列表）。其它键一次错误，不映射。`evaluation.inputs[].target: workspace` 把对应 tree 铺到打分 Host `/attempt/workspace`；省略则 file 产物仍上 `/attempt/artifacts`。
 
 ## 所有权
 
@@ -111,9 +124,9 @@ agent_profiles:
 | --- | --- |
 | `parameters` | `ctx.params` |
 | `limits.*` | Runtime 硬顶 |
-| `evaluation/` | evaluate 相位 |
-| `environment/` | 盒子配方 |
+| `evaluation/` | evaluate 相位（gold；可含 `docker_image` 供 isolated） |
+| `environment/` | Agent 盒配方；`evaluate.Dockerfile` 仅 isolated 打分盒 |
 | `data/` | Agent 可见 seed |
-| `profiles.yaml` | 选盒子 / executor / entry |
+| `profiles.yaml` | 选盒子 / executor / entry；可选 `evaluate_host` / `egress` |
 
 实现：`src/ageval/config/`（`dataset.py`、`profiles.py`、`load_and_lock.py`、`validate.py`、`digest.py`）。
