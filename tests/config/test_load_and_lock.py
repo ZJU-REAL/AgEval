@@ -84,6 +84,47 @@ def test_payload_holds_no_secret_and_no_host_path() -> None:
     assert str(CONFIG_MIN.resolve()) not in blob
 
 
+def test_lock_binds_executor_per_profile_mixed_mechanisms(tmp_path: Path) -> None:
+    yaml = TASK_YAML.replace(
+        "agent_profiles:\n  - id: solver",
+        "agent_profiles:\n  - id: solver\n  - id: judge",
+    )
+    root = _standalone(tmp_path / "pkg", task_yaml=yaml, files=("run.py", "evaluator.py"))
+    locked = lock_standalone(
+        root,
+        "minimal",
+        job=job_document(
+            {
+                "solver": {**SOLVER, "api_key": "${SOLVER_API_KEY}"},
+                "judge": {
+                    "executor": "openai-http",
+                    "model": "gpt-4.1-mini",
+                    "api_key": "${JUDGE_API_KEY}",
+                    "base_url": "http://127.0.0.1:9/v1",
+                    "extensions": [{"plugin": "openai-http"}, {"plugin": "local"}],
+                },
+            }
+        ),
+    )
+    bindings = thaw(locked.extension_bindings)
+    assert bindings["solver"]["slots"]["executor"]["plugin"] == "acp"
+    assert bindings["judge"]["slots"]["executor"]["plugin"] == "openai-http"
+    assert bindings["solver"]["slots"]["environment"]["plugin"] == "local"
+    assert bindings["judge"]["slots"]["environment"]["plugin"] == "local"
+    overlay = thaw(locked.job_overlay)["agent_profiles"]
+    assert overlay["solver"]["api_key"] == "SOLVER_API_KEY"
+    assert overlay["judge"]["api_key"] == "JUDGE_API_KEY"
+    blob = str(locked.canonical_payload())
+    assert "sk-" not in blob
+
+
+def test_lock_does_not_require_undeclared_judge_profile() -> None:
+    locked = lock_task(CONFIG_MIN, "minimal")
+    ids = [str(row.get("id")) for row in thaw(locked.agent_profiles)]
+    assert ids == ["solver"]
+    assert "judge" not in (thaw(locked.extension_bindings) or {})
+
+
 # --- immutability ----------------------------------------------------------
 
 
