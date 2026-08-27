@@ -51,6 +51,8 @@ class AttemptCtx:
     # Engine-owned locations: the member task directory and its dataset root.
     task_root: Path
     dataset_root: Path
+    # Isolated evaluate: a second EnvironmentProvider instance. None = same box.
+    evaluate_host: EnvironmentProvider | None = None
     # Host-side upload sources. Phases never read the rest of the task tree.
     seed_dir: Path | None = None
     environment_src: Path | None = None
@@ -101,6 +103,11 @@ class AttemptCtx:
         """Evaluate must not start while run-phase Agent writers can still write."""
         if not self._writers_stopped:
             raise RuntimeError("agent writers not confirmed stopped before evaluate")
+
+    @property
+    def scoring_host(self) -> EnvironmentProvider:
+        """Host that runs evaluator.py. Isolated evaluate uses the second box."""
+        return self.evaluate_host if self.evaluate_host is not None else self.host
 
     # --- facts ---------------------------------------------------------------
 

@@ -1,7 +1,8 @@
-"""Run the task's ``evaluator.py`` inside the same box, after gold is uploaded.
+"""Run the task's ``evaluator.py`` inside the scoring box, after gold is uploaded.
 
-Same box, later in time: the evaluator sees ``/attempt/evaluation`` (gold) and
-``/attempt/artifacts`` (what the task published), which the Agent never could.
+Default: same box, later in time. Isolated evaluate: the second Host. The
+evaluator sees ``/attempt/evaluation`` (gold) and published artifacts, which
+the Agent never could.
 """
 
 from __future__ import annotations
@@ -29,8 +30,9 @@ async def evaluate_in_box(ctx: AttemptCtx) -> dict[str, Any]:
     if not evaluator_src.is_file():
         raise FileNotFoundError(f"evaluator module missing: {module_file}")
 
-    await ctx.host.upload(evaluator_src, f"{_BOX_EVALUATOR_DIR}/{module_file}")
-    await ctx.host.upload(_runner_source_path(), f"{_BOX_EVALUATOR_DIR}/{_RUNNER_NAME}")
+    host = ctx.scoring_host
+    await host.upload(evaluator_src, f"{_BOX_EVALUATOR_DIR}/{module_file}")
+    await host.upload(_runner_source_path(), f"{_BOX_EVALUATOR_DIR}/{_RUNNER_NAME}")
 
     request = {
         "entrypoint": entrypoint,
@@ -45,7 +47,7 @@ async def evaluate_in_box(ctx: AttemptCtx) -> dict[str, Any]:
     # gets the same import contract as ``run.py``: dataset root then task dir
     # (``from shared.lib…``). Docker/e2b/ssh must bake or COPY ``shared/``.
     exec_env: dict[str, str] | None = None
-    if getattr(ctx.host, "kind", None) == "local":
+    if getattr(host, "kind", None) == "local":
         exec_env = {
             "PYTHONPATH": os.pathsep.join(
                 [str(ctx.dataset_root.resolve()), str(ctx.task_root.resolve())]
@@ -53,13 +55,14 @@ async def evaluate_in_box(ctx: AttemptCtx) -> dict[str, Any]:
         }
     sock = getattr(ctx.agent_service, "socket_path", None)
     # The parent socket is a host Unix path. Local exec shares that filesystem;
-    # other kinds must not inherit a path they cannot open.
-    if sock is not None and getattr(ctx.host, "kind", None) == "local":
+    # other kinds must not inherit a path they cannot open. Docker isolated
+    # mounts the socket in the evaluate phase (see package_evaluator callers).
+    if sock is not None and getattr(host, "kind", None) == "local":
         exec_env = dict(exec_env or {})
         exec_env["AGEVAL_AGENT_SERVICE_SOCK"] = str(sock)
         exec_env["AGEVAL_ATTEMPT_ID"] = ctx.attempt_id
-    result = await ctx.host.exec(
-        [*ctx.host.python_command, _RUNNER_NAME, json.dumps(request)],
+    result = await host.exec(
+        [*host.python_command, _RUNNER_NAME, json.dumps(request)],
         cwd=_BOX_EVALUATOR_DIR,
         env=exec_env,
         timeout_sec=ctx.remaining_seconds(),

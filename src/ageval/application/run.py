@@ -23,7 +23,7 @@ from ageval.config.model import LockedTaskConfig, thaw
 from ageval.environments.protocol import BoxSpec
 from ageval.evaluation.bind import AttemptResult, bind_result
 from ageval.evidence.locators import default_runs_root
-from ageval.evidence.store import AttemptEvidenceStore
+from ageval.evidence.store import AGENT_BOX_REL, EVALUATE_BOX_REL, AttemptEvidenceStore
 from ageval.plugins.binding import bind_winner
 from ageval.plugins.bootstrap import ensure_bootstrapped
 from ageval.plugins.protocol import ExtensionGraph
@@ -175,12 +175,19 @@ async def run_attempt(
         spec=_box_spec(
             lock,
             task_root=task_root,
-            attempt_root=evidence.path("box"),
+            attempt_root=evidence.path(AGENT_BOX_REL),
         ),
         plugin_layers=_plugin_image_layers(graph),
     )
     services.register(ENVIRONMENT, host, plugin_id=graph.winners[ENVIRONMENT].plugin_id)
     await host.preflight()
+    evaluate_host = _bind_evaluate_host(
+        lock,
+        registry=registry,
+        graph=graph,
+        task_root=task_root,
+        attempt_root=evidence.path(EVALUATE_BOX_REL),
+    )
 
     ctx = AttemptCtx(
         run_id=run_ident.value,
@@ -192,6 +199,7 @@ async def run_attempt(
         registry=registry,
         services=services,
         host=host,
+        evaluate_host=evaluate_host,
         evidence=evidence,
         cancellation=CancellationSignal(),
         task_root=task_root,
@@ -333,6 +341,59 @@ def _box_spec(
         repo_root=Path.cwd(),
         dockerfile=references.get("environment_dockerfile"),
         compose_file=references.get("environment_compose"),
+    )
+
+
+def _evaluate_isolated(lock: LockedTaskConfig) -> bool:
+    overlay = thaw(lock.job_overlay) if lock.job_overlay is not None else {}
+    host = overlay.get("evaluate_host") if isinstance(overlay, dict) else None
+    return bool(isinstance(host, dict) and host.get("isolated") is True)
+
+
+def _evaluate_host_options(lock: LockedTaskConfig) -> dict[str, Any]:
+    """Job options for the scoring box: no agent image, network, or egress."""
+    base = _environment_options(lock)
+    out = {key: value for key, value in base.items() if key in {"platform", "user"}}
+    image = thaw(lock.resolved_references).get("evaluation_docker_image")
+    if isinstance(image, str) and image.strip():
+        out["image"] = image.strip()
+    return out
+
+
+def _evaluate_box_spec(
+    lock: LockedTaskConfig,
+    *,
+    task_root: Path,
+    attempt_root: Path,
+) -> BoxSpec:
+    references = thaw(lock.resolved_references)
+    return BoxSpec(
+        attempt_root=attempt_root,
+        task_root=task_root,
+        repo_root=Path.cwd(),
+        dockerfile=references.get("environment_evaluate_dockerfile"),
+        compose_file=None,
+    )
+
+
+def _bind_evaluate_host(
+    lock: LockedTaskConfig,
+    *,
+    registry: Any,
+    graph: ExtensionGraph,
+    task_root: Path,
+    attempt_root: Path,
+) -> Any | None:
+    """Second EnvironmentProvider when isolated; otherwise None (same box)."""
+    if not _evaluate_isolated(lock):
+        return None
+    return bind_winner(
+        registry,
+        graph,
+        ENVIRONMENT,
+        spec=_evaluate_box_spec(lock, task_root=task_root, attempt_root=attempt_root),
+        plugin_layers=(),
+        options=_evaluate_host_options(lock),
     )
 
 
