@@ -392,10 +392,6 @@ class DockerHost:
             directory = self.host_path(path)
             directory.mkdir(parents=True, exist_ok=True)
             _make_box_writable(directory)
-        if self._agent_socket is not None:
-            sock_parent = self.host_path(str(Path(AGENT_SERVICE_SOCK_PATH).parent))
-            sock_parent.mkdir(parents=True, exist_ok=True)
-            _make_box_writable(sock_parent)
         # Gold arrives in the evaluate phase; nothing creates it before that.
         assert not self.host_path(EVALUATION_PATH).exists()
 

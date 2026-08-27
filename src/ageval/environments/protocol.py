@@ -33,7 +33,8 @@ HOME_PATH = "/attempt/home"
 ARTIFACTS_PATH = "/attempt/artifacts"
 EVALUATION_PATH = "/attempt/evaluation"
 # Parent Agent Service unix socket, when a kind can project it into the box.
-AGENT_SERVICE_SOCK_PATH = "/attempt/home/.ageval/agent.sock"
+# Not under /attempt: Docker Desktop cannot nest a second mount on that bind.
+AGENT_SERVICE_SOCK_PATH = "/ageval-agent.sock"
 
 
 @dataclass(frozen=True, slots=True)

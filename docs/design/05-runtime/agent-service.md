@@ -92,7 +92,7 @@ Agent Service **跨 evaluate 保持**（或 reopen）：`evaluator.py` 才能 `A
 `evaluate_host.isolated: true` 时：
 
 - evaluate 相位的 `Agent.session`（judge 等 **未** 在 run 用过的 profile）`attach_stdio` / 盒内 worker `exec` 打 **打分 Host**，不是 Agent Host。solver 仍密封。
-- 盒内 `evaluator.py` 继续 `host.exec` 在打分 Host。要把 parent unix socket 投影进这只盒子：每种能挂 parent socket 的 kind 都设 `AGEVAL_AGENT_SERVICE_SOCK`（加 attempt id）。Current docker：evaluate **开始时** 把 socket 文件 bind-mount 进打分容器（不要整段 Attempt 挂进 Agent 容器）。local 仍是本机路径，与今日相同。
+- 盒内 `evaluator.py` 继续 `host.exec` 在打分 Host。要把 parent unix socket 投影进这只盒子：每种能挂 parent socket 的 kind 都设 `AGEVAL_AGENT_SERVICE_SOCK`（加 attempt id）。Current docker：evaluate **开始时** 把 socket 文件 bind-mount 进打分容器的 `/ageval-agent.sock`（不要挂在 `/attempt` 底下，也不要整段 Attempt 挂进 Agent 容器）。local 仍是本机路径，与今日相同。
 - kind 不能挂 socket 时，SDK `inputs["agent"]` 省略（与今日 docker 同盒路径相同）；不要发明第二套 client。isolated + docker 的 in-box `session("judge").invoke` 必须能成功（`openai-http` judge 足够）。
 - Agent 容器 **没有** docker daemon socket。ACP / `attempt` / `run.py` 仍然不见 `container_id`。
 
