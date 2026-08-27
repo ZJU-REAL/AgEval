@@ -6,8 +6,8 @@ description: How to read Result; pass@k is a job metric, not suite PASS.
 ## Hard boundaries
 
 1. `run.py` completed **≠** PASS  
-2. Trajectory / tokens / agent self-report **≠** score  
-3. PASS / FAIL comes only from `evaluator.py`  
+2. Trajectory / tokens / agent self-report **≠** score (including `evaluation/observation.jsonl`)  
+3. PASS / FAIL comes only from the `evaluator.py` return value  
 4. Suite / job aggregates (including pass@k) **≠** suite-level PASS authority  
 
 ## On the terminal

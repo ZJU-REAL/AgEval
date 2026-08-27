@@ -1,0 +1,20 @@
+format: ageval.profiles/1
+environment: local
+agent_profiles:
+  solver:
+    executor: acp
+    model: entry-default
+    api_key: ${SOLVER_API_KEY}
+    options:
+      entry: codex
+    extensions:
+      - plugin: acp
+      - plugin: local
+  judge:
+    executor: openai-http
+    model: mock
+    api_key: ${JUDGE_API_KEY}
+    base_url: ${JUDGE_BASE_URL}
+    extensions:
+      - plugin: openai-http
+      - plugin: local

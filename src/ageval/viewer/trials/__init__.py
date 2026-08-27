@@ -19,7 +19,7 @@ from ageval.viewer.trials.constants import (
 from ageval.viewer.trials.fs import trial_file, trial_tree
 from ageval.viewer.trials.meta import get_trial, list_task_trials
 from ageval.viewer.trials.paths import parse_query, resolve_evidence_root
-from ageval.viewer.trials.trajectory import trial_trajectory
+from ageval.viewer.trials.trajectory import trial_evaluation_observation, trial_trajectory
 from ageval.viewer.trials.usage import _usage_summary_for_actor
 
 __all__ = [
@@ -33,6 +33,7 @@ __all__ = [
     "parse_query",
     "resolve_evidence_root",
     "trial_file",
+    "trial_evaluation_observation",
     "trial_trajectory",
     "trial_tree",
     "_usage_summary_for_actor",

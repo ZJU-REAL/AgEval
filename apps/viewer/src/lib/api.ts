@@ -406,3 +406,15 @@ export function fetchTrialTrajectory(jobId: string, taskId: string, runId: strin
     note?: string;
   }>(`${trialBase(jobId, taskId, runId)}/trajectory`);
 }
+
+export function fetchTrialObservation(jobId: string, taskId: string, runId: string) {
+  return getJson<{
+    ok: boolean;
+    run_id: string;
+    task_id: string;
+    steps: TrajectoryStep[];
+    step_count: number;
+    truncated?: boolean;
+    note?: string;
+  }>(`${trialBase(jobId, taskId, runId)}/observation`);
+}

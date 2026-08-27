@@ -25,4 +25,8 @@ Optional invoke kwargs: `tools` (OpenAI-style catalog) and `messages` (chat hist
 
 When `AGEVAL_OFFLINE_AGENT=1`, invoke fails closed (`offline_forced`) — never stub PASS on public paths.
 
+## Evaluator (optional)
+
+`evaluator.py` may construct `Agent(attempt_id=…)` or use injected `inputs["agent"]` when `AGEVAL_AGENT_SERVICE_SOCK` is set. Same `Agent.session(profile_id).invoke` as `run.py`. Evaluate-phase turns fold to `evaluation/observation.jsonl` (omit `user`). Not PASS.
+
 Design: `docs/design/03-task-run-and-sdk.md`.

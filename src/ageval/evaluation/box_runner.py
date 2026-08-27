@@ -20,6 +20,19 @@ from typing import Any
 RESULT_NAME = "evaluation.json"
 
 
+def _maybe_agent() -> Any:
+    """Harness Agent when the parent socket is projected; omit otherwise."""
+    sock = os.environ.get("AGEVAL_AGENT_SERVICE_SOCK", "").strip()
+    attempt_id = os.environ.get("AGEVAL_ATTEMPT_ID", "").strip()
+    if not sock or not attempt_id:
+        return None
+    try:
+        from ageval_sdk import Agent
+    except ImportError:
+        return None
+    return Agent(attempt_id=attempt_id)
+
+
 def _load_callable(module_path: Path, entrypoint: str) -> Any:
     module_name, _, func_name = entrypoint.partition(":")
     if not module_name or not func_name:
@@ -60,16 +73,18 @@ def main(argv: list[str]) -> int:
     # "the thing the task produced".
     artifacts_dir.mkdir(parents=True, exist_ok=True)
     os.chdir(artifacts_dir)
-    verdict = func(
-        {
-            "artifacts": _published(artifacts_dir),
-            "artifacts_dir": str(artifacts_dir),
-            "workspace_dir": os.environ["AGEVAL_WORKSPACE"],
-            "evaluation_dir": os.environ["AGEVAL_EVALUATION"],
-            "inputs": request.get("inputs") or [],
-            "parameters": request.get("parameters") or {},
-        }
-    )
+    inputs: dict[str, Any] = {
+        "artifacts": _published(artifacts_dir),
+        "artifacts_dir": str(artifacts_dir),
+        "workspace_dir": os.environ["AGEVAL_WORKSPACE"],
+        "evaluation_dir": os.environ["AGEVAL_EVALUATION"],
+        "inputs": request.get("inputs") or [],
+        "parameters": request.get("parameters") or {},
+    }
+    agent = _maybe_agent()
+    if agent is not None:
+        inputs["agent"] = agent
+    verdict = func(inputs)
     if not isinstance(verdict, dict):
         print(json.dumps({"status": "ERROR", "error": "verdict_not_object"}))
         return 1

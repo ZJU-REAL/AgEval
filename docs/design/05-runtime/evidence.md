@@ -8,9 +8,11 @@
 | --- | --- |
 | `lock.json` | 无 secret 的 lock 摘要 |
 | `result.json` | 扁平 Result（status/score/kind/logs） |
-| `trajectory.jsonl` | 层 C；`trajectory_seal` 独占槽默认引擎写 |
+| `trajectory.jsonl` | 层 C（**run 相位** Agent invoke）；`trajectory_seal` 独占槽默认引擎写 |
+| `evaluation/observation.jsonl` | 层 C（**evaluate 相位** SDK invoke，opt-in）；无则 Verifier 仍是文件树 |
 | `summary.json` | 相位事实 / timing；可选根字段 `extra`（Attempt 级观察袋，空则省略） |
-| `agent/` | invoke 级观察 |
+| `agent/` | run 相位 invoke 级观察 |
+| `evaluation/` | gold 不在此树的 Attempt 侧；盒内 gold 是时间切开。`evaluator_raw.json` 默认不留 |
 
 `Result.logs` / `evidence_path` 指向该树。
 
@@ -26,7 +28,22 @@ C  trajectory.jsonl  `trajectory_seal` 赢家写（默认引擎折叠）
 
 层 A/B 是 invoke 期的 scratch；层 C 是 Hub / Viewer / `ageval evidence` 的观察记录。轨迹不是分数，也不绑定 PASS。
 
-层 C 按 invoke 序（Attempt 内 `seq` / `turn_index`）写成一个文件。每一行带一等 `profile_id`：这是 package role（`Agent.session(profile_id)`），不是 chat `role`（user/assistant）。同一 invoke 的 user / tool / assistant / terminal 共用该值。Hub / Viewer 按文件序展示，用 `profile_id` 区分是谁在说话，**不**按 role 重分组。旧 jsonl 若只有 `terminal.metadata.profile_id`，读侧按 `turn_index` 回填到该轮其它行。
+两份观察记录、两个页签，**同一**层 C 行形（`ageval.trajectory.event/1` → thought / assistant / tool_call / observation / permission / terminal）。没有第二套 schema。HTTP judge 通常只有 assistant + terminal；ACP judge 以后可以有 tool。
+
+| 表面 | 文件 | 谁写 | SPA |
+| --- | --- | --- | --- |
+| Agent | Attempt 根 `trajectory.jsonl` | run 相位 invoke | Trajectory 页（不变） |
+| Evaluation | `evaluation/observation.jsonl` | evaluate 相位 SDK invoke | Verifier 页 |
+
+层 C 按 invoke 序（Attempt 内 `seq` / `turn_index`）写成**各自**的文件。每一行带一等 `profile_id`：这是 package role（`Agent.session(profile_id)`），不是 chat `role`（user/assistant）。同一 invoke 的 tool / assistant / terminal 共用该值。Hub / Viewer 按文件序展示，用 `profile_id` 区分是谁在说话，**不**按 role 重分组。旧 jsonl 若只有 `terminal.metadata.profile_id`，读侧按 `turn_index` 回填到该轮其它行。
+
+`evaluation/observation.jsonl` 密封时 **省略 `user` 行**。judge 提示经常嵌 hidden reference / gold 正文；那份正文不得进 evidence。assistant / thought / tool / terminal / usage 保留。未知 usage 字段省略，不编造 0。准则拆分等 leftover 进 `terminal.extra`，不升格一等列。record 相位密封 Agent 轨迹时 **忽略** evaluate 相位的 invoke。
+
+evaluate 相位的 invoke scratch 写在 `evaluation/` 下（布局字符串只在 `src/ageval/evidence/`），**不**进 `agent/invocations/`。Agent 页与根 `trajectory.jsonl` 看不到这些目录。`--keep-vendor-raw` 才保留该 scratch（与 run 相位 vendor raw 同一旗）。
+
+缺省（evaluator 不调 `Agent.session`）不写 `observation.jsonl`。Verifier 仍是 `result.json` + `evaluation/` 文件树。有 `observation.jsonl` 且含层 C 步时，Viewer / Hub 的 Verifier **复用 TrajectoryPanel**（同一卡片 / thought 折 / usage）；**不要**把该文件喂给 Agent 的 Trajectory 页。Trajectory 页的 actors 表仍是 run 相位 profile，不把 judge invoke 并进去。
+
+观察不是分数。`result.json` 的 `status` 只来自 `evaluator.py` 返回值经 `bind_evaluation`。
 
 ## 层 C `terminal.usage`
 
@@ -77,9 +94,10 @@ result.json
 trajectory.jsonl
 summary.json
 task-artifacts/**
+evaluation/observation.jsonl   # 仅当 evaluate 相位有 SDK invoke
 ```
 
-`summary.json` 是相位墙钟，不是 vendor raw。Verifier 看 `result.json`；默认不留 `evaluation/evaluator_raw.json`。
+`summary.json` 是相位墙钟，不是 vendor raw。Verifier 看 `result.json`；有 `observation.jsonl` 时再叠层 C 步。默认不留 `evaluation/evaluator_raw.json`。`slim_sealed_attempt` 与 Hub Attempt archive 同一套 keep/drop：留下 `observation.jsonl`，丢掉 `evaluator_raw.json`。
 
 `--keep-vendor-raw`（默认关）才保留 `backend_raw/`、per-invoke `request.json` / `events.jsonl` / `final-response.json` / `metadata.json`、失败 `stderr.txt`、`agent/events.jsonl`、`evaluator_raw.json`。`--keep-workspace` 只管宿主 work root（`l1-work`），与 vendor raw 无关。`ageval evidence` 跟可持久树走，层 C 优先。只作用于新 run，不改写旧树。删文件不是 PASS。
 

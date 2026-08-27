@@ -38,3 +38,27 @@ evaluation:
 | `tmpfs_mb` | 只改环境内 evaluator `/tmp`；省略 32 MiB。大 snapshot 在 **task** 上声明，不要写进 `limits` |
 
 环境内 `evaluator.py` 由独占槽 `evaluation_runtime` 的默认赢家经 `host.exec` 拉起；PASS 仍只经引擎 bind。读结果时 runtime 与 evaluation 是分开的事实。见 [结果与 PASS](/docs/reference/results-and-pass)。
+
+## 两种评测
+
+缺省是**确定性脚本**：读产物和 `evaluation/` 里的 gold，返回 `{status, score, metrics}`。不必调 Agent。没有 `evaluation/observation.jsonl`，Verifier 仍是 `result.json` 与文件树。
+
+可选 **LLM-as-judge**：同一份 job `profiles.yaml` 再写一个角色（如 `judge`），`task.yaml` 的 `agent_profiles` 列入同一 id。gold **已经** upload 之后，`evaluator.py` 可以 `Agent.session("judge").invoke(...)`。提示词归题包。`invoke` 不得改 `profile_id` / executor。
+
+```python
+def evaluate(inputs):
+    # inputs["agent"] 在本机盒子上会注入（parent socket）；没有就走脚本路径
+    ...
+    return {"status": "PASS", "score": 1.0, "metrics": {}}
+```
+
+约束：
+
+| 点 | 说明 |
+| --- | --- |
+| PASS | 仍只看这次返回值；judge 文本 / `observation.jsonl` 不是分数 |
+| 轨迹 | evaluate 相位的步写入 `evaluation/observation.jsonl`（省略 `user` 行，避免 gold 进 evidence）。不并进根 `trajectory.jsonl` |
+| 调用预算 | `limits.agent_invocations` 要覆盖 solver **和** judge |
+| 盒子 | SDK session 走 parent 的 Unix socket；当前默认在 `environment: local` 投影进 evaluator 进程 |
+
+不调 `Agent.session` = 今日脚本路径。Verifier 有 observation 时复用 Trajectory 那种步骤卡片；没有则保持文件树。见 [本地 Viewer](/docs/run/local-viewer)。

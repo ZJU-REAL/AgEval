@@ -16,6 +16,8 @@ from typing import Any
 from ageval.evidence.schema import EVENT_SCHEMA_VERSION
 
 TRAJECTORY_FILENAME = "trajectory.jsonl"
+OBSERVATION_FILENAME = "observation.jsonl"
+OBSERVATION_REL = "evaluation/observation.jsonl"
 _TOOL_PHASES = frozenset({"start", "update"})
 
 
@@ -42,6 +44,28 @@ def write_attempt_trajectory(
     return path
 
 
+def write_evaluation_observation(
+    run_dir: Path,
+    turns: list[list[dict[str, Any]]],
+    *,
+    redaction_sentinels: tuple[str, ...] | list[str] | None = None,
+) -> Path:
+    """Write evaluate-phase layer C. Observational — never PASS.
+
+    Absent turns must not create the file (no-SDK evaluators stay on the
+    result.json + evaluation/ tree).
+    """
+    from ageval.evidence.redaction import redact_value
+
+    sentinels = tuple(s for s in (redaction_sentinels or ()) if s)
+    rows = [redact_value(row, extra_sentinels=sentinels) for turn in turns for row in turn]
+    path = run_dir / OBSERVATION_REL
+    path.parent.mkdir(parents=True, exist_ok=True)
+    body = "".join(json.dumps(row, ensure_ascii=False, sort_keys=True) + "\n" for row in rows)
+    path.write_text(body, encoding="utf-8")
+    return path
+
+
 def turn_rows(
     *,
     prompt: str,
@@ -53,6 +77,7 @@ def turn_rows(
     ok: bool,
     error: str | None,
     metadata: dict[str, Any] | None = None,
+    include_user: bool = True,
 ) -> list[dict[str, Any]]:
     """Fold one invocation's events into turn-level training rows.
 
@@ -61,6 +86,9 @@ def turn_rows(
 
     Row order: user → (thought? → tool_call → observation)* →
     assistant (final) → permission* → terminal.
+
+    ``include_user=False`` omits the user row (evaluate-phase observation:
+    judge prompts often embed hidden reference text).
 
     ``profile_id`` on every row is the package role
     (``Agent.session(profile_id)``), not chat ``role``.
@@ -102,16 +130,18 @@ def turn_rows(
     if producer is None:
         producer = "ageval"
 
-    lines: list[dict[str, Any]] = [
-        {
-            "type": "turn",
-            "role": "user",
-            "content": prompt,
-            "turn_index": turn_index,
-            "session_id": session_id,
-            "source": "ageval",
-        }
-    ]
+    lines: list[dict[str, Any]] = []
+    if include_user:
+        lines.append(
+            {
+                "type": "turn",
+                "role": "user",
+                "content": prompt,
+                "turn_index": turn_index,
+                "session_id": session_id,
+                "source": "ageval",
+            }
+        )
 
     def flush_thought() -> None:
         content = "".join(thought_parts)

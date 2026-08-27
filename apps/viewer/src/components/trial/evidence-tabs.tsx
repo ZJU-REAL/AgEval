@@ -12,6 +12,9 @@ export function EvidenceTabs({
   trajLoading,
   steps,
   trajNote,
+  observationSteps,
+  obsLoading,
+  obsNote,
   result,
   actors,
   tree,
@@ -29,6 +32,9 @@ export function EvidenceTabs({
   trajLoading: boolean;
   steps: TrajectoryStep[];
   trajNote: string | null;
+  observationSteps?: TrajectoryStep[];
+  obsLoading?: boolean;
+  obsNote?: string | null;
   result: Record<string, unknown> | null;
   actors: NonNullable<Trial["actors"]>;
   tree: TreeEntry[];
@@ -44,6 +50,10 @@ export function EvidenceTabs({
     label?: string;
   }> | null;
 }) {
+  const verifierSteps = observationSteps || [];
+  const showVerifierTrajectory =
+    activeTab === "verifier" && (obsLoading || verifierSteps.length > 0);
+
   if (availableTabs.length === 0) {
     return (
       <p className="text-sm text-mute">
@@ -76,7 +86,17 @@ export function EvidenceTabs({
         />
       )}
 
-      {activeTab && activeTab !== "trajectory" && (
+      {showVerifierTrajectory && (
+        <TrajectoryPanel
+          loading={!!obsLoading}
+          steps={verifierSteps}
+          note={obsNote ?? null}
+          result={result}
+          actors={[]}
+        />
+      )}
+
+      {activeTab && activeTab !== "trajectory" && !showVerifierTrajectory && (
         <FileSplitPanel
           tree={tree}
           treeLoading={treeLoading}

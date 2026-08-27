@@ -57,7 +57,7 @@ dataset root (ageval.yaml / ageval.dataset/1)
   → run_attempt
        environment  host.start → upload data/ → after_environment_ready → environment_setup
        run          subprocess run.py ← Agent Service socket ← attach_stdio
-       evaluate     stop writers → upload evaluation/ → evaluation_runtime → bind
+       evaluate     solver writers stopped → upload evaluation/ → evaluation_runtime → bind
        record       trajectory_collect → trajectory_seal → summary_enrich
        finally      cleanup → host.stop
   → .ageval/runs/<attempt_id>/
@@ -289,7 +289,7 @@ Third-party workflow SDKs: allowed only as a task or **explicit** external plugi
 
 The host **awaits** registered chain slots / exclusive winners. Plugins rewrite or short-circuit via `(ctx, value, nxt)`; they do **not** drop declaration rows for Core to interpret later.
 
-Slot-name authority: `src/ageval/plugins/slots.py`. Only **exclusive** and **chain**. Current exclusive slots: `environment`, `executor`, `evaluation_runtime`, `trajectory_seal`. The last two default to the engine (`plugin_id: default`). PASS still enters Result only through `bind_evaluation`; `evaluation_runtime` returns raw and must not write a verdict itself. `pass` / `identity` / `cleanup` / `evidence` are not services.
+Slot-name authority: `src/ageval/plugins/slots.py`. Only **exclusive** and **chain**. Current exclusive slots: `environment`, `executor`, `evaluation_runtime`, `trajectory_seal`. `environment` / `evaluation_runtime` / `trajectory_seal` are Attempt-wide; `executor` is one winner **per profile graph**. The last two default to the engine (`plugin_id: default`). PASS still enters Result only through `bind_evaluation`; `evaluation_runtime` returns raw and must not write a verdict itself. `pass` / `identity` / `cleanup` / `evidence` are not services.
 
 ```text
 environment phase
@@ -305,22 +305,24 @@ run phase
   subprocess python -m ageval.runtime.task_worker → run.py
     Agent.session → unix socket → ParentAgentService
       before/after_agent_open
-      before_agent_invoke → executor.invoke(attach_stdio) → after_agent_invoke
+      before_agent_invoke → this profile's executor.invoke → after_agent_invoke
       normalize_agent_result
       before/after_agent_close
-  stop Agent Service; mark_writers_stopped
+  seal_run (solver writers stopped; Agent Service stays up); mark_writers_stopped
   after_run
 
 evaluate phase
   before_evaluate
   upload evaluation/           # gold enters the box only now (engine code, not a slot)
   evaluation_runtime.evaluate  # exclusive-slot winner; default in-box evaluator.py
+                               # optional Agent.session(<judge>).invoke via parent socket
   bind_evaluation              # PASS enters Result only here
   after_evaluate               # must not change status
 
 record phase
   trajectory_collect → enrich  # fail-open chain
-  trajectory_seal              # exclusive-slot winner writes trajectory.jsonl (layer C)
+  trajectory_seal              # exclusive-slot winner writes run-phase trajectory.jsonl
+  evaluation/observation.jsonl # evaluate-phase layer C when SDK invoked (omit user)
   summary_enrich               # fail-open; Attempt summary.extra (omit when empty)
 
 cleanup (finally)

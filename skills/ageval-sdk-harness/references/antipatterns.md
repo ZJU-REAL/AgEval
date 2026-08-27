@@ -3,6 +3,7 @@
 | Antipattern | Do instead |
 | --- | --- |
 | Treat `completed` as PASS | Independent evaluator only |
+| Treat judge `invoke` text / `observation.jsonl` as PASS | Return `{status, score, metrics}`; engine binds |
 | `if executor == "codex":` / `if entry == "pi":` for Core policy | Switch `agent_profiles` / `active_profile` / `parameters.roles` |
 | Write `executor: codex` in package yaml | `executor: acp` + `- plugin: acp` / `options.entry: codex` (etc.) |
 | Read `~/.codex/auth.json` or print secrets | Rely on Runtime projection |

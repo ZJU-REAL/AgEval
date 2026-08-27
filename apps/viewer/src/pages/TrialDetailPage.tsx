@@ -41,6 +41,9 @@ export function TrialDetailPage() {
     steps,
     trajNote,
     trajLoading,
+    observationSteps,
+    obsNote,
+    obsLoading,
     tree,
     treeGroups,
     treeLoading,
@@ -112,6 +115,9 @@ export function TrialDetailPage() {
               trajLoading={trajLoading}
               steps={steps}
               trajNote={trajNote}
+              observationSteps={observationSteps}
+              obsLoading={obsLoading}
+              obsNote={obsNote}
               result={result}
               actors={trial.actors || []}
               tree={tree}

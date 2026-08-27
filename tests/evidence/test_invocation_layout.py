@@ -56,6 +56,23 @@ def test_minimal_fields_present(tmp_path: Path) -> None:
     final = json.loads((d / "final-response.json").read_text(encoding="utf-8"))
     assert final["structured_output"]["answer"] == 42
     assert (d / "stderr.txt").read_text(encoding="utf-8").startswith("diag")
+    assert h.relative_path.startswith("agent/invocations/")
+
+
+def test_evaluate_surface_lives_under_evaluation(tmp_path: Path) -> None:
+    store = AttemptEvidenceStore(root=tmp_path / "e", attempt_id="attempt_y")
+    agent = store.begin_invocation(profile_id="solver", executor_kind="acp", model="m")
+    judge = store.begin_invocation(
+        profile_id="judge",
+        executor_kind="openai-http",
+        model="g",
+        surface="evaluate",
+    )
+    assert agent.relative_path.startswith("agent/invocations/")
+    assert judge.relative_path.startswith("evaluation/invocations/")
+    assert store.list_invocations() == [agent.directory]
+    assert store.list_evaluation_invocations() == [judge.directory]
+    assert not (tmp_path / "e" / "agent" / "invocations" / judge.directory.name).exists()
 
 
 def test_append_supplement_after_seal(tmp_path: Path) -> None:

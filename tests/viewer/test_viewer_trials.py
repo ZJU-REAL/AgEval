@@ -278,6 +278,45 @@ def test_trajectory_steps(tmp_path: Path) -> None:
     assert all(s.get("profile_id") == "main" for s in traj["steps"])
 
 
+def test_evaluation_observation_steps_not_on_trajectory(tmp_path: Path) -> None:
+    db = _clean_db(tmp_path)
+    job_id = _seed_suite_run(db)
+    root = _write_evidence(db, "run_alpha_1", task_id="alpha")
+    gold = "secret-gold-token-eval-judge"
+    (root / "evaluation" / "observation.jsonl").write_text(
+        json.dumps(
+            {
+                "type": "turn",
+                "role": "assistant",
+                "content": "score 1",
+                "turn_index": 1,
+                "profile_id": "judge",
+            }
+        )
+        + "\n"
+        + json.dumps(
+            {
+                "type": "terminal",
+                "ok": True,
+                "turn_index": 1,
+                "profile_id": "judge",
+            }
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    obs = trials.trial_evaluation_observation(db, job_id, "alpha", "run_alpha_1")
+    assert obs["step_count"] >= 2
+    assert all(s.get("role") != "user" for s in obs["steps"])
+    assert any(s.get("profile_id") == "judge" for s in obs["steps"])
+    assert gold not in json.dumps(obs)
+    traj = trials.trial_trajectory(db, job_id, "alpha", "run_alpha_1")
+    assert all(s.get("profile_id") != "judge" for s in traj["steps"])
+    (root / "evaluation" / "observation.jsonl").unlink()
+    gone = trials.trial_evaluation_observation(db, job_id, "alpha", "run_alpha_1")
+    assert gone["steps"] == []
+
+
 def test_trajectory_tool_call_and_observation_steps(tmp_path: Path) -> None:
     """Viewer fail-open parses tool_call / observation rows for the panel."""
     db = _clean_db(tmp_path)

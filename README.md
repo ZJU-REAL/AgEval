@@ -70,10 +70,10 @@ ageval treats **Harness** as a first-class evaluation axis.
 
 **Evaluation**
 
-- **Lock one experiment.** Dataset, Harness, and environment lock together into a reproducible digest. Scores are not comparable across different bindings.
+- **Lock one experiment.** Dataset, Harness, and environment lock together into a reproducible digest.
 - **One task, a suite, a matrix, or repeats.** Run a single task, a full dataset, a parameter matrix on one task, or multiple independent Attempts of the same job (pass@k).
-- **Scoring is separate from the Agent.** Gold does not enter the Agent view. PASS comes only from `evaluator.py`; trajectories are for inspection.
-- **Limits are enforced before invocation.** Wall time, memory, processes, and invocation ceilings are enforced by the runtime before invoke; `run.py` cannot raise them.
+- **Scoring is separate from the Agent.** Gold does not enter the Agent view. PASS comes only from `evaluator.py` (deterministic script by default; optional `Agent.session` as LLM-as-judge). Trajectories are for inspection.
+- **Limits are enforced before invocation.** Wall time, memory, processes, and invocation ceilings are set by the runtime before invoke.
 
 **Composition**
 

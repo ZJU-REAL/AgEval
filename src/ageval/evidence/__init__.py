@@ -8,7 +8,11 @@ from ageval.evidence.invocation import read_invocation_payload
 from ageval.evidence.locators import portable_run_locator, resolve_evidence_root, resolve_run_dir
 from ageval.evidence.redaction import RedactionError, redact_value, scan_for_secrets
 from ageval.evidence.store import AttemptEvidenceStore, InvocationHandle
-from ageval.evidence.trajectory import turn_rows, write_attempt_trajectory
+from ageval.evidence.trajectory import (
+    turn_rows,
+    write_attempt_trajectory,
+    write_evaluation_observation,
+)
 
 __all__ = [
     "AttemptEvidenceStore",
@@ -24,4 +28,5 @@ __all__ = [
     "turn_rows",
     "write_attempt_result",
     "write_attempt_trajectory",
+    "write_evaluation_observation",
 ]

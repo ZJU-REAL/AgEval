@@ -73,9 +73,18 @@ class ScriptedExecutor:
 class ScriptedBinder(AgentBinder):
     """Binds one declared profile id to a fixed executor instance."""
 
-    def __init__(self, executor: Any, *, profile_id: str = "solver") -> None:
+    def __init__(
+        self,
+        executor: Any,
+        *,
+        profile_id: str = "solver",
+        extra_profiles: tuple[str, ...] = (),
+    ) -> None:
+        rows = ({"id": profile_id, "executor": ScriptedExecutor.kind},) + tuple(
+            {"id": name, "executor": ScriptedExecutor.kind} for name in extra_profiles
+        )
         super().__init__(
-            profiles=({"id": profile_id, "executor": ScriptedExecutor.kind},),
+            profiles=rows,
             services=ServiceTable(),
             registry=ExtensionRegistry(),
         )

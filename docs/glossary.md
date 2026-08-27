@@ -13,13 +13,13 @@
 | **Campaign** | 矩阵展开的多 Trial（`ageval campaign`） |
 | **suite** | 一份 dataset 去掉 `--task` 的全成员跑。suite 指标是观测，不是 suite PASS |
 | **run.py** | 题包 run phase 入口（`async def run(ctx)`）。不可读 `evaluation/` |
-| **evaluator.py** | 题包打分；PASS 只从 evaluate 相位绑定进入 |
+| **evaluator.py** | 题包打分；PASS 只从 evaluate 相位绑定进入。可选 `Agent.session`（LLM-as-judge）；观察不是 PASS |
 | **RunTerminal** | 题包结束信号；`completed` ≠ PASS |
 | **phase** | attempt 上的一大步（environment / run / evaluate / record / cleanup） |
-| **独占槽** | 全 Attempt 一个赢家；登记为同名 service |
+| **独占槽** | 每个 resolved graph 一个赢家；登记为同名 service。`environment` 是 Attempt 级一份；`executor` 按 profile 各绑一份 |
 | **链槽** | phase 内钩子，handler `(ctx, value, nxt)` |
 | **environment**（槽） | 盒子赢家：`local` / `docker` / `e2b` / `ssh` / `daytona`，同一 Protocol |
-| **executor**（槽） | Agent 后端赢家。coding-agent 默认 `acp`（parent client + `attach_stdio`）；`acp-oneshot` 是盒内一次性 client + `exec` |
+| **executor**（槽） | 该 `agent_profiles` 行的 Agent 后端赢家。coding-agent 默认 `acp`（parent client + `attach_stdio`）；`acp-oneshot` 是盒内一次性 client + `exec`。同一 Attempt 上不同 profile 可选不同机制 |
 | **acp-oneshot** | 外置 executor 插件：parent 一次 `host.exec` 跑盒内 ACP server+client；不要求 `attach_stdio` |
 | **service / inject** | 按名取能力：独占赢家以槽名 export；调用方 inject 服务名 + capabilities；lock 期解析。`exec` 是 Protocol 方法，不是独立 service |
 | **attach_stdio** | host 在已开盒里起前台进程并交回 stdin/stdout |

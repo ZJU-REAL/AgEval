@@ -98,7 +98,7 @@ class AttemptCtx:
         self._writers_stopped = True
 
     def assert_writers_stopped(self) -> None:
-        """Evaluate must not start while the Agent side can still write."""
+        """Evaluate must not start while run-phase Agent writers can still write."""
         if not self._writers_stopped:
             raise RuntimeError("agent writers not confirmed stopped before evaluate")
 

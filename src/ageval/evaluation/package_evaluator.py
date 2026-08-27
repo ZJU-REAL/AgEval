@@ -44,13 +44,20 @@ async def evaluate_in_box(ctx: AttemptCtx) -> dict[str, Any]:
     # Local boxes share this interpreter's filesystem, so the evaluator process
     # gets the same import contract as ``run.py``: dataset root then task dir
     # (``from shared.lib…``). Docker/e2b/ssh must bake or COPY ``shared/``.
-    exec_env = None
+    exec_env: dict[str, str] | None = None
     if getattr(ctx.host, "kind", None) == "local":
         exec_env = {
             "PYTHONPATH": os.pathsep.join(
                 [str(ctx.dataset_root.resolve()), str(ctx.task_root.resolve())]
             )
         }
+    sock = getattr(ctx.agent_service, "socket_path", None)
+    # The parent socket is a host Unix path. Local exec shares that filesystem;
+    # other kinds must not inherit a path they cannot open.
+    if sock is not None and getattr(ctx.host, "kind", None) == "local":
+        exec_env = dict(exec_env or {})
+        exec_env["AGEVAL_AGENT_SERVICE_SOCK"] = str(sock)
+        exec_env["AGEVAL_ATTEMPT_ID"] = ctx.attempt_id
     result = await ctx.host.exec(
         [*ctx.host.python_command, _RUNNER_NAME, json.dumps(request)],
         cwd=_BOX_EVALUATOR_DIR,

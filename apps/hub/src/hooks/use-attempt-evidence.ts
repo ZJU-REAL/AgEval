@@ -5,6 +5,7 @@ import {
   buildTrialMeta,
   firstTab,
   invDirFromTrajPath,
+  OBSERVATION_REL,
   parseTrajectoryJsonl,
   trajectoryRelPaths,
   scopeForTab,
@@ -68,6 +69,11 @@ export function useAttemptEvidence(
   const [steps, setSteps] = useState<TrajectoryStep[]>([]);
   const [trajNote, setTrajNote] = useState<string | null>(null);
   const [trajLoading, setTrajLoading] = useState(false);
+  const [observationSteps, setObservationSteps] = useState<TrajectoryStep[]>(
+    [],
+  );
+  const [obsNote, setObsNote] = useState<string | null>(null);
+  const [obsLoading, setObsLoading] = useState(false);
 
   const [tree, setTree] = useState<TreeEntry[]>([]);
   const [treeGroups, setTreeGroups] = useState<Array<{
@@ -210,6 +216,39 @@ export function useAttemptEvidence(
     if (!activeTab || !runId) return;
     let cancelled = false;
 
+    if (activeTab === "verifier") {
+      const hasObs = relFiles.some((f) => f.path === OBSERVATION_REL);
+      if (hasObs) {
+        setObsLoading(true);
+        setObsNote(null);
+        setObservationSteps([]);
+        (async () => {
+          try {
+            const f = await getAttemptFile(
+              runId,
+              toArchivePath(OBSERVATION_REL, runId),
+              token,
+            );
+            if (cancelled) return;
+            const parsed = parseTrajectoryJsonl(decodeFileContent(f) || "");
+            setObservationSteps(parsed);
+            setObsNote(null);
+          } catch (e) {
+            if (!cancelled) {
+              setObservationSteps([]);
+              setObsNote(e instanceof Error ? e.message : String(e));
+            }
+          } finally {
+            if (!cancelled) setObsLoading(false);
+          }
+        })();
+      } else {
+        setObservationSteps([]);
+        setObsNote(null);
+        setObsLoading(false);
+      }
+    }
+
     if (activeTab === "trajectory") {
       setTrajLoading(true);
       setTrajNote(null);
@@ -343,6 +382,9 @@ export function useAttemptEvidence(
     steps,
     trajNote,
     trajLoading,
+    observationSteps,
+    obsNote,
+    obsLoading,
     tree,
     treeGroups,
     treeLoading,

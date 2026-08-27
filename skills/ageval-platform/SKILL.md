@@ -27,11 +27,11 @@ Runtime owns lock, Attempt, the box, hard ceilings, trajectory, independent eval
 | --- | --- |
 | **Core:** lock, Attempt phases, box Protocol, Agent Service, hard ceilings, bind PASS | Task loop, scoring algorithm |
 | **`run.py`:** loop, tools, publish | PASS, credentials, opening the box |
-| **evaluator:** truth | Starting the Agent |
+| **evaluator:** truth (script, or optional `Agent.session` after gold) | Opening the box; binding PASS from trajectory |
 
 ## Red lines
 
-1. Trajectory ≠ PASS.
+1. Trajectory ≠ PASS (`trajectory.jsonl` and `evaluation/observation.jsonl`).
 2. No secrets in lock / yaml / evidence. Env vars are locators.
 3. Adapters named by mechanism (`acp`, `docker`, `e2b`, `ssh`). Never by benchmark.
 4. Kind is `environment: local|docker|e2b|ssh|daytona`.

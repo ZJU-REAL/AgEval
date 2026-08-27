@@ -2,9 +2,9 @@
 name: ageval-config-package
 description: >
   Author ageval datasets (ageval.yaml + tasks/*/task.yaml, run.py/evaluator.py,
-  profiles.yaml, environment kinds local|docker|e2b|ssh|daytona, limits, gold isolation).
-  Triggers: ageval.yaml, task.yaml, profiles.yaml, dataset, environment kind.
-  Never secrets in yaml. Never provider.kind.
+  profiles.yaml, environment kinds local|docker|e2b|ssh|daytona, limits, gold isolation,
+  script vs LLM-as-judge scoring). Triggers: ageval.yaml, task.yaml, profiles.yaml,
+  dataset, environment kind, evaluator.py. Never secrets in yaml. Never provider.kind.
 ---
 
 # Config / dataset + task
@@ -54,6 +54,15 @@ agent_profiles:
 ```
 
 Gold lives in `evaluation/` and is uploaded at evaluate, not before. `setup.sh` is the last environment slot.
+
+Two scoring styles in `evaluator.py` (same barrier; PASS still the return value):
+
+| Style | When | Evidence |
+| --- | --- | --- |
+| Deterministic script | Default. Compare artifacts to gold. No `Agent.session`. | `result.json`. No `evaluation/observation.jsonl`. |
+| LLM-as-judge | Extra role on the **same** `profiles.yaml` (e.g. `judge`). After gold lands, `Agent.session("judge").invoke`. | `evaluation/observation.jsonl` (no `user` rows). Not merged into Agent `trajectory.jsonl`. |
+
+Judge binding stays in `profiles.yaml` (not on the member task). Budget `limits.agent_invocations` for solver **and** judge. SDK session into the evaluator process is projected on `environment: local`. No `Agent.session` = script path.
 
 `--profiles` swaps the job. `--agent` is mutually exclusive with `--profiles`. `--model` requires `--agent`.
 

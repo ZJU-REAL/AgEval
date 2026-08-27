@@ -48,3 +48,5 @@ uv run ageval run  examples/journeys --task hello
 ```
 
 ACP 缺 entry：先 `ageval executors -v`。详见 [ACP Profiles](/docs/agents/acp-profiles)。
+
+评测默认是脚本比对 gold。若要用 LLM-as-judge，在同一份 `profiles.yaml` 加角色，gold 进盒后再 `Agent.session`；写法见 [编写 Evaluator](/docs/author/write-evaluator)。

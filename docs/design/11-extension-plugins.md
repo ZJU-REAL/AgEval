@@ -29,10 +29,12 @@
 
 | 槽 | 语义 | 例子 |
 | --- | --- | --- |
-| 独占 | 全 Attempt 一个赢家；登记为同名 service | `environment`、`executor`、`evaluation_runtime`、`trajectory_seal` |
+| 独占 | 每个 resolved graph 一个赢家；登记为同名 service | `environment`、`executor`、`evaluation_runtime`、`trajectory_seal` |
 | 链 | `(ctx, value, nxt)` | `after_environment_ready`、`environment_setup`、`trajectory_collect`、`summary_enrich` |
 
-`profiles.environment` / `profiles.executor` = 选独占槽赢家。`evaluation_runtime` / `trajectory_seal` **没有** job 字段糖；默认赢家即可，替换只能走显式 `extensions` 行（`slot` + `plugin`）。`extensions` 也是链槽 opt-in。未列入 `extensions` 的不进链、不进服务表（引擎默认除外）。
+`environment` / `evaluation_runtime` / `trajectory_seal` 是 Attempt 级一份赢家。`executor` 按 `agent_profiles` 每行一份：同一 Attempt 上 solver 与 judge 可以选不同 executor 插件（仍各是该 graph 上的独占赢家）。两个插件抢**同一 graph** 的同一独占槽或同一 export id → fail closed。
+
+`profiles.environment` / `agent_profiles.<id>.executor` = 选独占槽赢家。`evaluation_runtime` / `trajectory_seal` **没有** job 字段糖；默认赢家即可，替换只能走显式 `extensions` 行（`slot` + `plugin`）。`extensions` 也是链槽 opt-in。未列入 `extensions` 的不进链、不进服务表（引擎默认除外）。不开 `evaluation_collect` 一类新槽；evaluate 相位 SDK invoke 复用现有 invoke → 层 B → fold。
 
 Current 独占槽：`environment`、`executor`、`evaluation_runtime`、`trajectory_seal`。后两者默认是引擎（`plugin_id: default`）。PASS 仍只经 `bind_evaluation` 进入；`pass` / `identity` / `cleanup` / `evidence` 不准 export。
 
@@ -86,18 +88,18 @@ agent_profiles:
 - `ageval plugin install` 只写 `~/.ageval/plugins`，永不改 profiles。
 - 按机制命名（`acp` / `acp-oneshot` / `docker` / `e2b` / `daytona` / `ssh` / `nooa`）。禁止按 bench 名。
 
-独占槽默认赢家（Current）：`environment` 由 job `environment:` 选出（缺省常见 local 或 docker，以 profiles 为准）；`executor` 由 `agent_profiles.*.executor` 选出（coding-agent 默认 acp）；`evaluation_runtime` / `trajectory_seal` 由引擎 `plugin_id: default` 赢（盒内 `evaluator.py` / 层 C writer）。缺默认注册 → lock fail-closed。
+独占槽默认赢家（Current）：`environment` 由 job `environment:` 选出（缺省常见 local 或 docker，以 profiles 为准）；`executor` 由 **各** `agent_profiles.*.executor` 选出（coding-agent 默认 acp；judge 行可以是 `openai-http`）；`evaluation_runtime` / `trajectory_seal` 由引擎 `plugin_id: default` 赢（盒内 `evaluator.py` / 层 C writer）。缺默认注册 → lock fail-closed。lock 记录 **per-profile** executor 绑定。
 
 链默认：`after_environment_ready`（ACP 探测安装 + HOME overlay）；`environment_setup`（`setup.sh`，引擎 defaults）。
 
 ## 解析
 
 ```text
-profiles.environment / executor / extensions
-  → registry resolve
-       exclusive  单赢家（priority，并列 fail closed）
+profiles.environment / agent_profiles.<id>.executor / extensions
+  → registry resolve（每个 profile 一份 graph；environment 赢家必须一致）
+       exclusive  该 graph 单赢家（priority，并列 fail closed）
        chain      已排序的 nxt 链
-  → lock.extension_bindings 进 digest
+  → lock.extension_bindings 按 profile id 进 digest
 ```
 
 inject 用 `service: environment`，不写死 `plugin_id: e2b`。`executor: acp` 要 `attach_stdio`；盒内 worker（dsh / nooa / `acp-oneshot`）要 `exec`（dsh / nooa 另要 `upload`）。缺则 lock 失败。盒子没有 `attach_stdio` 不是把 oneshot 折进 ACP 插件的理由。
