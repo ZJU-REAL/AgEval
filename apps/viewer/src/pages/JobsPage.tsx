@@ -25,6 +25,8 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
+import { TableColumnPicker } from "@/components/ui/table-column-picker";
+import { useTableColumns } from "@/hooks/use-table-columns";
 import {
   Table,
   TableBody,
@@ -55,6 +57,18 @@ type SortKey =
   | "started"
   | "trials_total";
 
+const JOB_OPTIONAL_COLUMNS = [
+  { id: "environment", label: "Environment" },
+  { id: "started", label: "Started" },
+  { id: "duration", label: "Duration" },
+  { id: "trials_total", label: "Trials" },
+] as const;
+const JOB_OPTIONAL_IDS = JOB_OPTIONAL_COLUMNS.map((col) => col.id);
+const JOB_OPTIONAL_DEFAULT: typeof JOB_OPTIONAL_IDS = [
+  "environment",
+  "started",
+];
+
 export function JobsPage() {
   const navigate = useNavigate();
   const [jobs, setJobs] = useState<Job[]>([]);
@@ -73,6 +87,11 @@ export function JobsPage() {
   const [prefs, setPrefs] = useState<Record<string, JobPref>>({});
   const [selected, setSelected] = useState<Record<string, true>>({});
   const [reloadToken, setReloadToken] = useState(0);
+  const [columns, setColumns] = useTableColumns(
+    "ageval.viewer.columns.jobs",
+    JOB_OPTIONAL_IDS,
+    JOB_OPTIONAL_DEFAULT,
+  );
 
   useEffect(() => {
     let cancelled = false;
@@ -236,6 +255,19 @@ export function JobsPage() {
     });
   }
 
+  useEffect(() => {
+    if (
+      sortKey === "environment" ||
+      sortKey === "started" ||
+      sortKey === "trials_total"
+    ) {
+      if (!columns.includes(sortKey)) {
+        setSortKey(columns.includes("started") ? "started" : "job_name");
+        setSortDir("desc");
+      }
+    }
+  }, [columns, sortKey]);
+
   function onSort(key: string) {
     const next = nextSort(sortKey, sortDir, key);
     setSortKey(next.dir ? next.key : null);
@@ -263,14 +295,22 @@ export function JobsPage() {
     >
       <div className="flex flex-1 flex-col gap-4">
         <PageHead title="Jobs" />
-        <div className="relative">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-mute" />
-          <Input
-            value={q}
-            onChange={(e) => setQ(e.target.value)}
-            placeholder="Search for jobs..."
-            className="pl-9 h-10 focus-visible:border-hairline"
-            aria-label="Search jobs"
+        <div className="flex items-center gap-2">
+          <div className="relative min-w-0 flex-1">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-mute" />
+            <Input
+              value={q}
+              onChange={(e) => setQ(e.target.value)}
+              placeholder="Search for jobs..."
+              className="pl-9 h-10 focus-visible:border-hairline"
+              aria-label="Search jobs"
+            />
+          </div>
+          <TableColumnPicker
+            options={JOB_OPTIONAL_COLUMNS}
+            value={columns}
+            onChange={setColumns}
+            ariaLabel="Optional job columns"
           />
         </div>
 
@@ -408,10 +448,18 @@ export function JobsPage() {
                 <TableHead>{head("agent_label", "Harness")}</TableHead>
                 <TableHead>{head("model_label", "Models")}</TableHead>
                 <TableHead>{head("result", "Result")}</TableHead>
-                <TableHead>{head("environment", "Environment")}</TableHead>
-                <TableHead>{head("started", "Started")}</TableHead>
-                <TableHead>Duration</TableHead>
-                <TableHead>{head("trials_total", "Trials")}</TableHead>
+                {columns.includes("environment") ? (
+                  <TableHead>{head("environment", "Environment")}</TableHead>
+                ) : null}
+                {columns.includes("started") ? (
+                  <TableHead>{head("started", "Started")}</TableHead>
+                ) : null}
+                {columns.includes("duration") ? (
+                  <TableHead>Duration</TableHead>
+                ) : null}
+                {columns.includes("trials_total") ? (
+                  <TableHead>{head("trials_total", "Trials")}</TableHead>
+                ) : null}
                 <TableHead className="w-7 pl-0 pr-2">
                   <span className="sr-only">Actions</span>
                 </TableHead>
@@ -472,14 +520,24 @@ export function JobsPage() {
                     <TableCell className="tabular">
                       {formatScore(job.mean_score ?? job.result)}
                     </TableCell>
-                    <TableCell>{job.environment || "-"}</TableCell>
-                    <TableCell className="tabular text-body">
-                      {formatDate(job.started)}
-                    </TableCell>
-                    <TableCell className="text-mute">{job.duration || "-"}</TableCell>
-                    <TableCell className="tabular">
-                      {formatTrials(job.trials_done, job.trials_total)}
-                    </TableCell>
+                    {columns.includes("environment") ? (
+                      <TableCell>{job.environment || "-"}</TableCell>
+                    ) : null}
+                    {columns.includes("started") ? (
+                      <TableCell className="tabular text-body">
+                        {formatDate(job.started)}
+                      </TableCell>
+                    ) : null}
+                    {columns.includes("duration") ? (
+                      <TableCell className="text-mute">
+                        {job.duration || "-"}
+                      </TableCell>
+                    ) : null}
+                    {columns.includes("trials_total") ? (
+                      <TableCell className="tabular">
+                        {formatTrials(job.trials_done, job.trials_total)}
+                      </TableCell>
+                    ) : null}
                     <TableCell className="w-7 pl-0 pr-2 text-right">
                       <JobRowActions
                         job={job}
