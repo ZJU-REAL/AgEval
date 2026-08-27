@@ -199,7 +199,7 @@ function DiagramLightbox({
           }}
         >
           <div
-            className="m-auto shrink-0 rounded-lg border border-fd-border bg-fd-card p-4 shadow-lg [&_svg]:h-auto [&_svg]:max-w-none [&_svg]:w-full"
+            className="m-auto shrink-0 rounded-[14px] border border-fd-border bg-fd-card p-4 shadow-[var(--viewer-shadow-pop)] [&_svg]:h-auto [&_svg]:max-w-none [&_svg]:w-full"
             style={{ width: `${100 * scale}%`, maxWidth: "none" }}
             dangerouslySetInnerHTML={{ __html: svg }}
           />
