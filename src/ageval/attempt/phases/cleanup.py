@@ -18,29 +18,21 @@ async def run(ctx: AttemptCtx) -> None:
     ctx.phase = PHASE
     delete = not ctx.keep_workspace
     errors: list[str] = []
-    for host, fact in (
-        (ctx.evaluate_host, "evaluate_host_stopped"),
-        (ctx.host, "environment_stopped"),
-    ):
+    scoring = ctx.evaluate_host
+    if scoring is not None and scoring is not ctx.host:
         try:
-            await _stop_host(ctx, host, fact=fact, delete=delete)
+            await scoring.stop(delete=delete)
+            ctx.record_fact("evaluate_host_stopped", {"deleted": delete})
         except Exception as exc:  # noqa: BLE001 — cleanup failure is a warning, not a verdict
             errors.append(f"{type(exc).__name__}: {exc}")
+    try:
+        await ctx.host.stop(delete=delete)
+        ctx.record_fact("environment_stopped", {"deleted": delete})
+    except Exception as exc:  # noqa: BLE001 — cleanup failure is a warning, not a verdict
+        errors.append(f"{type(exc).__name__}: {exc}")
     if errors:
         ctx.record_fact(
             "cleanup_warning",
             {"error": "; ".join(errors), "failed_phase": previous},
         )
     await emit(ctx, CLEANUP_REPORT, ctx.facts_as_list())
-
-
-async def _stop_host(ctx: AttemptCtx, host: object | None, *, fact: str, delete: bool) -> None:
-    if host is None:
-        return
-    if fact == "evaluate_host_stopped" and host is ctx.host:
-        return
-    stop = getattr(host, "stop", None)
-    if stop is None:
-        return
-    await stop(delete=delete)
-    ctx.record_fact(fact, {"deleted": delete})

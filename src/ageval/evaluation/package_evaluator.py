@@ -33,6 +33,7 @@ async def evaluate_in_box(ctx: AttemptCtx) -> dict[str, Any]:
     host = ctx.scoring_host
     await host.upload(evaluator_src, f"{_BOX_EVALUATOR_DIR}/{module_file}")
     await host.upload(_runner_source_path(), f"{_BOX_EVALUATOR_DIR}/{_RUNNER_NAME}")
+    await _upload_task_sdk(host)
 
     request = {
         "entrypoint": entrypoint,
@@ -53,6 +54,8 @@ async def evaluate_in_box(ctx: AttemptCtx) -> dict[str, Any]:
                 [str(ctx.dataset_root.resolve()), str(ctx.task_root.resolve())]
             )
         }
+    elif _sdk_package_root() is not None:
+        exec_env = {"PYTHONPATH": _BOX_EVALUATOR_DIR}
     sock = _projected_agent_socket(ctx, host)
     if sock is not None:
         exec_env = dict(exec_env or {})
@@ -98,6 +101,25 @@ def _projected_agent_socket(ctx: Any, host: Any) -> str | None:
         return None
     sock = getattr(ctx.agent_service, "socket_path", None)
     return str(sock) if sock is not None else None
+
+
+def _sdk_package_root() -> Path | None:
+    try:
+        import ageval_sdk
+    except ImportError:
+        return None
+    path = Path(ageval_sdk.__file__).resolve().parent
+    return path if path.is_dir() else None
+
+
+async def _upload_task_sdk(host: Any) -> None:
+    """Put ageval_sdk on the scoring host so in-box evaluator can Agent.session."""
+    if getattr(host, "kind", None) == "local":
+        return
+    sdk = _sdk_package_root()
+    if sdk is None:
+        return
+    await host.upload(sdk, f"{_BOX_EVALUATOR_DIR}/ageval_sdk")
 
 
 def _runner_source_path() -> Path:

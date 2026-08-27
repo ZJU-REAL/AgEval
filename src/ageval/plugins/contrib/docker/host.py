@@ -410,7 +410,8 @@ class DockerHost:
             projected["HTTPS_PROXY"] = self._proxy_url
             projected["http_proxy"] = self._proxy_url
             projected["https_proxy"] = self._proxy_url
-            projected.setdefault("NO_PROXY", "localhost,127.0.0.1")
+            projected["NO_PROXY"] = ""
+            projected["no_proxy"] = ""
         flags: list[str] = []
         for key, value in projected.items():
             flags.extend(["-e", f"{key}={value}"])
