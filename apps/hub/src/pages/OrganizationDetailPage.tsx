@@ -496,7 +496,7 @@ export function OrganizationDetailPage() {
                                     alt=""
                                     width={36}
                                     height={36}
-                                    className="h-9 w-9 rounded-full bg-canvas-soft shrink-0 object-cover shadow-[var(--viewer-shadow-liquid)]"
+                                    className="h-9 w-9 rounded-full bg-canvas-soft shrink-0 object-cover shadow-[var(--viewer-shadow-pop)]"
                                     loading="lazy"
                                   />
                                   <div className="min-w-0 leading-tight">

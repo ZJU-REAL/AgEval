@@ -36,7 +36,6 @@
   --color-shell-punct: var(--viewer-shell-punct);
   --color-shell-plain: var(--viewer-shell-plain);
 
-  --color-liquid-fill: var(--viewer-canvas-soft-2);
   --color-liquid-hover: var(--viewer-canvas-soft);
 
   --radius-sm: 8px;
@@ -84,7 +83,6 @@
   --viewer-shell-plain: #14161f;
 
   --viewer-shadow-pop: 0 1px 1px rgb(0 0 0 / 3%), 0 4px 8px -2px rgb(0 0 0 / 8%);
-  --viewer-shadow-liquid: 0 1px 1px rgb(0 0 0 / 3%), 0 4px 8px -2px rgb(0 0 0 / 8%);
 }
 
 [data-theme="dark"] {
@@ -120,7 +118,6 @@
   --viewer-shell-plain: #eef0f6;
 
   --viewer-shadow-pop: 0 1px 1px rgb(0 0 0 / 40%), 0 4px 8px -2px rgb(0 0 0 / 50%);
-  --viewer-shadow-liquid: 0 1px 1px rgb(0 0 0 / 40%), 0 4px 8px -2px rgb(0 0 0 / 50%);
 }
 
 @media (prefers-color-scheme: dark) {
@@ -157,8 +154,7 @@
     --viewer-shell-plain: #eef0f6;
 
     --viewer-shadow-pop: 0 1px 1px rgb(0 0 0 / 40%), 0 4px 8px -2px rgb(0 0 0 / 50%);
-    --viewer-shadow-liquid: 0 1px 1px rgb(0 0 0 / 40%), 0 4px 8px -2px rgb(0 0 0 / 50%);
-  }
+    }
 }
 
 @media (prefers-color-scheme: light) {
@@ -194,8 +190,7 @@
     --viewer-shell-punct: #5e6376;
     --viewer-shell-plain: #14161f;
     --viewer-shadow-pop: 0 1px 1px rgb(0 0 0 / 3%), 0 4px 8px -2px rgb(0 0 0 / 8%);
-    --viewer-shadow-liquid: 0 1px 1px rgb(0 0 0 / 3%), 0 4px 8px -2px rgb(0 0 0 / 8%);
-  }
+    }
 }
 
 @layer base {

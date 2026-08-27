@@ -88,7 +88,7 @@ export function BrandMarkPicker({
           className={cn(
             "flex flex-col items-center gap-1 rounded-[12px] px-2 py-2 text-center",
             selected.mode === "default"
-              ? "bg-canvas shadow-[var(--viewer-shadow-liquid)]"
+              ? "bg-canvas shadow-[var(--viewer-shadow-pop)]"
               : "hover:bg-canvas-soft",
           )}
         >
@@ -114,7 +114,7 @@ export function BrandMarkPicker({
             className={cn(
               "flex flex-col items-center gap-1 rounded-[12px] px-2 py-2 text-center",
               selected.mode === "catalog" && selected.id === row.id
-                ? "bg-canvas shadow-[var(--viewer-shadow-liquid)]"
+                ? "bg-canvas shadow-[var(--viewer-shadow-pop)]"
                 : "hover:bg-canvas-soft",
             )}
           >

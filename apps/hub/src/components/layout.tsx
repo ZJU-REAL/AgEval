@@ -518,7 +518,7 @@ export function Shell({
                         alt=""
                         width={28}
                         height={28}
-                        className="h-7 w-7 shrink-0 rounded-full bg-canvas-soft object-cover shadow-[var(--viewer-shadow-liquid)]"
+                        className="h-7 w-7 shrink-0 rounded-full bg-canvas-soft object-cover shadow-[var(--viewer-shadow-pop)]"
                       />
                     ) : null}
                     <span className="inline-flex min-w-0 items-center gap-1">

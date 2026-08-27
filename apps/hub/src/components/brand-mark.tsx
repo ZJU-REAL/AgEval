@@ -99,7 +99,7 @@ export function BrandMark({
         title={title}
         referrerPolicy="no-referrer"
         className={cn(
-          "inline-block shrink-0 rounded-full bg-canvas-soft object-cover shadow-[var(--viewer-shadow-liquid)]",
+          "inline-block shrink-0 rounded-full bg-canvas-soft object-cover shadow-[var(--viewer-shadow-pop)]",
           className,
         )}
         style={{ width: size, height: size }}

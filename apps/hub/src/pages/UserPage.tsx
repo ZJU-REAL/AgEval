@@ -135,7 +135,7 @@ export function UserPage() {
                 alt=""
                 width={48}
                 height={48}
-                className="h-12 w-12 rounded-full bg-canvas-soft object-cover shrink-0 shadow-[var(--viewer-shadow-liquid)]"
+                className="h-12 w-12 rounded-full bg-canvas-soft object-cover shrink-0 shadow-[var(--viewer-shadow-pop)]"
               />
             ) : null}
             <div className="min-w-0">

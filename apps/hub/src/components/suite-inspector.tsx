@@ -101,7 +101,7 @@ function CodeBlock({
   }
 
   return (
-    <div className="relative rounded-[12px] bg-code-bg shadow-[var(--viewer-shadow-liquid)]">
+    <div className="relative rounded-[12px] bg-code-bg shadow-[var(--viewer-shadow-pop)]">
       <Button
         type="button"
         variant="ghost"
