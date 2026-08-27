@@ -23,10 +23,12 @@ from typing import Any
 
 from ageval.attempt.ctx import AttemptCtx
 from ageval.config.model import thaw
-from ageval.environments.protocol import WORKSPACE_PATH
+from ageval.environments.protocol import EVALUATION_PATH, WORKSPACE_PATH
+from ageval.evidence.store import TASK_ARTIFACTS_REL
 from ageval.runtime.offline import DEFAULT_OFFLINE_ENV, is_offline_agent
 
 WORKER_MODULE = "ageval.runtime.task_worker"
+EVAL_WORKER_MODULE = "ageval.runtime.eval_worker"
 # stderr is diagnostics; keep the tail that fits in one evidence fact.
 _STDERR_TAIL_BYTES = 4000
 
@@ -57,6 +59,33 @@ async def launch_task_worker(ctx: AttemptCtx) -> dict[str, Any]:
     envelope = await _collect(process, timeout=ctx.remaining_seconds())
     _record_artifacts(ctx, envelope)
     return envelope
+
+
+async def launch_eval_worker(ctx: AttemptCtx) -> dict[str, Any]:
+    """Run ``evaluator.py`` in a parent child, same JSON-RPC socket as ``run.py``."""
+    workspace = _eval_workspace(ctx)
+    artifacts = ctx.evidence.path(TASK_ARTIFACTS_REL)
+    artifacts.mkdir(parents=True, exist_ok=True)
+    evaluation = _eval_gold_dir(ctx)
+    workspace.mkdir(parents=True, exist_ok=True)
+    process = await asyncio.create_subprocess_exec(
+        sys.executable,
+        "-m",
+        EVAL_WORKER_MODULE,
+        cwd=str(workspace),
+        env=_eval_worker_env(
+            ctx, workspace=workspace, artifacts=artifacts, evaluation=evaluation
+        ),
+        stdin=asyncio.subprocess.PIPE,
+        stdout=asyncio.subprocess.PIPE,
+        stderr=asyncio.subprocess.PIPE,
+        start_new_session=True,
+    )
+    assert process.stdin is not None
+    process.stdin.write(_frame(_eval_launch_message(ctx)))
+    await process.stdin.drain()
+    process.stdin.close()
+    return await _collect(process, timeout=ctx.remaining_seconds())
 
 
 def _launch_message(ctx: AttemptCtx) -> dict[str, Any]:
@@ -100,6 +129,59 @@ def _copy_seed(source: Path, dest: Path) -> None:
             shutil.copytree(path, target, dirs_exist_ok=True)
         else:
             shutil.copy2(path, target)
+
+
+def _eval_workspace(ctx: AttemptCtx) -> Path:
+    """Scoring-host workspace when the parent can see the bind-mount."""
+    host = getattr(ctx, "scoring_host", None) or ctx.host
+    host_path = getattr(host, "host_path", None)
+    if callable(host_path):
+        mapped = Path(str(host_path(WORKSPACE_PATH)))
+        mapped.mkdir(parents=True, exist_ok=True)
+        return mapped
+    return _worker_workspace(ctx)
+
+
+def _eval_gold_dir(ctx: AttemptCtx) -> Path:
+    """Gold on the parent disk. The agent box never received this tree."""
+    src = getattr(ctx, "evaluation_src", None)
+    if src is not None and Path(src).is_dir():
+        return Path(src)
+    host = getattr(ctx, "scoring_host", None) or ctx.host
+    host_path = getattr(host, "host_path", None)
+    if callable(host_path):
+        mapped = Path(str(host_path(EVALUATION_PATH)))
+        mapped.mkdir(parents=True, exist_ok=True)
+        return mapped
+    empty = ctx.evidence.path("evaluation")
+    empty.mkdir(parents=True, exist_ok=True)
+    return empty
+
+
+def _eval_launch_message(ctx: AttemptCtx) -> dict[str, Any]:
+    references = thaw(ctx.lock.resolved_references)
+    return {
+        "task_root": str(ctx.task_root),
+        "dataset_root": str(ctx.dataset_root),
+        "entrypoint": str(references.get("evaluation_entrypoint") or "evaluator:evaluate"),
+        "parameters": thaw(ctx.lock.parameters),
+        "evaluation_inputs": references.get("evaluation_inputs") or [],
+        "attempt_id": ctx.attempt_id,
+        "trial_id": ctx.trial_id,
+        "run_id": ctx.run_id,
+    }
+
+
+def _eval_worker_env(
+    ctx: AttemptCtx,
+    *,
+    workspace: Path,
+    artifacts: Path,
+    evaluation: Path,
+) -> dict[str, str]:
+    env = _worker_env(ctx, workspace=workspace, artifacts=artifacts)
+    env["AGEVAL_EVALUATION"] = str(evaluation)
+    return env
 
 
 def _worker_env(ctx: AttemptCtx, *, workspace: Path, artifacts: Path) -> dict[str, str]:

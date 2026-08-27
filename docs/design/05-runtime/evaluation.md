@@ -4,7 +4,7 @@ writer 必须先停。然后把 gold 与产物送进 **打分 Host**。`evaluato
 
 打分 Host 缺省就是 run 那只盒子。job `evaluate_host.isolated: true` 时是 **第二只** EnvironmentProvider 实例（同 kind、不同配方、不同 work root），不是新独占槽。
 
-实现：`src/ageval/evaluation/package_evaluator.py` + `box_runner.py` + `bind.py`。相位代码：`src/ageval/attempt/phases/evaluate.py`。harvest：`src/ageval/attempt/artifact_harvest.py`。
+实现：`src/ageval/evaluation/package_evaluator.py` + `src/ageval/runtime/eval_worker.py` + `bind.py`。相位代码：`src/ageval/attempt/phases/evaluate.py`。harvest：`src/ageval/attempt/artifact_harvest.py`。
 
 ```text
 run 结束 → 停 solver writer（run 相位已打开的 session 不得再 invoke）

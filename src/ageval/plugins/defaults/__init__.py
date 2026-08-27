@@ -1,7 +1,7 @@
 """Engine default contributions.
 
 Chain: recognize ``environment/setup.sh``.
-Exclusive: in-box evaluator launch and layer-C trajectory write.
+Exclusive: parent evaluator launch and layer-C trajectory write.
 
 There is deliberately no pass-through handler registered on every chain —
 an empty chain already means "nothing to do", and filling the lock with no-op

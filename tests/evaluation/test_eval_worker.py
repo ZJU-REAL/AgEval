@@ -1,0 +1,82 @@
+"""Parent evaluator worker: same Agent Service socket as run.py."""
+
+from __future__ import annotations
+
+from pathlib import Path
+from types import SimpleNamespace
+
+import pytest
+
+from ageval.evaluation.package_evaluator import evaluate_in_box
+from ageval.evidence.store import AttemptEvidenceStore
+from ageval.runtime.eval_worker import _published
+from ageval.runtime.task_launch import _eval_gold_dir, _eval_workspace
+
+
+def test_published_includes_file_stems_and_tree_dirs(tmp_path: Path) -> None:
+    (tmp_path / "reply.json").write_text("{}\n", encoding="utf-8")
+    (tmp_path / "repo").mkdir()
+    (tmp_path / "repo" / "a.txt").write_text("x\n", encoding="utf-8")
+    (tmp_path / "evaluation.json").write_text("{}\n", encoding="utf-8")
+    found = _published(tmp_path)
+    assert found["reply"].endswith("reply.json")
+    assert found["repo"].endswith("repo")
+    assert "evaluation" not in found
+
+
+def test_eval_workspace_prefers_scoring_host_bind_mount(tmp_path: Path) -> None:
+    mapped = tmp_path / "box" / "workspace"
+    mapped.mkdir(parents=True)
+    host = SimpleNamespace(
+        host_path=lambda dest: mapped if dest.endswith("workspace") else tmp_path
+    )
+    ctx = SimpleNamespace(scoring_host=host, host=SimpleNamespace())
+    assert _eval_workspace(ctx) == mapped
+
+
+def test_eval_gold_dir_reads_parent_evaluation_src(tmp_path: Path) -> None:
+    gold = tmp_path / "evaluation"
+    gold.mkdir()
+    ctx = SimpleNamespace(evaluation_src=gold, scoring_host=SimpleNamespace(), evidence=None)
+    assert _eval_gold_dir(ctx) == gold
+
+
+@pytest.mark.asyncio
+async def test_evaluate_in_box_runs_parent_worker(tmp_path: Path) -> None:
+    task = tmp_path / "task"
+    task.mkdir()
+    (task / "evaluator.py").write_text(
+        "def evaluate(inputs):\n"
+        "    return {'status': 'PASS', 'score': 1.0, 'metrics': {'via': 'parent'}}\n",
+        encoding="utf-8",
+    )
+    evidence = AttemptEvidenceStore(root=tmp_path / "run", attempt_id="a", run_id="r")
+    workspace = tmp_path / "workspace"
+    workspace.mkdir()
+    host = SimpleNamespace(host_path=lambda dest: workspace)
+
+    class Lock:
+        resolved_references = {
+            "evaluation_entrypoint": "evaluator:evaluate",
+            "evaluation_inputs": [],
+        }
+        parameters = {}
+
+    ctx = SimpleNamespace(
+        lock=Lock(),
+        task_root=task,
+        dataset_root=tmp_path,
+        attempt_id="a",
+        trial_id="t",
+        run_id="r",
+        evidence=evidence,
+        scoring_host=host,
+        host=host,
+        evaluation_src=None,
+        agent_service=None,
+        remaining_seconds=lambda: 30.0,
+        record_fact=lambda *_a, **_k: None,
+    )
+    verdict = await evaluate_in_box(ctx)
+    assert verdict["status"] == "PASS"
+    assert verdict["metrics"]["via"] == "parent"

@@ -6,7 +6,7 @@ from typing import Any
 
 
 class DefaultEvaluationRuntime:
-    """Today's in-box ``evaluator.py`` via ``host.exec``. Returns raw; does not bind."""
+    """Parent-subprocess ``evaluator.py``. Returns raw; does not bind."""
 
     async def evaluate(self, ctx: Any) -> dict[str, Any]:
         from ageval.evaluation.package_evaluator import evaluate_in_box

@@ -201,7 +201,7 @@ src/ageval/
   plugins/contrib/{acp,docker,local,e2b,daytona,ssh,openai_http}
   plugins/defaults/                 # or move to contrib/defaults — pick one, not both
   runtime/{identity,parent_agent,task_launch,task_worker}
-  evaluation/{bind,package_evaluator,box_runner}
+  evaluation/{bind,package_evaluator} + runtime/eval_worker.py
   evidence/{locators,store,trajectory}
 ```
 
