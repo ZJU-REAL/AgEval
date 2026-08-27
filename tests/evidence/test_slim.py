@@ -56,6 +56,10 @@ def test_is_vendor_raw_rel() -> None:
     assert not is_vendor_raw_rel("result.json")
     assert not is_vendor_raw_rel("summary.json")
     assert not is_vendor_raw_rel("task-artifacts/out.txt")
+    assert not is_vendor_raw_rel("evaluation/observation.jsonl")
+    assert is_vendor_raw_rel("evaluation/events.jsonl")
+    assert is_vendor_raw_rel("evaluation/invocations/001/request.json")
+    assert is_vendor_raw_rel("evaluation/invocations/001/backend_raw/raw.json")
 
 
 def test_slim_deletes_vendor_raw_keeps_jsonl(tmp_path: Path) -> None:
@@ -75,6 +79,29 @@ def test_slim_deletes_vendor_raw_keeps_jsonl(tmp_path: Path) -> None:
     assert not (inv / "metadata.json").exists()
     assert not (root / "agent" / "events.jsonl").exists()
     assert not (root / "evaluation" / "evaluator_raw.json").exists()
+
+
+def test_slim_keeps_observation_jsonl_drops_eval_vendor_raw(tmp_path: Path) -> None:
+    root = tmp_path / "run"
+    root.mkdir()
+    eval_inv = root / "evaluation" / "invocations" / "0001-judge"
+    eval_inv.mkdir(parents=True)
+    (eval_inv / "request.json").write_text('{"messages":[{"content":"gold"}]}\n', encoding="utf-8")
+    (eval_inv / "events.jsonl").write_text("{}\n", encoding="utf-8")
+    (eval_inv / "backend_raw").mkdir()
+    (eval_inv / "backend_raw" / "raw.json").write_text("{}\n", encoding="utf-8")
+    (root / "evaluation" / "events.jsonl").write_text("{}\n", encoding="utf-8")
+    (root / "evaluation" / "evaluator_raw.json").write_text("{}\n", encoding="utf-8")
+    (root / "evaluation" / "observation.jsonl").write_text(
+        '{"type":"terminal","profile_id":"judge"}\n', encoding="utf-8"
+    )
+    slim_sealed_attempt(root)
+    assert (root / "evaluation" / "observation.jsonl").is_file()
+    assert not (root / "evaluation" / "evaluator_raw.json").exists()
+    assert not (root / "evaluation" / "events.jsonl").exists()
+    assert eval_inv.is_dir()
+    assert not (eval_inv / "request.json").exists()
+    assert not (eval_inv / "backend_raw").exists()
 
 
 @pytest.mark.asyncio
@@ -125,6 +152,12 @@ def test_archive_skips_vendor_raw_unless_flag(tmp_path: Path) -> None:
     (run_dir / "lock.json").write_text("{}\n", encoding="utf-8")
     (run_dir / "result.json").write_text("{}\n", encoding="utf-8")
     (run_dir / "trajectory.jsonl").write_text("{}\n", encoding="utf-8")
+    (run_dir / "evaluation").mkdir()
+    (run_dir / "evaluation" / "observation.jsonl").write_text("{}\n", encoding="utf-8")
+    (run_dir / "evaluation" / "evaluator_raw.json").write_text("{}\n", encoding="utf-8")
+    eval_inv = run_dir / "evaluation" / "invocations" / "001"
+    eval_inv.mkdir(parents=True)
+    (eval_inv / "request.json").write_text("{}\n", encoding="utf-8")
     inv = run_dir / "agent" / "invocations" / "001"
     inv.mkdir(parents=True)
     (inv / "request.json").write_text("{}\n", encoding="utf-8")
@@ -150,6 +183,11 @@ def test_archive_skips_vendor_raw_unless_flag(tmp_path: Path) -> None:
     fat_names = names(fat)
     assert f"{prefix}/trajectory.jsonl" in slim_names
     assert f"{prefix}/lock.json" in slim_names
+    assert f"{prefix}/evaluation/observation.jsonl" in slim_names
+    assert f"{prefix}/evaluation/evaluator_raw.json" not in slim_names
+    assert f"{prefix}/evaluation/invocations/001/request.json" not in slim_names
+    assert f"{prefix}/evaluation/evaluator_raw.json" in fat_names
+    assert f"{prefix}/evaluation/invocations/001/request.json" in fat_names
     assert not any("backend_raw" in n for n in slim_names)
     assert not any(n.endswith("/request.json") for n in slim_names)
     assert f"{prefix}/agent/invocations/001/request.json" in fat_names

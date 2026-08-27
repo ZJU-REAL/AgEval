@@ -1,0 +1,6 @@
+format: ageval.dataset/1
+dataset_id: test/eval-judge-min
+version: "0.1.0"
+description: Opt-in evaluator SDK invoke (LLM-as-judge) fixture
+tasks:
+  root: tasks
