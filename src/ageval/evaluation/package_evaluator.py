@@ -86,7 +86,7 @@ def _read_verdict(ctx: AttemptCtx, stdout: str) -> dict[str, Any]:
     return doc
 
 
-def _projected_agent_socket(ctx: AttemptCtx, host: Any) -> str | None:
+def _projected_agent_socket(ctx: Any, host: Any) -> str | None:
     """In-box socket path the evaluator can open, or None."""
     projected = getattr(host, "projected_agent_socket", None)
     if callable(projected):
