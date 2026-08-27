@@ -42,6 +42,10 @@ from ageval.plugins.contrib.acp.trajectory_map import acp_session_events_to_agev
 from ageval.plugins.contrib.acp.usage import _as_plain_mapping, normalize_acp_usage
 
 
+class _IdleTimeout(Exception):
+    """No ACP session/update or permission for idle_timeout_seconds."""
+
+
 class AcpExecutor(AgentExecutor):
     """Descriptor-driven ACP executor; one entry process per ageval session."""
 
@@ -58,6 +62,7 @@ class AcpExecutor(AgentExecutor):
         base_url: str | None = None,
         api_key_env: str | None = None,
         descriptor: AcpEntryDescriptor | None = None,
+        idle_timeout_seconds: float | None = None,
     ) -> None:
         self.entry_id = entry_id
         self.model = model
@@ -66,6 +71,8 @@ class AcpExecutor(AgentExecutor):
             self.reasoning_effort = None
         self.base_url = base_url
         self.api_key_env = api_key_env
+        idle = float(idle_timeout_seconds) if idle_timeout_seconds is not None else None
+        self.idle_timeout_seconds = idle if idle is not None and idle > 0 else None
         resolved = descriptor if descriptor is not None else get_entry(entry_id)
         if resolved is None:
             raise KeyError(f"unknown_acp_entry:{entry_id}")
@@ -237,8 +244,6 @@ class AcpExecutor(AgentExecutor):
         return text[:300] if text else None
 
     async def _prompt_once(self, prompt: str) -> AgentResult:
-        import acp
-
         assert self._conn is not None and self._client is not None
         assert self._acp_session_id is not None
         # Per-prompt isolation: chunks + event buffer reset each invoke so
@@ -248,12 +253,13 @@ class AcpExecutor(AgentExecutor):
         self._client.permission_decisions.clear()
         self._client.latest_usage_update = None
         self._client.prompt_usage = None
+        self._client.mark_activity()
+        started = time.monotonic()
 
         try:
-            resp = await self._conn.prompt(
-                session_id=self._acp_session_id,
-                prompt=[acp.text_block(prompt)],
-            )
+            resp = await self._await_prompt(prompt)
+        except _IdleTimeout:
+            return self._timeout_agent_result(started, error="acp_idle_timeout")
         except Exception as exc:  # noqa: BLE001
             msg = str(exc).lower()
             if "auth" in msg:
@@ -303,6 +309,64 @@ class AcpExecutor(AgentExecutor):
         if elicited and not text:
             return self._result(text=text, ok=False, error="acp_elicitation_required", stop=stop)
         return self._result(text=text, ok=ok, error=err, stop=stop)
+
+    async def _await_prompt(self, prompt: str) -> Any:
+        """Wait for ``session/prompt``. Optional idle stall is ACP-local."""
+        import acp
+
+        assert self._conn is not None
+        prompt_coro = self._conn.prompt(
+            session_id=self._acp_session_id,
+            prompt=[acp.text_block(prompt)],
+        )
+        idle = self.idle_timeout_seconds
+        if idle is None:
+            return await prompt_coro
+        prompt_task = asyncio.create_task(prompt_coro)
+        try:
+            while True:
+                if prompt_task.done():
+                    return prompt_task.result()
+                assert self._client is not None
+                remaining = idle - (time.monotonic() - self._client.last_activity_monotonic)
+                if remaining <= 0:
+                    with contextlib_suppress(Exception):
+                        await self._cancel()
+                    raise _IdleTimeout()
+                await asyncio.wait({prompt_task}, timeout=min(0.2, remaining))
+        finally:
+            if not prompt_task.done():
+                prompt_task.cancel()
+                with contextlib_suppress(asyncio.CancelledError, Exception):
+                    await prompt_task
+
+    def _timeout_agent_result(self, started: float, *, error: str) -> AgentResult:
+        """Keep in-flight ACP updates; append one timeout lifecycle row."""
+        timeout_ev: dict[str, Any] = {
+            "type": "lifecycle",
+            "phase": "timeout",
+            "source": "acp_adapter",
+            "reason": error,
+            "elapsed_ms": (time.monotonic() - started) * 1000.0,
+        }
+        meta: dict[str, Any] = {
+            "executor_kind": "acp",
+            "acp_entry_id": self.entry_id,
+        }
+        if self.idle_timeout_seconds is not None:
+            meta["idle_timeout_seconds"] = self.idle_timeout_seconds
+        text = ""
+        if error == "acp_idle_timeout" and self._client is not None:
+            text = "".join(self._client.text_chunks)
+        return AgentResult(
+            model=self.model,
+            text=text,
+            structured=None,
+            ok=False,
+            error=error,
+            events=(*self._mapped_events(), timeout_ev),
+            metadata=meta,
+        )
 
     def _result(
         self,
@@ -408,24 +472,7 @@ class AcpExecutor(AgentExecutor):
         with contextlib_suppress(Exception):
             self._run(self._cancel(), timeout=5.0)
         self._write_vendor(collect_dir)
-        timeout_ev: dict[str, Any] = {
-            "type": "lifecycle",
-            "phase": "timeout",
-            "source": "acp_adapter",
-            "elapsed_ms": (time.monotonic() - started) * 1000.0,
-        }
-        return AgentResult(
-            model=self.model,
-            text="",
-            structured=None,
-            ok=False,
-            error="acp_timeout",
-            events=(*self._mapped_events(), timeout_ev),
-            metadata={
-                "executor_kind": "acp",
-                "acp_entry_id": self.entry_id,
-            },
-        )
+        return self._timeout_agent_result(started, error="acp_timeout")
 
     def invoke(
         self,

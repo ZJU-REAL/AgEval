@@ -56,6 +56,7 @@ def build_acp_executor(
         reasoning_effort=_optional_str(opts.get("reasoning_effort")),
         base_url=base_url,
         api_key_env=api_key,
+        idle_timeout_seconds=_optional_positive_seconds(opts.get("idle_timeout_seconds")),
     )
 
 
@@ -64,6 +65,29 @@ def _optional_str(raw: Any) -> str | None:
         return None
     text = str(raw).strip()
     return text or None
+
+
+def _optional_positive_seconds(raw: Any) -> float | None:
+    """``options.idle_timeout_seconds``: unset / ≤0 disables; garbage fails closed."""
+    if raw is None or raw == "":
+        return None
+    if isinstance(raw, bool) or not isinstance(raw, (int, float, str)):
+        from ageval.plugins.errors import ExtensionMaterializeError
+
+        raise ExtensionMaterializeError(
+            "acp_idle_timeout_invalid",
+            kind="extension_materialize_failed",
+        )
+    try:
+        value = float(raw)
+    except (TypeError, ValueError):
+        from ageval.plugins.errors import ExtensionMaterializeError
+
+        raise ExtensionMaterializeError(
+            "acp_idle_timeout_invalid",
+            kind="extension_materialize_failed",
+        ) from None
+    return value if value > 0 else None
 
 
 async def _acp_trajectory_collect(ctx: Any, value: Any, nxt: Any) -> Any:

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import threading
+import time
 from collections.abc import Sequence
 from contextlib import suppress as contextlib_suppress
 from dataclasses import dataclass, field
@@ -79,8 +80,13 @@ class _AgevalAcpClient:
     latest_usage_update: dict[str, Any] | None = None
     prompt_usage: dict[str, Any] | None = None
     permission_decisions: list[dict[str, Any]] = field(default_factory=list)
+    last_activity_monotonic: float = field(default_factory=time.monotonic)
     _conn: Any = None
     _lock: threading.Lock = field(default_factory=threading.Lock, repr=False, compare=False)
+
+    def mark_activity(self) -> None:
+        """Bump the stall clock. Any session/update, permission, or elicitation."""
+        self.last_activity_monotonic = time.monotonic()
 
     def on_connect(self, conn: Any) -> None:
         self._conn = conn
@@ -92,6 +98,7 @@ class _AgevalAcpClient:
         options: list[Any],
         **kwargs: Any,
     ) -> Any:
+        self.mark_activity()
         resp = _auto_approve_permission(options)
         decision = {
             "type": "permission_decision",
@@ -116,6 +123,7 @@ class _AgevalAcpClient:
         payload (not only text_len). Operators who run local smokes want the
         raw stream for post-hoc training export.
         """
+        self.mark_activity()
         update_type = type(update).__name__
         event: dict[str, Any] = {
             "type": "session_update",
@@ -209,6 +217,7 @@ class _AgevalAcpClient:
     async def create_elicitation(self, message: str, mode: Any, **kwargs: Any) -> Any:
         import acp
 
+        self.mark_activity()
         self.record(
             {
                 "type": "elicitation",

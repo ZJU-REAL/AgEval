@@ -33,6 +33,7 @@ Missing `attach_stdio` fails at **lock**, not mid-invoke.
 | --- | --- | --- |
 | `options.entry` | *(required)* | ACP entry id. Shipped: `codex`, `claude-code`, `pi`, `opencode`, `grok-build`. Missing → lock `acp_entry_required`. |
 | `options.reasoning_effort` | unset | Applied when the entry advertises a reasoning selector. Omit to keep the entry default. |
+| `options.idle_timeout_seconds` | unset | Stall ceiling during `session/prompt`. Any `session_update` or `request_permission` resets it. Unset / ≤0 → wall-clock invoke `timeout` only. Fires `acp_idle_timeout` (still capped by Parent wall). Non-numeric → lock `acp_idle_timeout_invalid`. |
 | `model` | `entry-default` | Session model id. Binding is entry-specific (`config-option` vs entry-default-only). |
 | `api_key` | unset | Env **locator name** projected into the attach env. Value never enters the lock. |
 | `base_url` | unset | `${ENV_NAME}` (lock stores the locator; spawn reads env) or a literal `http(s)` URL (lock stores the URL). |
