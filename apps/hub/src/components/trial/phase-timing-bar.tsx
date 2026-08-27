@@ -172,8 +172,8 @@ export function PhaseTimingBar({
     <div
       className={
         both
-          ? "flex flex-col gap-6 rounded-[8px] border border-hairline p-4 sm:flex-row sm:items-stretch sm:gap-0"
-          : "rounded-[8px] border border-hairline p-4"
+          ? "flex flex-col gap-6 blob-panel p-4 sm:flex-row sm:items-stretch sm:gap-0"
+          : "blob-panel p-4"
       }
     >
       {tokens.length > 0 ? (

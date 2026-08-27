@@ -122,7 +122,7 @@ export function UserPage() {
       {loading ? (
         <LoadingState label="Loading user" />
       ) : error ? (
-        <div className="rounded-[8px] border border-hairline bg-canvas-soft p-4 text-sm">
+        <div className="blob-panel p-4 text-sm">
           <p className="text-error font-medium">Could not load user</p>
           <p className="mt-1 text-xs text-body">{error}</p>
         </div>
@@ -135,7 +135,7 @@ export function UserPage() {
                 alt=""
                 width={48}
                 height={48}
-                className="h-12 w-12 rounded-full border border-hairline bg-canvas-soft object-cover shrink-0"
+                className="h-12 w-12 rounded-full bg-canvas-soft object-cover shrink-0 shadow-[var(--viewer-shadow-liquid)]"
               />
             ) : null}
             <div className="min-w-0">
@@ -179,7 +179,7 @@ export function UserPage() {
               <h2 className="text-sm font-medium text-ink">
                 Official organizations
               </h2>
-              <div className="rounded-[8px] border border-hairline overflow-hidden">
+              <div className="blob-panel overflow-hidden">
                 <Table>
                   <TableHeader>
                     <TableRow className="hover:bg-transparent">
@@ -261,13 +261,13 @@ function UserPackageSection({
     <section className="space-y-2">
       <h2 className="text-sm font-medium text-ink">{title}</h2>
       {rows.length === 0 ? (
-        <div className="rounded-[8px] border border-dashed border-hairline p-6 text-sm text-mute">
+        <div className="rounded-[14px] border border-dashed border-hairline/70 p-6 text-sm text-mute">
           {empty}
         </div>
       ) : (kind === "plugin" || kind === "agent") && onOpen ? (
         <CatalogCardGrid kind={kind} rows={rows} onOpen={onOpen} />
       ) : (
-        <div className="rounded-[8px] border border-hairline overflow-hidden">
+        <div className="blob-panel overflow-hidden">
           <Table>
             <TableHeader>
               <TableRow className="hover:bg-transparent">

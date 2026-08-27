@@ -241,7 +241,7 @@ export function LeaderboardTable({
 
   if (suites.length === 0) {
     return (
-      <div className="rounded-[8px] border border-hairline bg-canvas-soft p-6 space-y-3">
+      <div className="blob-panel p-6 space-y-3">
         <p className="text-sm font-medium text-ink">
           {emptyTitle || "No Leaderboard rows yet"}
         </p>
@@ -263,7 +263,7 @@ export function LeaderboardTable({
           ? " · pass@k uses job max k"
           : null}
       </p>
-      <div className="rounded-[8px] border border-hairline overflow-x-auto">
+      <div className="blob-panel overflow-x-auto">
         <Table className="w-full">
           <TableHeader>
             <TableRow>

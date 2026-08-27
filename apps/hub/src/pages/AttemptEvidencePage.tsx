@@ -221,7 +221,7 @@ export function AttemptEvidencePage() {
         {loading && <LoadingState label="Loading attempt evidence" />}
 
         {error ? (
-          <div className="rounded-[8px] border border-hairline bg-canvas-soft p-6 space-y-3">
+          <div className="blob-panel p-6 space-y-3">
             <p className="text-sm text-error font-mono">{error}</p>
             <p className="text-sm text-mute">
               Full evidence may not be uploaded yet. Upload with{" "}

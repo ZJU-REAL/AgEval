@@ -123,7 +123,7 @@ export function ConfirmDialog({
         tabIndex={-1}
         data-ageval-pop=""
         className={cn(
-          "w-full min-w-0 max-w-md overflow-hidden rounded-[12px] border border-hairline bg-canvas p-5 shadow-[var(--viewer-shadow-pop)] outline-none",
+          "w-full min-w-0 max-w-md overflow-hidden rounded-[14px] border border-hairline bg-canvas p-5 shadow-[var(--viewer-shadow-pop)] outline-none",
           className,
         )}
         onClick={(event) => event.stopPropagation()}
@@ -211,7 +211,7 @@ export function Modal({
         tabIndex={-1}
         data-ageval-pop=""
         className={cn(
-          "flex max-h-[min(90vh,40rem)] w-full min-w-0 max-w-md flex-col overflow-hidden rounded-[12px] border border-hairline bg-canvas p-5 shadow-[var(--viewer-shadow-pop)] outline-none",
+          "flex max-h-[min(90vh,40rem)] w-full min-w-0 max-w-md flex-col overflow-hidden rounded-[14px] border border-hairline bg-canvas p-5 shadow-[var(--viewer-shadow-pop)] outline-none",
           className,
         )}
         onClick={(event) => event.stopPropagation()}

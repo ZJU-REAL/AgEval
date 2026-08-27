@@ -80,9 +80,9 @@ export function CatalogCard({
       onClick={open}
       onKeyDown={onKeyDown}
       className={cn(
-        "flex h-full flex-col rounded-[12px] border border-hairline bg-canvas p-4 text-left",
-        "transition-colors duration-200 ease-smooth",
-        "hover:bg-canvas-soft",
+        "flex h-full flex-col rounded-[14px] border border-hairline bg-canvas p-4 text-left shadow-[var(--viewer-shadow-pop)]",
+        "transition-[transform,box-shadow,background-color] duration-200 ease-smooth",
+        "hover:bg-canvas-soft hover:shadow-[var(--viewer-shadow-pop)]",
         "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-link/70",
         "cursor-pointer",
       )}

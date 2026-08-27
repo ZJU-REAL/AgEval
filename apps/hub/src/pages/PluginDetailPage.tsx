@@ -16,6 +16,7 @@ import { MarketplaceCounts } from "@/components/marketplace-counts";
 import { PackageOwnerOps } from "@/components/package-owner-ops";
 import { PackageStarButton } from "@/components/star-toggle";
 import { InlineMarkdown } from "@/components/markdown";
+import { Chip } from "@/components/ui/chip";
 import {
   declaredSlotsFromPreview,
   PluginSlotTimeline,
@@ -294,9 +295,9 @@ export function PluginDetailPage() {
               }}
             />
             {formatBadge ? (
-              <span className="text-[11px] font-medium px-2 py-0.5 rounded border border-hairline bg-canvas-soft text-body">
+              <Chip size="sm" className="font-medium">
                 {formatBadge}
-              </span>
+              </Chip>
             ) : null}
           </div>
           {release ? (
@@ -370,7 +371,7 @@ export function PluginDetailPage() {
 
       {loading && <LoadingState label="Loading plugin" />}
       {error && (
-        <div className="rounded-[8px] border border-hairline bg-canvas-soft p-4 text-sm">
+        <div className="blob-panel p-4 text-sm">
           <p className="text-error font-medium">Could not load plugin</p>
           <p className="mt-1 text-xs text-body">{error}</p>
           <p className="mt-3">
@@ -408,7 +409,7 @@ export function PluginDetailPage() {
             <p className="text-xs text-mute">
               Read-only preview. The browser never executes plugin code.
             </p>
-            <div className="rounded-[8px] border border-hairline overflow-hidden">
+            <div className="blob-panel overflow-hidden">
               <FileSplitPanel
                 tree={tree}
                 treeLoading={treeLoading}

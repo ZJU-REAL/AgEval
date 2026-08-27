@@ -284,7 +284,7 @@ export function FileSplitPanel({
     <div
       className={cn(
         "grid grid-cols-1 md:grid-cols-[280px_1fr] gap-0",
-        "rounded-[8px] border border-hairline overflow-hidden",
+        "blob-panel overflow-hidden",
         "min-h-[360px] md:h-[70vh] md:min-h-[70vh] md:max-h-[70vh]",
       )}
     >

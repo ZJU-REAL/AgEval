@@ -56,12 +56,12 @@ export function FrameModal({
         data-ageval-pop=""
         className={cn(
           "flex h-[min(92vh,900px)] w-[min(1120px,calc(100vw-1.5rem))] flex-col overflow-visible",
-          "rounded-[12px] border border-hairline bg-canvas shadow-[var(--viewer-shadow-pop)]",
+          "rounded-[14px] border border-hairline bg-canvas shadow-[var(--viewer-shadow-pop)]",
         )}
         onClick={(event) => event.stopPropagation()}
       >
         <OverlayRootProvider value={dialogEl}>
-          <div className="flex h-[4.5rem] shrink-0 items-center gap-3 border-b border-hairline px-4">
+          <div className="flex h-[4.5rem] shrink-0 items-center gap-3 px-4">
             <div ref={setHeadSlot} className="flex min-w-0 flex-1 items-center" />
             {peekHistory ? (
               <div className="flex shrink-0 items-center gap-0.5">

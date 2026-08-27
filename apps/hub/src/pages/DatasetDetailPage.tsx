@@ -577,7 +577,7 @@ export function DatasetDetailPage() {
         ) : readme ? (
           <Markdown source={readme} />
         ) : (
-          <div className="rounded-[8px] border border-hairline bg-canvas-soft p-6 text-sm text-mute">
+          <div className="blob-panel p-6 text-sm text-mute">
             No README.md in this package.
           </div>
         )
@@ -612,7 +612,7 @@ export function DatasetDetailPage() {
                 {tasksLoading ? "Loading tasks…" : "No matching tasks."}
               </p>
             ) : (
-            <div className="rounded-[8px] border border-hairline overflow-hidden">
+            <div className="blob-panel overflow-hidden">
             <Table>
               <TableHeader>
                 <TableRow className="hover:bg-transparent">

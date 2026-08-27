@@ -530,7 +530,7 @@ export function TaskDetailPage() {
         ) : readme ? (
           <Markdown source={readme} />
         ) : (
-          <div className="rounded-[8px] border border-hairline bg-canvas-soft p-6 text-sm text-mute">
+          <div className="blob-panel p-6 text-sm text-mute">
             No <code className="font-mono">tasks/{taskId}/README.md</code> —
             open the Files tab for <code className="font-mono">task.yaml</code>.
           </div>
@@ -563,7 +563,7 @@ export function TaskDetailPage() {
         jobsLoading && jobs.length === 0 ? (
           <p className="text-sm text-mute">Loading jobs…</p>
         ) : jobs.length === 0 ? (
-          <div className="rounded-[8px] border border-hairline bg-canvas-soft p-6 space-y-3">
+          <div className="blob-panel p-6 space-y-3">
             <p className="text-sm text-ink font-medium">No Jobs for this task</p>
             <p className="text-sm text-mute">
               Upload a standalone Attempt after{" "}
@@ -591,7 +591,7 @@ export function TaskDetailPage() {
                 ariaLabel="Optional job columns"
               />
             </div>
-            <div className="rounded-[8px] border border-hairline overflow-hidden">
+            <div className="blob-panel overflow-hidden">
               <Table>
                 <TableHeader>
                   <TableRow className="hover:bg-transparent">
@@ -698,7 +698,7 @@ export function TaskDetailPage() {
               onOffset={setJobOffset}
             />
             {jobs.some((j) => !j.has_attempt_content) ? (
-              <div className="rounded-[8px] border border-dashed border-hairline bg-canvas-soft p-4 space-y-2">
+              <div className="rounded-[14px] border border-dashed border-hairline/70 bg-canvas p-4 space-y-2">
                 <p className="text-sm text-body">
                   Some rows have summary only. Upload full Attempt trees to
                   enable the evidence browser:

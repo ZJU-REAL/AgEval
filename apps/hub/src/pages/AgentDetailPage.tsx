@@ -16,6 +16,7 @@ import { OfficialMark } from "@/components/official-mark";
 import { FileSplitPanel } from "@/components/file-split-panel";
 import { PackageOwnerOps } from "@/components/package-owner-ops";
 import { InlineMarkdown } from "@/components/markdown";
+import { Chip } from "@/components/ui/chip";
 import { UnderlineTabs } from "@/components/underline-tabs";
 import { Input } from "@/components/ui/input";
 import {
@@ -54,7 +55,7 @@ import {
 } from "@/lib/agent-models";
 import { getToken } from "@/lib/auth";
 import { buildNestedTree, type TreeNode } from "@/lib/file-tree";
-import { cn, formatScore } from "@/lib/utils";
+import { formatScore } from "@/lib/utils";
 
 type AgentTab = "overview" | "appearances" | "files";
 
@@ -384,9 +385,9 @@ export function AgentDetailPage() {
               }}
             />
             {formatBadge ? (
-              <span className="text-[11px] font-medium px-2 py-0.5 rounded border border-hairline bg-canvas-soft text-body">
+              <Chip size="sm" className="font-medium">
                 {formatBadge}
-              </span>
+              </Chip>
             ) : null}
           </div>
           {release ? (
@@ -460,7 +461,7 @@ export function AgentDetailPage() {
 
       {loading && <LoadingState label="Loading agent" />}
       {error && (
-        <div className="rounded-[8px] border border-hairline bg-canvas-soft p-4 text-sm">
+        <div className="blob-panel p-4 text-sm">
           <p className="text-error font-medium">Could not load agent</p>
           <p className="mt-1 text-xs text-body">{error}</p>
           <p className="mt-3">
@@ -509,21 +510,17 @@ export function AgentDetailPage() {
                   const selected = model === selectedModel;
                   return (
                     <li key={model}>
-                      <Link
-                        to={agentHref({
-                          model: selected ? null : model,
-                        })}
-                        replace
-                        aria-current={selected ? "page" : undefined}
-                        className={cn(
-                          "inline-flex max-w-full truncate rounded-[6px] border px-2 py-1 text-sm transition-colors duration-200 ease-smooth",
-                          selected
-                            ? "bg-link/10 text-ink"
-                            : "border-hairline text-body hover:bg-row-hover hover:text-ink",
-                        )}
-                      >
-                        {model}
-                      </Link>
+                      <Chip asChild selected={selected}>
+                        <Link
+                          to={agentHref({
+                            model: selected ? null : model,
+                          })}
+                          replace
+                          aria-current={selected ? "page" : undefined}
+                        >
+                          {model}
+                        </Link>
+                      </Chip>
                     </li>
                   );
                 })}
@@ -607,7 +604,7 @@ export function AgentDetailPage() {
                 appearancesByVersion.map(([version, rows]) => (
                   <div key={version} className="space-y-2">
                     <h3 className="text-xs text-mute">v{version}</h3>
-                    <div className="rounded-[8px] border border-hairline overflow-hidden">
+                    <div className="blob-panel overflow-hidden">
                       <Table>
                         <TableHeader>
                           <TableRow>
@@ -662,7 +659,7 @@ export function AgentDetailPage() {
                 <span>overlays/</span> files. Locator names
                 only, never secret values.
               </p>
-              <div className="rounded-[8px] border border-hairline overflow-hidden">
+              <div className="blob-panel overflow-hidden">
                 <FileSplitPanel
                   tree={tree}
                   treeLoading={treeLoading}

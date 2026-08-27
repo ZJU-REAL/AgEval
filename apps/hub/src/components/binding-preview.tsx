@@ -1,6 +1,7 @@
 import type { ReactNode } from "react";
 
 import { HoverTip } from "@/components/hover-tip";
+import { Chip } from "@/components/ui/chip";
 import { cn } from "@/lib/utils";
 
 type ExtensionRow = {
@@ -95,11 +96,8 @@ function ChipList({ items }: { items: string[] }) {
   return (
     <ul className="m-0 flex flex-wrap gap-1 p-0 list-none">
       {items.map((item) => (
-        <li
-          key={item}
-          className="rounded-[6px] border border-hairline bg-canvas-soft px-1.5 py-0.5 text-[11px] text-ink"
-        >
-          {item}
+        <li key={item}>
+          <Chip size="sm">{item}</Chip>
         </li>
       ))}
     </ul>
@@ -145,7 +143,7 @@ export function BindingPreview({
   return (
     <div
       className={cn(
-        "rounded-[8px] border border-hairline bg-canvas overflow-hidden",
+        "blob-panel overflow-hidden",
         className,
       )}
     >

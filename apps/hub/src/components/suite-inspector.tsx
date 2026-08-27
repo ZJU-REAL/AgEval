@@ -101,7 +101,7 @@ function CodeBlock({
   }
 
   return (
-    <div className="relative rounded-[6px] border border-hairline bg-code-bg">
+    <div className="relative rounded-[12px] bg-code-bg shadow-[var(--viewer-shadow-liquid)]">
       <Button
         type="button"
         variant="ghost"
@@ -338,7 +338,7 @@ export function SuiteInspector({
         aria-modal="true"
         aria-label={title}
         data-ageval-pop=""
-        className="flex h-[min(64vh,32rem)] w-[min(48rem,calc(100vw-1.5rem))] flex-col overflow-visible rounded-[12px] border border-hairline bg-canvas shadow-[var(--viewer-shadow-pop)]"
+        className="flex h-[min(64vh,32rem)] w-[min(48rem,calc(100vw-1.5rem))] flex-col overflow-visible rounded-[14px] border border-hairline bg-canvas shadow-[var(--viewer-shadow-pop)]"
         onClick={(event) => event.stopPropagation()}
       >
         <OverlayRootProvider value={dialogEl}>
@@ -470,7 +470,7 @@ export function SuiteInspector({
                     No plugins recorded for this job.
                   </p>
                 ) : (
-                  <ul className="divide-y divide-hairline rounded-[6px] border border-hairline bg-canvas">
+                  <ul className="divide-y divide-hairline rounded-[14px] border border-hairline bg-canvas">
                     {plugins.map((p) => {
                       const bundled = pluginCatalog.some(
                         (row) =>

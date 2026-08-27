@@ -166,7 +166,7 @@ export function HomePage() {
 
       {loading ? <LoadingState label="Loading home" /> : null}
       {error ? (
-        <div className="rounded-[8px] border border-hairline bg-canvas-soft p-4 text-sm mb-4">
+        <div className="blob-panel p-4 text-sm mb-4">
           <p className="text-error font-medium">Could not load home</p>
           <p className="mt-1 text-xs text-body">{error}</p>
         </div>
@@ -355,7 +355,7 @@ function HomeSection({
       </div>
       <p className="text-xs text-mute">{hint}</p>
       {count === 0 ? (
-        <p className="text-sm text-mute rounded-[8px] border border-dashed border-hairline bg-canvas-soft px-3 py-4">
+        <p className="text-sm text-mute rounded-[14px] border border-dashed border-hairline/70 bg-canvas px-3 py-4">
           {empty}
         </p>
       ) : (
