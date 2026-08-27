@@ -20,6 +20,17 @@ from ageval.plugins.protocol import NextFn
 
 # Runs before the task's own setup.sh (500) and after cheaper box preparation.
 ENSURE_RUNTIME_PRIORITY = 100
+
+
+def _box_host(ctx: Any) -> Any:
+    """The environment service when rebound (evaluate host), else Attempt host."""
+    services = getattr(ctx, "services", None)
+    getter = getattr(services, "get", None)
+    if callable(getter):
+        found = getter("environment")
+        if found is not None:
+            return found
+    return ctx.host
 _HANDSHAKE_TIMEOUT_SEC = 8
 _PROBE_EXEC_TIMEOUT_SEC = 90
 _PROTOCOL_VERSION = 1
@@ -169,7 +180,7 @@ async def _prepare_attempt_home(
     remaining = ctx.remaining_seconds()
     home_timeout = 120.0 if remaining is None else max(float(remaining), 120.0)
     prepared = await prepare_home(
-        ctx.host,
+        _box_host(ctx),
         descriptor,
         timeout_sec=home_timeout,
     )
@@ -209,7 +220,7 @@ async def _ensure_entry_present(ctx: Any, descriptor: AcpEntryDescriptor) -> Non
             f"acp entry {descriptor.entry_id!r} failed runtime probe "
             f"({_probe_reason(probe)}) and declares no install command",
         )
-    result = await ctx.host.exec(
+    result = await _box_host(ctx).exec(
         ["bash", "-lc", _install_line(descriptor.install_command)],
         timeout_sec=ctx.remaining_seconds(),
     )
@@ -340,7 +351,7 @@ def _probe_reason(probe: dict[str, Any]) -> str:
 
 
 async def _run_probe(ctx: Any, descriptor: AcpEntryDescriptor) -> dict[str, Any]:
-    host = ctx.host
+    host = _box_host(ctx)
     timeout = min(float(ctx.remaining_seconds()), float(_PROBE_EXEC_TIMEOUT_SEC))
     try:
         result = await host.exec(_probe_argv(host, descriptor), timeout_sec=timeout)

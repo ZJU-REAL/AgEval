@@ -188,7 +188,6 @@ async def run_attempt(
         graph=graph,
         task_root=task_root,
         attempt_root=evidence.path(EVALUATE_BOX_REL),
-        agent_service_socket=Path(agent_service.socket_path),
     )
 
     ctx = AttemptCtx(

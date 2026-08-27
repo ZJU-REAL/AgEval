@@ -27,6 +27,7 @@ async def run(ctx: AttemptCtx) -> None:
     ctx.assert_writers_stopped()  # solver writers; Agent Service may still be up
     await emit(ctx, BEFORE_EVALUATE)
     await _ensure_evaluate_host(ctx)
+    await _prepare_evaluate_runtime(ctx)
     await _upload_task_artifacts(ctx)
     host = ctx.scoring_host
     if ctx.evaluation_src is not None and ctx.evaluation_src.is_dir():
@@ -54,6 +55,30 @@ async def _ensure_evaluate_host(ctx: AttemptCtx) -> None:
     winner = ctx.bindings.winners.get(ENVIRONMENT)
     plugin_id = winner.plugin_id if winner is not None else getattr(host, "kind", "environment")
     ctx.services.register(ENVIRONMENT, host, plugin_id=plugin_id)
+
+
+async def _prepare_evaluate_runtime(ctx: AttemptCtx) -> None:
+    """Probe/install ACP on the scoring host for profiles not used during run."""
+    if ctx.evaluate_host is None or ctx.evaluate_host is ctx.host:
+        return
+    parent = getattr(ctx.agent_service, "service", None) or ctx.agent_service
+    binder = getattr(parent, "binder", None)
+    if binder is None:
+        return
+    sealed = {str(item) for item in (getattr(parent, "_run_profile_ids", None) or ())}
+    from ageval.attempt.emit import run_chain
+    from ageval.plugins.slots import AFTER_ENVIRONMENT_READY
+
+    for row in thaw(getattr(ctx.lock, "agent_profiles", None) or ()):
+        if not isinstance(row, dict):
+            continue
+        profile_id = str(row.get("id") or "")
+        if not profile_id or profile_id in sealed:
+            continue
+        if str(row.get("executor") or "") != "acp":
+            continue
+        await run_chain(binder.graph(profile_id), AFTER_ENVIRONMENT_READY, None, ctx=ctx)
+        ctx.record_fact("evaluate_runtime_prepared", {"profile_id": profile_id})
 
 
 async def _upload_task_artifacts(ctx: AttemptCtx) -> None:
