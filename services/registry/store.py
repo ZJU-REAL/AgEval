@@ -1092,6 +1092,31 @@ class MetadataStore(MetadataStoreProtocol):
             )
             conn.commit()
 
+    def package_task_counts(self, digests: list[str]) -> dict[str, int]:
+        unique = [digest for digest in dict.fromkeys(digests) if digest]
+        if not unique:
+            return {}
+        placeholders = ",".join("?" * len(unique))
+        sql = (
+            "SELECT package_digest, tasks_json FROM package_task_summaries "
+            f"WHERE package_digest IN ({placeholders})"
+        )
+        out: dict[str, int] = {}
+        with self._connect() as conn:
+            cur = self._exec(conn, sql, tuple(unique))
+            rows = cur.fetchall()
+        for row in rows:
+            try:
+                tasks = json.loads(row["tasks_json"])
+            except (TypeError, json.JSONDecodeError, KeyError):
+                continue
+            if not isinstance(tasks, list):
+                continue
+            out[str(row["package_digest"])] = sum(
+                1 for item in tasks if isinstance(item, dict)
+            )
+        return out
+
     def get_package_task_summary(
         self, package_digest: str
     ) -> tuple[list[dict[str, Any]], bool, list[str]] | None:

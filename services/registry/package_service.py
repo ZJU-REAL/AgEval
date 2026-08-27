@@ -437,6 +437,7 @@ class PackageService:
                 item["display_name"] = label
         self._apply_icons(items)
         self._with_download_counts(items, auth=auth)
+        self._attach_task_counts(items)
         if favorited:
             items = [i for i in items if i.get("favorited")]
         explore = not mine and not orgs and not favorited and visibility != "private"
@@ -445,6 +446,19 @@ class PackageService:
         if package_kind == "agent" and explore:
             items = builtin_agent_items(prefix=prefix) + items
         return {"items": items}
+
+    def _attach_task_counts(self, items: list[dict[str, Any]]) -> None:
+        digests = [
+            str(item.get("package_digest") or "")
+            for item in items
+            if item.get("package_kind") == "dataset"
+        ]
+        counts = self.meta.package_task_counts(digests)
+        for item in items:
+            if item.get("package_kind") != "dataset":
+                continue
+            digest = str(item.get("package_digest") or "")
+            item["task_count"] = counts.get(digest, 0)
 
     def _filter_orgs(self, items: list[dict[str, Any]], auth: TokenInfo) -> list[dict[str, Any]]:
         """Keep packages published by organizations the caller belongs to."""
@@ -616,6 +630,7 @@ class PackageService:
         version: str | None = None,
         limit: int | None = None,
         offset: int = 0,
+        q: str | None = None,
     ) -> dict[str, Any]:
         row = self._visible_release(
             dataset_id=dataset_id,
@@ -627,6 +642,13 @@ class PackageService:
         if summary is None:
             summary = self._backfill_task_summary(row.package_digest, row.blob_digest)
         tasks, has_shared, overlay_prefixes = summary
+        needle = (q or "").strip().casefold()
+        if needle:
+            tasks = [
+                item
+                for item in tasks
+                if needle in str(item.get("task_id") or "").casefold()
+            ]
         page, total = page_slice(tasks, limit=limit, offset=offset)
         self._attach_task_job_stats(page, dataset_id=row.dataset_id, auth=auth)
         return {

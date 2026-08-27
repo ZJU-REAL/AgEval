@@ -462,7 +462,7 @@ class RegistryHttpApi:
         package_digest: str | None = None,
         version: str | None = None,
     ) -> HttpResult:
-        extra = set(qs) - {"limit", "offset"}
+        extra = set(qs) - {"limit", "offset", "q"}
         if extra:
             return json_result(
                 400,
@@ -479,6 +479,7 @@ class RegistryHttpApi:
                 version=version,
                 limit=parse_limit((qs.get("limit") or [None])[0]),
                 offset=parse_offset((qs.get("offset") or [None])[0]),
+                q=(qs.get("q") or [None])[0],
             )
         except RegistryAppError as exc:
             return _caught(exc)

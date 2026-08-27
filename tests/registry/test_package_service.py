@@ -132,6 +132,7 @@ def test_content_increments_download_count_files_do_not(tmp_path: Path) -> None:
     )
     row = next(i for i in listed["items"] if i["dataset_id"] == "test/publish-min")
     assert row["download_count"] == 0
+    assert row["task_count"] == 1
     fh, size, release = svc.serve_content(
         dataset_id="test/publish-min", package_digest=digest, auth=auth
     )
@@ -496,6 +497,21 @@ def test_list_tasks_pages_and_flags(tmp_path: Path) -> None:
     assert empty["items"] == []
     assert empty["total"] == 1
     assert listed["overlay_prefixes"] == []
+    matched = svc.list_tasks(
+        dataset_id="test/publish-min",
+        auth=auth,
+        package_digest=digest,
+        q="HEL",
+    )
+    assert [item["task_id"] for item in matched["items"]] == ["hello"]
+    missed = svc.list_tasks(
+        dataset_id="test/publish-min",
+        auth=auth,
+        package_digest=digest,
+        q="missing",
+    )
+    assert missed["items"] == []
+    assert missed["total"] == 0
 
 
 def test_list_tasks_skips_blob_after_publish(
