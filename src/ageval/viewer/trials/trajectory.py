@@ -6,7 +6,7 @@ import json
 from pathlib import Path
 from typing import Any
 
-from ageval.evidence.trajectory import TRAJECTORY_FILENAME
+from ageval.evidence.trajectory import OBSERVATION_REL, TRAJECTORY_FILENAME
 from ageval.evidence.usage import terminal_extra
 from ageval.viewer.jobs import get_job, safe_id_segment
 from ageval.viewer.trials.constants import MAX_JSONL_LINE, MAX_TRAJECTORY_STEPS
@@ -98,6 +98,56 @@ def trial_trajectory(
         "steps": steps,
         "step_count": len(steps),
         "invocations": invocations,
+        "truncated": truncated,
+        "note": None,
+    }
+
+
+def trial_evaluation_observation(
+    dataset_root: Path,
+    job_id: str,
+    task_id: str,
+    run_id: str,
+) -> dict[str, Any]:
+    """Verifier steps from ``evaluation/observation.jsonl``. Missing file → no steps."""
+    root = dataset_root.expanduser().resolve(strict=False)
+    safe_id_segment(job_id, field="job_id")
+    task_id = safe_id_segment(task_id, field="task_id")
+    rid = _safe_run_id(run_id)
+    get_job(root, job_id)
+    evidence = resolve_evidence_root(root, rid, task_id=task_id, require_task_match=True)
+    path = evidence / OBSERVATION_REL
+    rows = _parse_trajectory_jsonl(path) if path.is_file() else []
+    truncated = len(rows) >= MAX_TRAJECTORY_STEPS
+    steps: list[dict[str, Any]] = []
+    for entry in rows:
+        meta_raw = entry.get("metadata")
+        row_meta: dict[str, Any] = dict(meta_raw) if isinstance(meta_raw, dict) else {}
+        parsed_pid = entry.get("profile_id") if isinstance(entry.get("profile_id"), str) else None
+        meta_pid = (
+            row_meta.get("profile_id") if isinstance(row_meta.get("profile_id"), str) else None
+        )
+        elapsed = entry.get("elapsed_ms")
+        if elapsed is None:
+            lat = row_meta.get("latency_ms")
+            if isinstance(lat, (int, float)) and not isinstance(lat, bool):
+                elapsed = lat
+        steps.append(
+            {
+                **entry,
+                "elapsed_ms": elapsed,
+                "profile_id": parsed_pid or meta_pid,
+                "model": row_meta.get("model") if isinstance(row_meta.get("model"), str) else None,
+            }
+        )
+    _backfill_profile_ids(steps)
+    return {
+        "ok": True,
+        "run_id": rid,
+        "task_id": task_id,
+        "steps": steps,
+        "step_count": len(steps),
+        "invocations": [],
         "truncated": truncated,
         "note": None,
     }

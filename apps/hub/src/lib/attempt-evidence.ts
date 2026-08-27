@@ -74,6 +74,8 @@ export function hasAnyUnder(relPaths: string[], dir: string): boolean {
   return relPaths.some((p) => p === d || p.startsWith(d + "/"));
 }
 
+export const OBSERVATION_REL = "evaluation/observation.jsonl";
+
 /** Attempt-root record-phase file, then any per-invocation copies. */
 export function trajectoryRelPaths(relFiles: string[]): string[] {
   if (relFiles.includes("trajectory.jsonl")) return ["trajectory.jsonl"];

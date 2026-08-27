@@ -10,6 +10,7 @@ import {
 import {
   fetchTrial,
   fetchTrialFile,
+  fetchTrialObservation,
   fetchTrialTrajectory,
   fetchTrialTree,
   type Job,
@@ -45,6 +46,9 @@ export function useTrialDetail(jobId: string, taskId: string, runId: string) {
   const [steps, setSteps] = useState<TrajectoryStep[]>([]);
   const [trajNote, setTrajNote] = useState<string | null>(null);
   const [trajLoading, setTrajLoading] = useState(false);
+  const [observationSteps, setObservationSteps] = useState<TrajectoryStep[]>([]);
+  const [obsNote, setObsNote] = useState<string | null>(null);
+  const [obsLoading, setObsLoading] = useState(false);
 
   const [tree, setTree] = useState<TreeEntry[]>([]);
   const [treeGroups, setTreeGroups] = useState<
@@ -120,6 +124,25 @@ export function useTrialDetail(jobId: string, taskId: string, runId: string) {
       return () => {
         cancelled = true;
       };
+    }
+
+    if (activeTab === "verifier") {
+      setObsLoading(true);
+      fetchTrialObservation(jobId, taskId, runId)
+        .then((data) => {
+          if (cancelled) return;
+          setObservationSteps(data.steps || []);
+          setObsNote(data.note || null);
+        })
+        .catch((e: Error) => {
+          if (!cancelled) {
+            setObservationSteps([]);
+            setObsNote(e.message);
+          }
+        })
+        .finally(() => {
+          if (!cancelled) setObsLoading(false);
+        });
     }
 
     const scope = TREE_SCOPES[activeTab];
@@ -199,6 +222,9 @@ export function useTrialDetail(jobId: string, taskId: string, runId: string) {
     steps,
     trajNote,
     trajLoading,
+    observationSteps,
+    obsNote,
+    obsLoading,
     tree,
     treeGroups,
     treeLoading,

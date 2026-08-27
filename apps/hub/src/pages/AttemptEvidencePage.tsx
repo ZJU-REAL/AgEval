@@ -85,6 +85,9 @@ export function AttemptEvidencePage() {
     steps,
     trajNote,
     trajLoading,
+    observationSteps,
+    obsNote,
+    obsLoading,
     tree,
     treeGroups,
     treeLoading,
@@ -259,6 +262,9 @@ export function AttemptEvidencePage() {
               trajLoading={trajLoading}
               steps={steps}
               trajNote={trajNote}
+              observationSteps={observationSteps}
+              obsLoading={obsLoading}
+              obsNote={obsNote}
               result={result}
               actors={trial.actors || []}
               tree={tree}

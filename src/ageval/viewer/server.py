@@ -349,6 +349,13 @@ def make_handler(
                             trials.trial_trajectory(root, job_id, task_id, run_id),
                         )
                         return
+                    if len(parts) == 6 and parts[5] == "observation":
+                        _json(
+                            self,
+                            200,
+                            trials.trial_evaluation_observation(root, job_id, task_id, run_id),
+                        )
+                        return
             except ConfigError as exc:
                 status = 404 if "unknown" in exc.error_code else 400
                 _error(self, status, exc.error_code, str(exc))
