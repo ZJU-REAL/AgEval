@@ -60,6 +60,8 @@ from ageval_sdk import (
 
 `run.py` 通过 `ctx.agent.session(...).invoke` 调 Agent。ACP attach 发生在第一次 invoke。SDK 不拥有 `host.start`、凭据文件内容、final PASS。
 
+evaluate 相位同样可以用 SDK：gold 已 upload 之后，`evaluator.py` 可以 `Agent.session(<role>).invoke`（role 须在同一份 `profiles.yaml` 里，且不得复用 solver 的 key locator）。这些 invoke 走同一 Parent Agent Service 与该 profile 的 executor。密封进 `evaluation/observation.jsonl`，省略 `user` 行。`evaluator.py` **不得** bind PASS；仍返回 `{status, score, metrics}`。不调 `Agent.session` = 今日路径，无 observation 文件。invoke kwargs 仍不得改 `profile_id` / executor。
+
 ## invoke 工具通道
 
 `Agent.session(profile_id).invoke` 默认仍是今天的 **prompt-only** 文本调用。可选关键字（省略 = 旧行为）：

@@ -2,6 +2,8 @@
 
 两条 **独立** 的 coding-agent inlet，都占独占槽 `executor`。不要把第二条折进 ACP 插件，也不要写成 `executor: pi` / `executor: claude`。
 
+`executor` 的独占赢家是 **每个 `agent_profiles` 一行一份**，不是 Attempt 上只许一个机制。同一 Attempt：solver 可以 `executor: acp`，judge 可以 `executor: openai-http`。`environment` 仍是 Attempt 级一份。两个插件仍不得抢**同一 profile graph** 上的 `executor`。lock 的 `extension_bindings` 按 profile id 各记一份。
+
 | 赢家 | JSON-RPC client 在哪 | 盒子 cap | 完成信号 |
 | --- | --- | --- | --- |
 | `executor: acp` | **parent 唯一** ACP client（`attach_stdio` 管子） | `attach_stdio` | ACP 帧（`stopReason`） |
@@ -66,20 +68,24 @@ agent_profiles:
 ## 调用链
 
 ```text
-run.py  Agent.session(profile).invoke
+run.py / evaluator.py  Agent.session(profile).invoke
   → unix socket AGEVAL_AGENT_SERVICE_SOCK
   → ParentAgentService
+       按该 profile 的 executor 赢家 invoke
        before_agent_invoke
        executor.invoke → host.attach_stdio(entry argv) 或 host.exec（盒内 worker）
                         或 openai-http POST /chat/completions
        after_agent_invoke
        normalize_agent_result
-  → 层 C：evidence 写 trajectory.jsonl
+  → 层 C：run 相位 → trajectory.jsonl
+           evaluate 相位 → evaluation/observation.jsonl（省略 user）
 ```
 
-`ParentAgentService.invoke` 只回 `AgentResult`（含可选 `tool_calls`）。**不**在每次 invoke 后 `download` 盒内 workspace。轨迹来自 executor events。缺的 publishable 文件在 **writer 停后** 由 run 相位 harvest（Protocol `download`），evaluate 再把 `task-artifacts` upload 进盒。
+`ParentAgentService.invoke` 只回 `AgentResult`（含可选 `tool_calls`）。**不**在每次 invoke 后 `download` 盒内 workspace。轨迹来自 executor events。缺的 publishable 文件在 **solver writer 停后** 由 run 相位 harvest（Protocol `download`），evaluate 再把 `task-artifacts` upload 进盒。
 
-ACP attach 发生在第一次 invoke，不是独立 phase。`acp-oneshot` 每次 invoke 都 exec 一次 wrapper，完成 = 该进程退出码 + 解析出的 `AgentResult`。Harness completed / 轨迹 **不是** PASS。
+Agent Service **跨 evaluate 保持**（或 reopen）：`evaluator.py` 才能 `Agent.session`。run 结束停的是 **solver writer**（该相位已打开的 profile 不得再 invoke），不是把整段服务拆掉再打分。gold 已经在盒内；solver 不得在 gold 之后 invoke。Attempt 结束（cleanup / `run_attempt` finally）才停服务。
+
+ACP attach 发生在第一次 invoke，不是独立 phase。`acp-oneshot` 每次 invoke 都 exec 一次 wrapper，完成 = 该进程退出码 + 解析出的 `AgentResult`。Harness completed / 轨迹 / judge 输出 **不是** PASS。
 
 Socket 帧可带 `tools` / `messages`（省略 = prompt-only）。parent 原样转给 executor；ACP 忽略这两项。`tool_calls` 回 worker。request.json / trajectory **只记 locator 与目录名，不记密钥**。
 
