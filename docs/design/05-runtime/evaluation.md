@@ -54,7 +54,7 @@ PASS 只经 `bind_evaluation` 进入 Result。`RunTerminal.completed`、轨迹�
 ```text
 environment / run     Agent 盒 /attempt/evaluation  不存在
 evaluate 开头         打分 Host.upload(evaluation_src, /attempt/evaluation)
-                      然后在打分 Host exec evaluator.py
+                      然后 parent 跑 evaluator.py；ACP attach 打打分 Host
 ```
 
 - Agent / `run.py` / `environment_setup` **禁止**看到 `evaluation/`（不 upload、不 mount、不 COPY 进 Agent 用镜像层）。

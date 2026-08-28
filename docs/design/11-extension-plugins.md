@@ -88,7 +88,7 @@ agent_profiles:
 - `ageval plugin install` 只写 `~/.ageval/plugins`，永不改 profiles。
 - 按机制命名（`acp` / `acp-oneshot` / `docker` / `e2b` / `daytona` / `ssh` / `nooa`）。禁止按 bench 名。
 
-独占槽默认赢家（Current）：`environment` 由 job `environment:` 选出（缺省常见 local 或 docker，以 profiles 为准）；`executor` 由 **各** `agent_profiles.*.executor` 选出（coding-agent 默认 acp；judge 行可以是 `openai-http`）；`evaluation_runtime` / `trajectory_seal` 由引擎 `plugin_id: default` 赢（盒内 `evaluator.py` / 层 C writer）。缺默认注册 → lock fail-closed。lock 记录 **per-profile** executor 绑定。
+独占槽默认赢家（Current）：`environment` 由 job `environment:` 选出（缺省常见 local 或 docker，以 profiles 为准）；`executor` 由 **各** `agent_profiles.*.executor` 选出（coding-agent 默认 acp；judge 行可以是 `openai-http`）；`evaluation_runtime` / `trajectory_seal` 由引擎 `plugin_id: default` 赢（parent `evaluator.py` / 层 C writer）。缺默认注册 → lock fail-closed。lock 记录 **per-profile** executor 绑定。
 
 链默认：`after_environment_ready`（ACP 探测安装 + HOME overlay）；`environment_setup`（`setup.sh`，引擎 defaults）。
 

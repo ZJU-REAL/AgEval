@@ -34,7 +34,7 @@ evaluation:
 | Artifact ids | Must match files `run.py` actually writes |
 | `tmpfs_mb` | In-environment evaluator `/tmp` only; omit → 32 MiB. Declare a larger sandbox on the **task**, not under `limits` |
 
-The in-environment `evaluator.py` is launched by the exclusive-slot `evaluation_runtime` default winner via `host.exec`. PASS still binds only in the engine. Runtime and evaluation stay separate facts. See [Results and PASS](/docs/reference/results-and-pass).
+`evaluator.py` is a **parent subprocess** from the exclusive-slot `evaluation_runtime` default winner (same shape as `run.py`), not a second `host.exec` into the box. PASS still binds only in the engine. Runtime and evaluation stay separate facts. A job may set `evaluate_host.isolated: true` (Current: docker) to start a scoring box so gold never enters the Agent box. See [Results and PASS](/docs/reference/results-and-pass) and [Environments](/docs/agents/environments).
 
 ## Two scoring styles
 
@@ -54,6 +54,6 @@ def evaluate(inputs):
 | PASS | Still this return value only. Judge prose / `observation.jsonl` is not a score |
 | Trace | Evaluate-phase steps go to `evaluation/observation.jsonl` (`user` rows omitted so gold stays out of evidence). Not merged into root `trajectory.jsonl` |
 | Budget | `limits.agent_invocations` must cover solver **and** judge |
-| Box | SDK session uses the parent Unix socket; the default projection into the evaluator process is `environment: local` |
+| Box | SDK session uses the parent Unix socket. ACP `attach_stdio` targets the **scoring host** (the run box by default; a second docker instance when `evaluate_host.isolated: true`). Do not bind-mount the Agent Service socket into a container |
 
 No `Agent.session` = today's script path. With observation.jsonl, Verifier reuses the Trajectory step cards; without it, the file tree. See [local Viewer](/docs/run/local-viewer).

@@ -37,7 +37,7 @@ run
 evaluate
   before_evaluate
   upload evaluation/          # 引擎代码；不是 before_evaluate 链槽
-  evaluation_runtime          # 独占槽；默认盒内 evaluator.py
+  evaluation_runtime          # 独占槽；默认 parent 子进程 evaluator.py
                               # 可选 Agent.session(<judge>).invoke（同一 Parent Agent Service）
   bind_evaluation             # PASS 只从这里进
   after_evaluate              # 不得改 status

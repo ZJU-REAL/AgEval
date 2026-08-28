@@ -12,7 +12,7 @@ Core 拥有：配置锁定、Attempt 身份、盒子 Protocol、硬顶、evaluat
 | Lifecycle | `src/ageval/attempt/` + `runtime/identity.py` | Run/Trial/Attempt 身份；五相位顺序 |
 | Box | `environments/protocol.py` + `plugins/contrib/{local,docker,e2b,daytona,ssh}` | 物理隔离与运输 |
 | Capability | `capabilities/` + lock `requires` | 已授权操作面；缺 cap 则 lock 失败 |
-| Evaluation | `evaluation/` | barrier、盒内 evaluator、`bind_evaluation` |
+| Evaluation | `evaluation/` | barrier、parent `evaluator.py`、`bind_evaluation` |
 
 另：`evidence/` 是布局与轨迹层 C 的唯一主人；`plugins/` 是槽表，不是第六组 Core。
 
@@ -119,7 +119,7 @@ async def run(ctx) -> None:
     # 引擎 upload gold —— 不挂在 before_evaluate 链上
     if ctx.evaluation_src.exists():
         await ctx.host.upload(ctx.evaluation_src, "/attempt/evaluation")
-    result = await ctx.evaluation_runtime.evaluate(ctx)  # 独占槽赢家；默认盒内 evaluator.py
+    result = await ctx.evaluation_runtime.evaluate(ctx)  # 独占槽赢家；默认 parent evaluator.py
     ctx.bind_evaluation(result)                 # PASS 只从这里进；赢家不得 bind
     await emit(ctx, "after_evaluate")            # 不得改 status
 ```
@@ -136,7 +136,7 @@ async def run(ctx) -> None:
 | 挂在 | slot |
 | --- | --- |
 | run | `before_run` / `after_run`；`before/after_agent_open\|invoke\|close`；`normalize_agent_result` |
-| evaluate | `before_evaluate` / `after_evaluate`（可注 metrics，**不能改 PASS**）。**upload gold 是引擎代码**，不是 `evaluation_runtime` 的方法。独占槽 `evaluation_runtime` 默认跑盒内 `evaluator.py` |
+| evaluate | `before_evaluate` / `after_evaluate`（可注 metrics，**不能改 PASS**）。**upload gold 是引擎代码**，不是 `evaluation_runtime` 的方法。独占槽 `evaluation_runtime` 默认 parent 跑 `evaluator.py` |
 | record | `trajectory_collect` / `trajectory_enrich`（fail-open）；独占槽 `trajectory_seal` 写 run 相位层 C（fail-closed：丢文件即相位失败）；evaluate 相位 invoke 封到 `evaluation/observation.jsonl`（有才写；省略 user）；`summary_enrich`（fail-open，seal 成功后一次，写 Attempt `summary.extra`） |
 | cleanup | `cleanup_report`（链）；cleanup phase 本身由 finally 调用 |
 
