@@ -1,0 +1,5 @@
+format: ageval.profiles/1
+environment: docker
+evaluate_host:
+  isolated: true
+agent_profiles: {}

@@ -1,0 +1,6 @@
+format: ageval.dataset/1
+dataset_id: test/eval-named-min
+version: "0.1.0"
+description: Named evaluate hosts; evaluator execs only the first stage.
+tasks:
+  root: tasks
