@@ -342,6 +342,31 @@ export function AgentDetailPage() {
     if (!q) return models;
     return models.filter((model) => model.toLowerCase().includes(q));
   }, [models, modelQuery]);
+  const directoryRows = useMemo(() => {
+    const pin = loadModelPin();
+    return shownModels.map((model) => {
+      const related = performances.filter((row) => (row.model || "").trim() === model);
+      const rates = related
+        .map((row) => row.pass_rate)
+        .filter((n): n is number => n != null);
+      const stored = related.map((row) => performanceCanonical(row)).find(Boolean);
+      const n = new URLSearchParams();
+      const nextModel = model === selectedModel ? "" : model;
+      if (nextModel) n.set("model", nextModel);
+      if (pageTab !== "overview") n.set("tab", pageTab);
+      const qs = n.toString();
+      return {
+        overlay: model,
+        canonical: stored || joinOverlay(model, pin).canonical,
+        selected: model === selectedModel,
+        isDefault: model === defaultModel,
+        suiteCount: new Set(related.map((row) => row.suite_run_id)).size,
+        passRate:
+          rates.length > 0 ? rates.reduce((a, b) => a + b, 0) / rates.length : null,
+        href: `/agents/${encodeDatasetId(agentId)}${qs ? `?${qs}` : ""}`,
+      };
+    });
+  }, [shownModels, performances, selectedModel, defaultModel, agentId, pageTab]);
   const visiblePerformances = useMemo(() => {
     if (!selectedModel) return performances;
     return performances.filter(
@@ -664,35 +689,7 @@ export function AgentDetailPage() {
                 No models match “{modelQuery.trim()}”.
               </p>
             ) : (
-              <ModelDirectory
-                linkCanonical
-                rows={shownModels.map((model) => {
-                  const related = performances.filter(
-                    (row) => (row.model || "").trim() === model,
-                  );
-                  const rates = related
-                    .map((row) => row.pass_rate)
-                    .filter((n): n is number => n != null);
-                  const pin = loadModelPin();
-                  const stored = related
-                    .map((row) => performanceCanonical(row))
-                    .find(Boolean);
-                  return {
-                    overlay: model,
-                    canonical: stored || joinOverlay(model, pin).canonical,
-                    selected: model === selectedModel,
-                    isDefault: model === defaultModel,
-                    suiteCount: new Set(related.map((row) => row.suite_run_id)).size,
-                    passRate:
-                      rates.length > 0
-                        ? rates.reduce((a, b) => a + b, 0) / rates.length
-                        : null,
-                    href: agentHref({
-                      model: model === selectedModel ? null : model,
-                    }),
-                  };
-                })}
-              />
+              <ModelDirectory linkCanonical rows={directoryRows} />
             )}
           </section>
 
