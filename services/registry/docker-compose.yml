@@ -41,7 +41,7 @@ services:
       - rustfs-data:/data
 
   registry:
-    image: ghcr.io/zju-real/ageval-registry:${AGEVAL_IMAGE_TAG:-0.6.2}
+    image: ghcr.io/zju-real/ageval-registry:${AGEVAL_IMAGE_TAG:-0.6.3}
     build:
       context: ../..
       dockerfile: services/registry/Dockerfile
@@ -67,7 +67,7 @@ services:
     restart: unless-stopped
 
   hub:
-    image: ghcr.io/zju-real/ageval-hub:${AGEVAL_IMAGE_TAG:-0.6.2}
+    image: ghcr.io/zju-real/ageval-hub:${AGEVAL_IMAGE_TAG:-0.6.3}
     build:
       context: ../..
       dockerfile: apps/hub/Dockerfile
