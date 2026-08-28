@@ -4,15 +4,23 @@ import { Boxes } from "lucide-react";
 
 import { CatalogScopeBar } from "@/components/catalog-scope-bar";
 import { EmptyState, LoadingState } from "@/components/empty-state";
+import { MODALITY_TAB_META } from "@/components/modality-mark";
 import { ModelDirectory, type ModelDirectoryRow } from "@/components/model-directory";
 import { PageHead } from "@/components/page-head";
+import { UnderlineTabs } from "@/components/underline-tabs";
 import { encodeDatasetId } from "@/lib/api";
 import { getToken } from "@/lib/auth";
 import {
   appearancesByCanonical,
   collectModelAppearances,
 } from "@/lib/model-appearances";
-import { loadModelPin } from "@/lib/model-pin";
+import {
+  loadModelPin,
+  matchesModalityTab,
+  modalityTabFromSearch,
+  modelModalities,
+  type ModalityTab,
+} from "@/lib/model-pin";
 
 type ModelScope = "explore" | "performance";
 
@@ -28,11 +36,19 @@ function scopeFromSearch(params: URLSearchParams): ModelScope {
 export function ModelsPage() {
   const [searchParams, setSearchParams] = useSearchParams();
   const scope = scopeFromSearch(searchParams);
+  const modality = modalityTabFromSearch(searchParams.get("mod"));
   const [query, setQuery] = useState("");
   const token = getToken();
   const pin = loadModelPin();
   const [perfCanonicals, setPerfCanonicals] = useState<Set<string> | null>(null);
   const [loadingPerf, setLoadingPerf] = useState(false);
+
+  function writeFilters(nextScope: ModelScope, nextMod: ModalityTab) {
+    const next: Record<string, string> = {};
+    if (nextScope === "performance") next.performance = "1";
+    if (nextMod !== "all") next.mod = nextMod;
+    setSearchParams(next, { replace: true });
+  }
 
   useEffect(() => {
     if (scope !== "performance") return;
@@ -59,6 +75,7 @@ export function ModelsPage() {
     const out: ModelDirectoryRow[] = [];
     for (const [canonical, info] of Object.entries(pin.models)) {
       if (scope === "performance" && !perfCanonicals?.has(canonical)) continue;
+      if (!matchesModalityTab(modelModalities(info), modality)) continue;
       const hay = `${canonical} ${info.name} ${info.family} ${info.lab}`.toLowerCase();
       if (q && !hay.includes(q)) continue;
       out.push({
@@ -68,10 +85,10 @@ export function ModelsPage() {
       });
     }
     return out;
-  }, [pin.models, query, scope, perfCanonicals]);
+  }, [pin.models, query, scope, modality, perfCanonicals]);
 
   function setScope(next: ModelScope) {
-    setSearchParams(next === "performance" ? { performance: "1" } : {}, { replace: true });
+    writeFilters(next, modality);
   }
 
   const emptyPin = Object.keys(pin.models).length === 0;
@@ -92,6 +109,13 @@ export function ModelsPage() {
         searchLabel="Search models"
         searchPlaceholder="Search models…"
       />
+      <UnderlineTabs
+        className="mb-4"
+        ariaLabel="Model modalities"
+        items={MODALITY_TAB_META}
+        value={modality}
+        onChange={(next) => writeFilters(scope, next)}
+      />
       {emptyPin ? (
         <EmptyState
           icon={Boxes}
@@ -105,9 +129,11 @@ export function ModelsPage() {
         <EmptyState
           icon={Boxes}
           glyph="models"
-          title={query.trim() ? "No models match" : "No models with Performance"}
+          title={
+            query.trim() || modality !== "all" ? "No models match" : "No models with Performance"
+          }
           caption={
-            query.trim()
+            query.trim() || modality !== "all"
               ? undefined
               : "Plaza collect and consented attach fill this filter."
           }

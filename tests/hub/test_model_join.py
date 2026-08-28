@@ -11,6 +11,21 @@ def test_pin_exists_and_is_versioned():
     assert "deepseek/deepseek-v4-flash" in pin["models"]
 
 
+def test_pin_keeps_modalities():
+    pin = load_pin()
+    gpt = pin["models"]["openai/gpt-4o"]
+    assert "image" in gpt["modalities"]["input"]
+    assert "text" in gpt["modalities"]["output"]
+    ds = pin["models"]["deepseek/deepseek-v3"]
+    assert ds["modalities"]["input"] == ["text"]
+    assert ds["modalities"]["output"] == ["text"]
+    for row in pin["models"].values():
+        mods = row["modalities"]
+        assert isinstance(mods["input"], list)
+        assert isinstance(mods["output"], list)
+        assert mods["input"] or mods["output"]
+
+
 def test_dashscope_qwen_max_unique_joins():
     pin = load_pin()
     hit = join_overlay("dashscope/qwen-max", pin)

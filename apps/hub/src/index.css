@@ -28,6 +28,16 @@
   --color-nav-models: var(--viewer-nav-models);
   --color-nav-inbox: var(--viewer-nav-inbox);
   --color-nav-orgs: var(--viewer-nav-orgs);
+  --color-mod-text: var(--viewer-nav-models);
+  --color-mod-text-soft: color-mix(in oklab, var(--viewer-nav-models) 20%, var(--viewer-canvas));
+  --color-mod-image: var(--viewer-nav-agents);
+  --color-mod-image-soft: color-mix(in oklab, var(--viewer-nav-agents) 20%, var(--viewer-canvas));
+  --color-mod-video: var(--viewer-nav-inbox);
+  --color-mod-video-soft: color-mix(in oklab, var(--viewer-nav-inbox) 22%, var(--viewer-canvas));
+  --color-mod-transcription: var(--viewer-nav-datasets);
+  --color-mod-transcription-soft: color-mix(in oklab, var(--viewer-nav-datasets) 20%, var(--viewer-canvas));
+  --color-mod-speech: var(--viewer-nav-plugins);
+  --color-mod-speech-soft: color-mix(in oklab, var(--viewer-nav-plugins) 20%, var(--viewer-canvas));
   --color-row-hover: var(--viewer-row-hover);
   --color-code-bg: var(--viewer-code-bg);
   --color-shell-cmd: var(--viewer-shell-cmd);

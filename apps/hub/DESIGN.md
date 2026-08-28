@@ -54,7 +54,7 @@ Token values, type stacks, radii, and motion curves: the YAML in Viewer `DESIGN.
 | Compact in-panel segment | `PillTabs` |
 | Wrapping label | `Chip` (overlay paths, plugin names in a preview — **not** model browse) |
 | Marketplace plugin / agent | `CatalogCard` / `CatalogCardGrid` |
-| Model encyclopedia / harness model directory | Lab-grouped dense rows: lab mark (snapshot SVG or letter) + canonical name + overlay invoke id + mute meta. Not `CatalogCard`. Not wrapping `Chip`. Lab ≠ Hub `org_id`. |
+| Model encyclopedia / harness model directory | Lab-grouped dense rows: lab mark (snapshot SVG or letter) + canonical name + overlay invoke id + mute meta. Not `CatalogCard`. Not wrapping `Chip`. Lab ≠ Hub `org_id`. `/models` adds a modality `UnderlineTabs` under `CatalogScopeBar` search (All / Text / Image / Video / Transcription / Speech). Liquid fill stays `canvas-soft-2`; selected/hover tints the icon only (`nav-*` map), label stays `body`. Row badges sit to the right of the name (`ModalityMarks`): text plate only when the model is text-only; otherwise stack image / video / transcription / speech. Not `Chip`. |
 | Catalog list (scope + search) | `CatalogScopeBar` (`/models` Explore = full pin; filter = has Performance) |
 | Comparable rows (datasets, jobs, leaderboard, members, model Appearances) | hairline `Table` |
 | Sortable table column | `SortableHead` (click cycles asc → desc → default) |

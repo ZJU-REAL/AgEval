@@ -1,11 +1,18 @@
 import { useRef } from "react";
 import { Liquid } from "liquid-gooey";
+import type { LucideIcon } from "lucide-react";
 
 import { LiquidThumb, useTrackedRect } from "@/components/liquid-thumb";
 import { liquidGroup } from "@/lib/liquid";
 import { cn } from "@/lib/utils";
 
-type Item<T extends string> = { id: T; label: string };
+type Item<T extends string> = {
+  id: T;
+  label: string;
+  icon?: LucideIcon;
+  /** Applied to the icon only (selected / hover tone). Label stays body/mute. */
+  iconClassName?: string;
+};
 
 export function UnderlineTabs<T extends string>({
   items,
@@ -43,26 +50,44 @@ export function UnderlineTabs<T extends string>({
       )}
     >
       <LiquidThumb bar={bar} ready={ready} />
-      {items.map((item) => (
-        <button
-          key={item.id}
-          type="button"
-          role="tab"
-          data-tab-id={item.id}
-          aria-selected={value === item.id}
-          onClick={() => onChange(item.id)}
-          className={cn(
-            "relative z-10 rounded-[8px] text-sm font-medium",
-            "transition-colors duration-200 ease-smooth",
-            size === "sm" ? "px-2.5 py-1.5" : "px-3.5 py-1.5",
-            value === item.id
-              ? "font-semibold text-ink"
-              : "text-mute hover:bg-liquid-hover hover:text-ink",
-          )}
-        >
-          {item.label}
-        </button>
-      ))}
+      {items.map((item) => {
+        const selected = value === item.id;
+        const Icon = item.icon;
+        const toneIcon = Boolean(item.iconClassName);
+        return (
+          <button
+            key={item.id}
+            type="button"
+            role="tab"
+            data-tab-id={item.id}
+            aria-selected={selected}
+            onClick={() => onChange(item.id)}
+            className={cn(
+              "group relative z-10 inline-flex items-center gap-1.5 rounded-[8px] text-sm font-medium",
+              "transition-colors duration-200 ease-smooth",
+              size === "sm" ? "px-2.5 py-1.5" : "px-3.5 py-1.5",
+              selected
+                ? cn("font-semibold", toneIcon ? "text-body" : "text-ink")
+                : cn(
+                    "text-mute hover:bg-liquid-hover",
+                    toneIcon ? "hover:text-body" : "hover:text-ink",
+                  ),
+            )}
+          >
+            {Icon ? (
+              <Icon
+                strokeWidth={selected ? 2.5 : 2}
+                className={cn(
+                  "size-4 shrink-0 transition-[color,stroke-width] duration-200 ease-smooth",
+                  item.iconClassName,
+                )}
+                aria-hidden
+              />
+            ) : null}
+            {item.label}
+          </button>
+        );
+      })}
     </Liquid>
   );
 }

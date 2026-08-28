@@ -3,6 +3,11 @@ export type ModelPrice = {
   output: number;
 };
 
+export type ModelModalities = {
+  input: string[];
+  output: string[];
+};
+
 export type PinnedModel = {
   name: string;
   description: string;
@@ -15,6 +20,8 @@ export type PinnedModel = {
   reasoning: boolean;
   tool_call: boolean;
   attachment: boolean;
+  /** models.dev input/output enums: text | image | audio | video | pdf */
+  modalities: ModelModalities;
   weights: string | null;
 };
 

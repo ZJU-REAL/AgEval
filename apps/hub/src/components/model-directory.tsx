@@ -1,8 +1,9 @@
 import { Link } from "react-router-dom";
 
 import { LabMark } from "@/components/lab-mark";
+import { ModalityMarks } from "@/components/modality-mark";
 import { encodeDatasetId } from "@/lib/api";
-import { loadModelPin } from "@/lib/model-pin";
+import { loadModelPin, modalityBadges, modelModalities } from "@/lib/model-pin";
 import { cn, formatScore } from "@/lib/utils";
 
 export type ModelDirectoryRow = {
@@ -94,6 +95,7 @@ function LabGroup({
       <ul className="m-0 list-none divide-y divide-hairline border-y border-hairline p-0">
         {rows.map((row) => {
           const info = row.canonical ? pin.models[row.canonical] : undefined;
+          const badges = info ? modalityBadges(modelModalities(info)) : [];
           return (
             <li key={`${row.overlay}\0${row.canonical || ""}`}>
               <div
@@ -112,10 +114,11 @@ function LabGroup({
                 >
                   <LabMark lab={lab || row.overlay} size={20} />
                   <span className="min-w-0 flex-1 text-left">
-                    <span className="flex flex-wrap items-baseline gap-x-2">
+                    <span className="flex flex-wrap items-center gap-x-2 gap-y-1">
                       <span className="font-medium text-ink">
                         {info?.name || row.overlay}
                       </span>
+                      <ModalityMarks kinds={badges} />
                       {row.isDefault ? (
                         <span className="text-xs text-mute">Default</span>
                       ) : null}

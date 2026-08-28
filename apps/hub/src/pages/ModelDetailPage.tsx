@@ -4,6 +4,7 @@ import { Boxes } from "lucide-react";
 
 import { EmptyState } from "@/components/empty-state";
 import { LabMark } from "@/components/lab-mark";
+import { ModalityMarks } from "@/components/modality-mark";
 import { CatalogHead } from "@/components/page-head";
 import { ScoreRing } from "@/components/score-ring";
 import {
@@ -21,7 +22,13 @@ import {
   collectModelAppearances,
   type ModelAppearance,
 } from "@/lib/model-appearances";
-import { directoryPrice, loadModelPin } from "@/lib/model-pin";
+import {
+  directoryPrice,
+  formatModalities,
+  loadModelPin,
+  modalityBadges,
+  modelModalities,
+} from "@/lib/model-pin";
 import { formatScore } from "@/lib/utils";
 
 
@@ -71,6 +78,8 @@ export function ModelDetailPage() {
     );
   }
 
+  const badges = modalityBadges(modelModalities(info));
+
   return (
     <>
       <CatalogHead
@@ -85,6 +94,7 @@ export function ModelDetailPage() {
           <div className="flex items-center gap-2">
             <LabMark lab={lab} size={22} />
             <h2 className="text-sm font-medium text-ink">{info.name}</h2>
+            <ModalityMarks kinds={badges} />
             <span className="text-sm text-body">{pin.labs[lab]?.name || lab}</span>
           </div>
           <p className="text-sm text-body">{info.description || "No description in the pin."}</p>
@@ -109,6 +119,7 @@ export function ModelDetailPage() {
               }
             />
             <Fact label="Open weights" value={info.open_weights ? "yes" : "no"} />
+            <Fact label="Modalities" value={formatModalities(modelModalities(info))} />
             <Fact
               label="Capabilities"
               value={[

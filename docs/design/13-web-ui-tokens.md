@@ -92,7 +92,7 @@ landing 的 oklch 系(`oklch(15.4% 0.018 264)` 底等)是本表的 oklch 等值�
 | 语汇 | 规则 |
 | --- | --- |
 | 主按钮(SPA Button `default`) | IKB 填充 + `rounded-[8px]` + `font-mono text-[13px] font-semibold` + pop 阴影 + `focus-visible:ring-2 ring-link/70`,hover `link-deep`。`:active` 为 Squish(`scale` 0.96、80ms 按下 / spring 松开) |
-| 分段 tab | `UnderlineTabs`:sans `text-sm` + Liquid Move thumb(fill `canvas-soft-2`)。一页一条。不要再画 IKB `border-b-2` 底条 |
+| 分段 tab | `UnderlineTabs`:sans `text-sm` + Liquid Move thumb(fill `canvas-soft-2`)。一页一条。不要再画 IKB `border-b-2` 底条。Models plaza 模态过滤是记录例外：搜索栏下第二条 `UnderlineTabs`（All / Text / Image / Video / Transcription / Speech）。选中/hover 只给图标上色，走现有 `nav-*`（text=`nav-models`，image=`nav-agents`，video=`nav-inbox`，transcription=`nav-datasets`，speech=`nav-plugins`），标签走 `body`，不要新 hex 族；thumb 仍是 `canvas-soft-2`。行名右侧可叠多枚徽章（纯 text 才出 text 标）；次底用该色与 canvas 的 `color-mix`，禁止 `/15` 透明度拼色 |
 | 紧凑 pill | `PillTabs`:同上,11px。只用于面板内紧凑分段。同页再出现互斥选择用 `Select` |
 | 按钮组 | 并列选项收进**一个** hairline 容器(8px 圆角)。选中 `canvas-soft-2` + `ink`,hover `canvas-soft`。字号 `body-sm`。不要 IKB 填充 |
 | Chip | 散开的标签用 `Chip`:8px、hairline、选中 `canvas-soft-2`、hover `canvas-soft`。不要 `bg-link/10`。**不要**用 Chip 做模型浏览（harness 目录与 `/models` 走 lab 分组 dense 行） |

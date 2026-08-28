@@ -64,7 +64,7 @@ Performance **对齐尺子**仍是 harness（executor + ACP entry，**不含** m
 
 侧栏 **Models**。身份 = pin canonical id。
 
-- `/models`：按 **lab** 分组的 dense directory 行。不要复用 Agent `CatalogCard` 当市场包，不要 Chip。`CatalogScopeBar`：默认 Explore = 全 pin；filter = 已有同意的 Agent Performance。
-- `/models/{canonical}`：百科（名、描述、family、release、context、capabilities、open weights、directory price、可选 HF 参数量）+ Appearances（harness + dataset + 观测分）。harness 链 `/agents/{package_id}?model={overlay}`。Eval 事实只来自已有 Agent Performance，不把第三方 bench 和 PASS 混写。
+- `/models`：按 **lab** 分组的 dense directory 行。不要复用 Agent `CatalogCard` 当市场包，不要 Chip。`CatalogScopeBar`：默认 Explore = 全 pin；filter = 已有同意的 Agent Performance。搜索栏下第二条 `UnderlineTabs` 按 pin `modalities` 过滤：All / Text / Image / Video / Transcription（`audio ∈ input`）/ Speech（`audio ∈ output`）。默认 All。行名右侧可叠多枚模态标：纯 text 才出 text 标；其余按 image / video / transcription / speech 各一枚。标的色走现有 `nav-*`（text=`nav-models`，image=`nav-agents`，video=`nav-inbox`，transcription=`nav-datasets`，speech=`nav-plugins`），次底为该色与 canvas 的 `color-mix`，不要新 hex 族、不要 Chip。Tab 选中/hover 只给图标上色，标签走 `body`。
+- `/models/{canonical}`：百科（名、描述、family、release、context、modalities、capabilities、open weights、directory price、可选 HF 参数量）+ Appearances（harness + dataset + 观测分）。harness 链 `/agents/{package_id}?model={overlay}`。Eval 事实只来自已有 Agent Performance，不把第三方 bench 和 PASS 混写。`modalities` 是 models.dev 目录声明（input/output：text / image / audio / video / pdf），不是评测事实。
 
 产品禁止 mock-default Agent。

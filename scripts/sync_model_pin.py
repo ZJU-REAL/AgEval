@@ -3,6 +3,9 @@
 
 Maintainer/script only. Hub / Registry / CI request paths must not curl these
 hosts. Run: python3 scripts/sync_model_pin.py
+
+Slim rows keep models.dev modalities (input/output: text, image, audio,
+video, pdf) for Hub plaza filters. Logos: --logos-only.
 """
 
 from __future__ import annotations
@@ -162,6 +165,31 @@ def _map_provider_model(
     return None
 
 
+MODALITY_VALUES = ("text", "audio", "image", "video", "pdf")
+
+
+def _modalities(row: dict) -> dict[str, list[str]]:
+    raw = row.get("modalities") if isinstance(row.get("modalities"), dict) else {}
+
+    def take(side: str) -> list[str]:
+        items = raw.get(side)
+        if not isinstance(items, list):
+            return []
+        out: list[str] = []
+        seen: set[str] = set()
+        for item in items:
+            if item in MODALITY_VALUES and item not in seen:
+                seen.add(item)
+                out.append(item)
+        return out
+
+    inn = take("input")
+    out = take("output")
+    if not inn and not out:
+        return {"input": ["text"], "output": ["text"]}
+    return {"input": inn, "output": out}
+
+
 def _litellm_price(row: object) -> dict[str, float] | None:
     if not isinstance(row, dict):
         return None
@@ -206,6 +234,7 @@ def build_pin(models: dict, api: dict, litellm: dict | None) -> dict:
             "reasoning": bool(row.get("reasoning")),
             "tool_call": bool(row.get("tool_call")),
             "attachment": bool(row.get("attachment")),
+            "modalities": _modalities(row),
             "weights": _hf_weights(row.get("weights")),
         }
         _add_lookup(lookup, cid, cid)
