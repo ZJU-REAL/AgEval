@@ -5,7 +5,7 @@ files, browse Task Jobs, and Leaderboard.
 
 Also covers the **Plugin marketplace** (`/plugins` — `ageval.plugin/1` browse +
 CLI install copy; no browser-side install), **Agents** (`/agents` —
-published `ageval.agent/1` harness packages plus derived appearances from
+published `ageval.agent/1` harness packages plus derived Performance from
 official public Leaderboards that carry `agent_ref`; `?model=` focuses a
 registered model on the package page; not a stored Runtime and not suite PASS),
 **organizations** (members, org
@@ -78,7 +78,7 @@ modal; the list only shows a prefix. Members join from **Organizations → Join*
 | `/plugins` | **Plugin marketplace** list (`package_kind=plugin`) |
 | `/plugins/:id` | Plugin detail (exclusive/chain timeline · files · CLI install) |
 | `/agents` | Published Agent catalog |
-| `/agents/:id` | Agent detail: `?model=` chips + CLI; tabs Overview / Appearances / Files |
+| `/agents/:id` | Agent detail: `?model=` chips + CLI; tabs Overview / Performance / Files |
 | `/datasets/:id?tab=leaderboard&suite=` | Public Leaderboard with that suite inspector open |
 | `/datasets/:id?tab=leaderboard&dataset_version=` | Leaderboard filtered to that Dataset version (omit = all versions) |
 | `/organizations` | Your orgs · Create · Join |

@@ -3,7 +3,9 @@ import { Navigate, useNavigate } from "react-router-dom";
 
 import { CatalogCardGrid } from "@/components/catalog-card";
 import { LoadingState } from "@/components/empty-state";
+import { MaintainerMark } from "@/components/maintainer-mark";
 import { OfficialMark } from "@/components/official-mark";
+import { usePublicUser } from "@/hooks/use-public-user";
 import { PageHead } from "@/components/page-head";
 import { ScrollTable } from "@/components/scroll-table";
 import {
@@ -32,6 +34,7 @@ export function HomePage() {
   const navigate = useNavigate();
   const token = getToken();
   const githubUser = getGithubUser();
+  const publicUser = usePublicUser(token ? githubUser : null);
 
   const [jobs, setJobs] = useState<SuiteRow[]>([]);
   const [orgs, setOrgs] = useState<OrgRow[]>([]);
@@ -155,6 +158,7 @@ export function HomePage() {
                   {orgs.some((o) => o.official) ? (
                     <OfficialMark kind="org" />
                   ) : null}
+                  {publicUser?.maintainer ? <MaintainerMark /> : null}
                 </span>
                 {" · "}
               </>

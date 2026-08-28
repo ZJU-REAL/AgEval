@@ -1,15 +1,15 @@
-import type { AgentAppearance } from "./api";
+import type { AgentPerformance } from "./api";
 
-export type AppearanceGroup = {
+export type PerformanceGroup = {
   key: string;
   heading: string | null;
-  rows: AgentAppearance[];
+  rows: AgentPerformance[];
 };
 
 function push(
-  map: Map<string, AgentAppearance[]>,
+  map: Map<string, AgentPerformance[]>,
   key: string,
-  row: AgentAppearance,
+  row: AgentPerformance,
 ) {
   const list = map.get(key) ?? [];
   list.push(row);
@@ -17,16 +17,16 @@ function push(
 }
 
 /** Mechanism cards group by overlay model; custom cards by attached package version. */
-export function groupAgentAppearances(
-  rows: AgentAppearance[],
+export function groupAgentPerformances(
+  rows: AgentPerformance[],
   opts: { builtin: boolean; selectedModel?: string },
-): AppearanceGroup[] {
+): PerformanceGroup[] {
   if (opts.builtin) {
     const selected = (opts.selectedModel || "").trim();
     if (selected) {
       return [{ key: selected, heading: null, rows }];
     }
-    const map = new Map<string, AgentAppearance[]>();
+    const map = new Map<string, AgentPerformance[]>();
     for (const row of rows) {
       push(map, (row.model || "").trim(), row);
     }
@@ -43,7 +43,7 @@ export function groupAgentAppearances(
     }));
   }
 
-  const map = new Map<string, AgentAppearance[]>();
+  const map = new Map<string, AgentPerformance[]>();
   for (const row of rows) {
     push(map, (row.agent_version || "").trim(), row);
   }

@@ -9,12 +9,12 @@ export function bindingModel(
 }
 
 /**
- * Registered models for a harness package: author default, then appearance
+ * Registered models for a harness package: author default, then Performance
  * overlay models, then an unknown ``?model=`` so Leaderboard deep-links still land.
  */
 export function registeredModels(
   defaultModel: string,
-  appearanceModels: Iterable<string | undefined | null>,
+  performanceModels: Iterable<string | undefined | null>,
   selected?: string | null,
 ): string[] {
   const seen = new Set<string>();
@@ -26,7 +26,7 @@ export function registeredModels(
     out.push(text);
   };
   push(defaultModel);
-  for (const item of appearanceModels) push(item);
+  for (const item of performanceModels) push(item);
   push(selected);
   return out;
 }

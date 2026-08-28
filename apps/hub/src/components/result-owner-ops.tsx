@@ -1,4 +1,4 @@
-import { ArrowRight, Settings, Share2, Trash2 } from "lucide-react";
+import { ArrowRight, CircleMinus, Settings, Share2, Trash2 } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 
 import { Button } from "@/components/ui/button";
@@ -25,7 +25,7 @@ import {
   applyRequest,
   deleteResult,
   isBuiltinPackage,
-  listPackageVersionsWithAppearances,
+  listPackageVersionsWithPerformances,
   listResultShares,
   listSuiteRequests,
   removeResultShare,
@@ -44,8 +44,8 @@ import {
 } from "@/lib/agent-attach";
 import { overlayHarnessIds } from "@/lib/utils";
 
-/** Compare Hub appearance specs: optional `role=`, ignore `+digest`. */
-function appearanceKey(value: string | undefined): string {
+/** Compare Hub Performance specs: optional `role=`, ignore `+digest`. */
+function performanceKey(value: string | undefined): string {
   let text = (value || "").trim();
   if (!text) return "";
   const eq = text.indexOf("=");
@@ -71,6 +71,8 @@ export function ResultOwnerOps({
   onAttached,
   jobOverlay,
   variant = "menu",
+  canDetachPerformance = false,
+  onRemovePerformance,
 }: {
   kind: "attempt" | "suite";
   resultId: string;
@@ -86,6 +88,8 @@ export function ResultOwnerOps({
   jobOverlay?: JobOverlay | null;
   /** `menu` = overflow + share modal. `panel` = inline share form. `delete` = overflow delete only. */
   variant?: "menu" | "panel" | "delete";
+  canDetachPerformance?: boolean;
+  onRemovePerformance?: () => void;
 }) {
   const [busy, setBusy] = useState(false);
   const [shares, setShares] = useState<ResultShare[]>([]);
@@ -94,6 +98,7 @@ export function ResultOwnerOps({
   const [targetId, setTargetId] = useState("");
   const [shareOpen, setShareOpen] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
+  const [confirmDetach, setConfirmDetach] = useState(false);
   const [withAttempts, setWithAttempts] = useState(false);
   const [agentRef, setAgentRef] = useState("");
   const [attachRole, setAttachRole] = useState(ATTACH_ROLE_ALL);
@@ -119,7 +124,7 @@ export function ResultOwnerOps({
       ids.length > 0
         ? Promise.all(
             ids.map((id) =>
-              listPackageVersionsWithAppearances(id, token, {
+              listPackageVersionsWithPerformances(id, token, {
                 packageKind: "agent",
               })
                 .then((listed) => listed.items.find(isBuiltinPackage) ?? null)
@@ -166,10 +171,10 @@ export function ResultOwnerOps({
     };
   }, [loadShares, canManage, kind, resultId, token, jobOverlay]);
 
-  const pendingAppearance = useMemo(
+  const pendingPerformance = useMemo(
     () =>
       requests.filter(
-        (row) => row.kind === "agent_appearance" && row.status === "pending",
+        (row) => row.kind === "agent_performance" && row.status === "pending",
       ),
     [requests],
   );
@@ -180,20 +185,20 @@ export function ResultOwnerOps({
       ) ?? null,
     [requests],
   );
-  const matchingAppearance = useMemo(
+  const matchingPerformance = useMemo(
     () => {
-      const want = appearanceKey(agentRef);
+      const want = performanceKey(agentRef);
       if (!want) return undefined;
-      return pendingAppearance.find((row) => appearanceKey(row.agent_ref) === want);
+      return pendingPerformance.find((row) => performanceKey(row.agent_ref) === want);
     },
-    [pendingAppearance, agentRef],
+    [pendingPerformance, agentRef],
   );
   const roleChoices = useMemo(
     () => (kind === "suite" ? overlayRoles(jobOverlay) : []),
     [kind, jobOverlay],
   );
 
-  if (!canManage || !token) return null;
+  if ((!canManage && !canDetachPerformance) || !token) return null;
   const authToken = token;
 
   function fail(err: unknown) {
@@ -312,11 +317,11 @@ export function ResultOwnerOps({
 
   async function attachOrRequest() {
     const spec = composeAttachSpec(attachRole, agentRef);
-    if (!spec || kind !== "suite" || matchingAppearance) return;
+    if (!spec || kind !== "suite" || matchingPerformance) return;
     setBusy(true);
     try {
       const row = await applyRequest(
-        { kind: "agent_appearance", suite_run_id: resultId, agent: spec },
+        { kind: "agent_performance", suite_run_id: resultId, agent: spec },
         authToken,
       );
       if (row.direct_attach || row.attached) {
@@ -325,12 +330,12 @@ export function ResultOwnerOps({
         setAgentRef("");
       } else {
         await reloadRequests();
-        toast("Appearance requested");
+        toast("Performance requested");
       }
     } catch (err) {
       if (err instanceof RegistryHttpError && err.code === "conflict") {
         await reloadRequests();
-        toast("Appearance request already pending");
+        toast("Performance request already pending");
       } else {
         fail(err);
       }
@@ -435,21 +440,21 @@ export function ResultOwnerOps({
               type="button"
               size="sm"
               variant="outline"
-              disabled={busy || !agentRef.trim() || Boolean(matchingAppearance)}
+              disabled={busy || !agentRef.trim() || Boolean(matchingPerformance)}
               onClick={() => void attachOrRequest()}
             >
-              {matchingAppearance ? "Pending" : "Attach"}
+              {matchingPerformance ? "Pending" : "Attach"}
             </Button>
           </div>
-          {matchingAppearance ? (
+          {matchingPerformance ? (
             <p className="text-xs text-body">
-              Appearance request pending for{" "}
-              <span>{matchingAppearance.agent_ref}</span>
+              Performance request pending for{" "}
+              <span>{matchingPerformance.agent_ref}</span>
               . Waiting on the agent org owner.
             </p>
-          ) : pendingAppearance.length > 0 ? (
+          ) : pendingPerformance.length > 0 ? (
             <ul className="space-y-1 text-xs text-body">
-              {pendingAppearance.map((row) => (
+              {pendingPerformance.map((row) => (
                 <li key={row.request_id}>
                   Pending:{" "}
                   <span>
@@ -576,7 +581,7 @@ export function ResultOwnerOps({
           </Button>
         </DropdownMenuTrigger>
         <DropdownMenuContent align="end">
-          {showShare ? (
+          {showShare && canManage ? (
             <DropdownMenuItem
               onSelect={() => {
                 setShareOpen(true);
@@ -586,16 +591,28 @@ export function ResultOwnerOps({
               Share
             </DropdownMenuItem>
           ) : null}
-          {showShare ? <DropdownMenuSeparator /> : null}
-          <DropdownMenuItem
-            className="text-error focus:text-error data-[highlighted]:text-error"
-            onSelect={() => {
-              setConfirmDelete(true);
-            }}
-          >
-            <Trash2 className="h-3.5 w-3.5" aria-hidden />
-            Delete
-          </DropdownMenuItem>
+          {canDetachPerformance && onRemovePerformance ? (
+            <DropdownMenuItem
+              onSelect={() => {
+                setConfirmDetach(true);
+              }}
+            >
+              <CircleMinus className="h-3.5 w-3.5" aria-hidden />
+              Remove
+            </DropdownMenuItem>
+          ) : null}
+          {showShare && canManage ? <DropdownMenuSeparator /> : null}
+          {canManage ? (
+            <DropdownMenuItem
+              className="text-error focus:text-error data-[highlighted]:text-error"
+              onSelect={() => {
+                setConfirmDelete(true);
+              }}
+            >
+              <Trash2 className="h-3.5 w-3.5" aria-hidden />
+              Delete
+            </DropdownMenuItem>
+          ) : null}
         </DropdownMenuContent>
       </DropdownMenu>
 
@@ -647,6 +664,22 @@ export function ResultOwnerOps({
           </label>
         ) : null}
       </ConfirmDialog>
+
+      <ConfirmDialog
+        open={confirmDetach}
+        title="Remove"
+        description="Un-attach this role. You can attach it again. Plaza collection still follows the Collect setting. Listing and PASS are unchanged."
+        confirmLabel="Remove"
+        confirmVariant="default"
+        busy={busy}
+        onCancel={() => {
+          if (!busy) setConfirmDetach(false);
+        }}
+        onConfirm={() => {
+          setConfirmDetach(false);
+          onRemovePerformance?.();
+        }}
+      />
     </>
   );
 }

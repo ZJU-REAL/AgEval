@@ -1,6 +1,8 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link, useNavigate, useParams, useSearchParams } from "react-router-dom";
 
+import { Settings } from "lucide-react";
+
 import { BindingPreview } from "@/components/binding-preview";
 import { LoadingState } from "@/components/empty-state";
 import { BrandMark } from "@/components/brand-mark";
@@ -15,10 +17,20 @@ import { entityHintFromPackage, markFromPackage } from "@/lib/brand-marks";
 import { OfficialMark } from "@/components/official-mark";
 import { FileSplitPanel } from "@/components/file-split-panel";
 import { PackageOwnerOps } from "@/components/package-owner-ops";
+import { SuiteInspector } from "@/components/suite-inspector";
 import { InlineMarkdown } from "@/components/markdown";
 import { Chip } from "@/components/ui/chip";
+import { Button } from "@/components/ui/button";
+import { Modal } from "@/components/ui/confirm-dialog";
 import { UnderlineTabs } from "@/components/underline-tabs";
 import { Input } from "@/components/ui/input";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import {
   Table,
   TableBody,
@@ -35,34 +47,63 @@ import {
   getOrg,
   getPackageByDigest,
   getPackageFile,
+  getSuite,
   isBuiltinPackage,
   isDraftRelease,
   listBuiltinPackageFiles,
   listPackageFiles,
+  latestPackageByDataset,
+  listPackages,
   listPackageVersions,
-  listPackageVersionsWithAppearances,
+  listPackageVersionsWithPerformances,
+  detachPerformance,
+  setPerformanceCollect,
   splitPackageId,
   updatePackageDisplayName,
-  type AgentAppearance,
+  type AgentPerformance,
   type AgentPreview,
   type PackageRelease,
+  type PerformanceCollect,
+  type PerformanceCollectMode,
+  type SuiteRow,
   RegistryHttpError,
 } from "@/lib/api";
-import { groupAgentAppearances } from "@/lib/agent-appearances";
+import { groupAgentPerformances } from "@/lib/agent-performances";
+import { toast } from "@/components/ui/toast";
+import { toastError } from "@/lib/toast-error";
 import {
   bindingModel,
   formatAgentRunCommand,
   registeredModels,
 } from "@/lib/agent-models";
-import { getToken } from "@/lib/auth";
+import { getGithubUser, getToken } from "@/lib/auth";
 import { buildNestedTree, type TreeNode } from "@/lib/file-tree";
 import { formatScore } from "@/lib/utils";
 
-type AgentTab = "overview" | "appearances" | "files";
+type AgentTab = "overview" | "performance" | "files";
 
 function parseAgentTab(raw: string | null): AgentTab {
-  if (raw === "appearances" || raw === "files") return raw;
+  if (raw === "performance" || raw === "files") return raw;
   return "overview";
+}
+
+function collectDraftFromMode(mode: PerformanceCollectMode): {
+  auto: boolean;
+  range: "official" | "official_and_personal";
+} {
+  if (mode === "off") return { auto: false, range: "official" };
+  if (mode === "official_and_personal") {
+    return { auto: true, range: "official_and_personal" };
+  }
+  return { auto: true, range: "official" };
+}
+
+function modeFromCollectDraft(draft: {
+  auto: boolean;
+  range: "official" | "official_and_personal";
+}): PerformanceCollectMode {
+  if (!draft.auto) return "off";
+  return draft.range;
 }
 
 export function AgentDetailPage() {
@@ -87,8 +128,21 @@ export function AgentDetailPage() {
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [canEditName, setCanEditName] = useState(false);
-  const [appearances, setAppearances] = useState<AgentAppearance[]>([]);
+  const [performances, setPerformances] = useState<AgentPerformance[]>([]);
+  const [collect, setCollect] = useState<PerformanceCollect | null>(null);
+  const [collectOpen, setCollectOpen] = useState(false);
+  const [collectDraft, setCollectDraft] = useState({
+    auto: true,
+    range: "official" as "official" | "official_and_personal",
+  });
+  const [collectBusy, setCollectBusy] = useState(false);
   const [modelQuery, setModelQuery] = useState("");
+  const [inspect, setInspect] = useState<{
+    suite: SuiteRow;
+    role: string;
+    packageDigest?: string;
+  } | null>(null);
+  const [pluginCatalog, setPluginCatalog] = useState<PackageRelease[]>([]);
 
   useEffect(() => {
     let cancelled = false;
@@ -97,14 +151,15 @@ export function AgentDetailPage() {
       setTreeLoading(true);
       setError(null);
       try {
-        const listed = await listPackageVersionsWithAppearances(agentId, token, {
+        const listed = await listPackageVersionsWithPerformances(agentId, token, {
           packageKind: "agent",
         });
         const versions = listed.items;
         if (!versions.length) {
           throw new RegistryHttpError(404, "not_found", "agent not found");
         }
-        setAppearances(listed.appearances);
+        setPerformances(listed.performances);
+        setCollect(listed.performanceCollect);
         const latest = [...versions].sort(
           (a, b) => (b.created_at ?? 0) - (a.created_at ?? 0),
         )[0];
@@ -181,7 +236,8 @@ export function AgentDetailPage() {
         setPreview(null);
         setTree([]);
         setFilePaths([]);
-        setAppearances([]);
+        setPerformances([]);
+        setCollect(null);
       } finally {
         if (!cancelled) {
           setLoading(false);
@@ -267,22 +323,22 @@ export function AgentDetailPage() {
     () =>
       registeredModels(
         defaultModel,
-        appearances.map((row) => row.model),
+        performances.map((row) => row.model),
         selectedModel,
       ),
-    [appearances, defaultModel, selectedModel],
+    [performances, defaultModel, selectedModel],
   );
   const shownModels = useMemo(() => {
     const q = modelQuery.trim().toLowerCase();
     if (!q) return models;
     return models.filter((model) => model.toLowerCase().includes(q));
   }, [models, modelQuery]);
-  const visibleAppearances = useMemo(() => {
-    if (!selectedModel) return appearances;
-    return appearances.filter(
+  const visiblePerformances = useMemo(() => {
+    if (!selectedModel) return performances;
+    return performances.filter(
       (row) => (row.model || "").trim() === selectedModel,
     );
-  }, [appearances, selectedModel]);
+  }, [performances, selectedModel]);
 
   function agentHref(next?: { model?: string | null; tab?: AgentTab }) {
     const n = new URLSearchParams();
@@ -312,14 +368,75 @@ export function AgentDetailPage() {
     setTab("files");
   }
 
-  const appearanceGroups = useMemo(
+  const performanceGroups = useMemo(
     () =>
-      groupAgentAppearances(visibleAppearances, {
+      groupAgentPerformances(visiblePerformances, {
         builtin,
         selectedModel,
       }),
-    [visibleAppearances, builtin, selectedModel],
+    [visiblePerformances, builtin, selectedModel],
   );
+
+  function openCollect() {
+    const mode = collect?.mode || "official";
+    setCollectDraft(collectDraftFromMode(mode));
+    setCollectOpen(true);
+  }
+
+  async function openPerformance(row: AgentPerformance) {
+    try {
+      const [suite, plugins] = await Promise.all([
+        getSuite(row.suite_run_id, token),
+        listPackages(token, { packageKind: "plugin" }).catch(
+          () => [] as PackageRelease[],
+        ),
+      ]);
+      setPluginCatalog(latestPackageByDataset(plugins));
+      setInspect({
+        suite,
+        role: row.role,
+        packageDigest: row.package_digest,
+      });
+    } catch (err) {
+      toastError(err);
+    }
+  }
+
+  async function removeInspectedPerformance() {
+    if (!inspect || !token) return;
+    try {
+      await detachPerformance(
+        agentId,
+        { suite_run_id: inspect.suite.suite_run_id, role: inspect.role },
+        token,
+      );
+      toast("Removed from Performance");
+      setInspect(null);
+      setReloadAt((n) => n + 1);
+    } catch (err) {
+      toastError(err);
+    }
+  }
+
+  async function saveCollect() {
+    if (!token) return;
+    setCollectBusy(true);
+    try {
+      const next = await setPerformanceCollect(
+        agentId,
+        modeFromCollectDraft(collectDraft),
+        token,
+      );
+      setCollect(next);
+      setCollectOpen(false);
+      setReloadAt((n) => n + 1);
+      toast("Performance collection saved");
+    } catch (err) {
+      toastError(err);
+    } finally {
+      setCollectBusy(false);
+    }
+  }
 
   return (
     <>
@@ -423,37 +540,52 @@ export function AgentDetailPage() {
             </div>
           ) : null}
         </div>
-        {release && !builtin ? (
+        {release ? (
           <div className="flex flex-wrap items-center justify-end gap-2">
-            <PackageStarButton
-              packageId={agentId}
-              release={release}
-              onUpdated={(next) => {
-                setRelease((prev) =>
-                  prev
-                    ? {
-                        ...prev,
-                        favorited: next.favorited,
-                        favorite_count: next.favorite_count,
-                      }
-                    : prev,
-                );
-              }}
-            />
-            <PackageOwnerOps
-              packageId={agentId}
-              release={release}
-              canManage={canEditName}
-              token={token}
-              onUpdated={(next) => setRelease(next)}
-              onDeleted={() => {
-                void listPackageVersions(agentId, token).then((rows) => {
-                  if (!rows.length) navigate("/agents");
-                  else setReloadAt((n) => n + 1);
-                });
-              }}
-              onReleased={() => setReloadAt((n) => n + 1)}
-            />
+            {builtin && collect?.can_edit ? (
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={openCollect}
+              >
+                <Settings className="h-4 w-4" aria-hidden />
+                Collect
+              </Button>
+            ) : null}
+            {!builtin ? (
+              <>
+                <PackageStarButton
+                  packageId={agentId}
+                  release={release}
+                  onUpdated={(next) => {
+                    setRelease((prev) =>
+                      prev
+                        ? {
+                            ...prev,
+                            favorited: next.favorited,
+                            favorite_count: next.favorite_count,
+                          }
+                        : prev,
+                    );
+                  }}
+                />
+                <PackageOwnerOps
+                  packageId={agentId}
+                  release={release}
+                  canManage={canEditName}
+                  token={token}
+                  onUpdated={(next) => setRelease(next)}
+                  onDeleted={() => {
+                    void listPackageVersions(agentId, token).then((rows) => {
+                      if (!rows.length) navigate("/agents");
+                      else setReloadAt((n) => n + 1);
+                    });
+                  }}
+                  onReleased={() => setReloadAt((n) => n + 1)}
+                />
+              </>
+            ) : null}
           </div>
         ) : null}
       </div>
@@ -492,7 +624,7 @@ export function AgentDetailPage() {
             </div>
             <p className="text-xs text-mute">
               {builtin
-                ? "Models from plaza overlay runs of this harness. Selecting one is query state on this page, not a second package."
+                ? "Models from collected Dataset Leaderboard runs of this harness. Selecting one is query state on this page, not a second package."
                 : "Package default plus models that appeared on consented plaza suites. Selecting one is query state on this harness page, not a second package."}
             </p>
             {models.length === 0 ? (
@@ -554,7 +686,7 @@ export function AgentDetailPage() {
             onChange={setTab}
             items={[
               { id: "overview", label: "Overview" },
-              { id: "appearances", label: "Appearances" },
+              { id: "performance", label: "Performance" },
               { id: "files", label: "Files" },
             ]}
           />
@@ -576,31 +708,31 @@ export function AgentDetailPage() {
             </section>
           ) : null}
 
-          {pageTab === "appearances" ? (
+          {pageTab === "performance" ? (
             <section className="space-y-3">
               <p className="text-xs text-mute">
                 {builtin
-                  ? "Official public complete release-bound suites whose overlay harness matches this card. Observational metrics only — PASS stays on the independent evaluator."
-                  : "Official public complete release-bound suites with this Agent org’s consent (direct attach or an approved appearance request). Observational metrics only — PASS stays on the independent evaluator."}
+                  ? "Leaderboard suites collected onto this card (official plaza by default; a Maintainer can change the range). Observational metrics only — PASS stays on the independent evaluator."
+                  : "Official public complete release-bound suites with this Agent org’s consent (direct attach or an approved Performance request). Observational metrics only — PASS stays on the independent evaluator."}
               </p>
-              {appearanceGroups.length === 0 ? (
+              {performanceGroups.length === 0 ? (
                 <p className="text-sm text-mute">
                   {selectedModel
                     ? builtin
-                      ? "No plaza appearances for this model yet."
-                      : "No consented appearances for this model yet."
+                      ? "No collected Performance for this model yet."
+                      : "No consented Performance for this model yet."
                     : builtin
-                      ? "No plaza appearances yet. Upload a public complete suite on an official Dataset that ran this harness."
+                      ? "No collected Performance yet. Upload a public complete suite on an official Dataset that ran this harness, or attach with Maintainer approval."
                       : (
                         <>
-                          No Hub appearances yet. Attach a published{" "}
+                          No Hub Performance yet. Attach a published{" "}
                           <span>org/name@version</span> as this
-                          Agent’s org owner, or approve an appearance request.
+                          Agent’s org owner, or approve a Performance request.
                         </>
                       )}
                 </p>
               ) : (
-                appearanceGroups.map((group) => (
+                performanceGroups.map((group) => (
                   <div key={group.key} className="space-y-2">
                     {group.heading ? (
                       <h3 className="text-xs text-mute">{group.heading}</h3>
@@ -620,11 +752,16 @@ export function AgentDetailPage() {
                           {group.rows.map((row) => {
                             const key = `${row.suite_run_id}:${row.role}`;
                             return (
-                              <TableRow key={key}>
+                              <TableRow
+                                key={key}
+                                className="cursor-pointer"
+                                onClick={() => void openPerformance(row)}
+                              >
                                 <TableCell>
                                   <Link
                                     to={`/datasets/${encodeDatasetId(row.dataset_id)}?tab=leaderboard&suite=${encodeURIComponent(row.suite_run_id)}`}
                                     className="text-link hover:text-link-deep hover:underline underline-offset-2"
+                                    onClick={(event) => event.stopPropagation()}
                                   >
                                     {row.dataset_id}
                                   </Link>
@@ -675,6 +812,93 @@ export function AgentDetailPage() {
           ) : null}
         </div>
       )}
+
+      <Modal
+        open={collectOpen}
+        title="Performance collection"
+        description="Choose whether this builtin agent auto-collects Dataset Leaderboard Performance. Off means only Maintainer attach or an approved request."
+        onClose={() => setCollectOpen(false)}
+      >
+        <div className="space-y-4">
+          <label className="flex items-center gap-2 text-sm text-ink">
+            <input
+              type="checkbox"
+              checked={collectDraft.auto}
+              onChange={(event) =>
+                setCollectDraft((prev) => ({ ...prev, auto: event.target.checked }))
+              }
+            />
+            Auto-collect from Dataset Leaderboards
+          </label>
+          <div className="space-y-1.5">
+            <p className="text-xs text-mute">Range</p>
+            <Select
+              value={collectDraft.range}
+              onValueChange={(value) =>
+                setCollectDraft((prev) => ({
+                  ...prev,
+                  range: value as "official" | "official_and_personal",
+                }))
+              }
+              disabled={!collectDraft.auto}
+            >
+              <SelectTrigger aria-label="Collection range" className="w-full">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="official" mono={false}>
+                  Official datasets
+                </SelectItem>
+                <SelectItem value="official_and_personal" mono={false}>
+                  Official and personal
+                </SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="flex justify-end gap-2">
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={() => setCollectOpen(false)}
+            >
+              Cancel
+            </Button>
+            <Button
+              type="button"
+              size="sm"
+              disabled={collectBusy}
+              onClick={() => void saveCollect()}
+            >
+              Save
+            </Button>
+          </div>
+        </div>
+      </Modal>
+
+      {inspect ? (
+        <SuiteInspector
+          suite={inspect.suite}
+          datasetId={inspect.suite.dataset_id}
+          overlayDigest={inspect.packageDigest}
+          pluginCatalog={pluginCatalog}
+          orgId={undefined}
+          canManage={
+            Boolean(getGithubUser()) &&
+            (inspect.suite.uploaded_by || "").toLowerCase() ===
+              (getGithubUser() || "").toLowerCase()
+          }
+          canDetachPerformance={
+            builtin ? Boolean(collect?.can_edit) : canEditName
+          }
+          onRemovePerformance={() => void removeInspectedPerformance()}
+          onClose={() => setInspect(null)}
+          onSuiteDeleted={() => {
+            setInspect(null);
+            setReloadAt((n) => n + 1);
+          }}
+        />
+      ) : null}
     </>
   );
 }

@@ -6,6 +6,7 @@ import { LoadingState } from "@/components/empty-state";
 import { DescriptionEditor } from "@/components/description-editor";
 import { GitHubIcon } from "@/components/github-icon";
 import { PageHead } from "@/components/page-head";
+import { MaintainerMark } from "@/components/maintainer-mark";
 import { OfficialMark } from "@/components/official-mark";
 import {
   Table,
@@ -142,6 +143,7 @@ export function UserPage() {
               <h1 className="text-2xl font-semibold tracking-tight text-ink inline-flex items-center gap-1.5 min-w-0">
                 <span className="truncate">{title}</span>
                 {user.official ? <OfficialMark kind="org" /> : null}
+                {user.maintainer ? <MaintainerMark /> : null}
               </h1>
               <p className="mt-1 flex flex-wrap items-center gap-2 text-xs text-mute">
                 <span>@{user.user_id}</span>

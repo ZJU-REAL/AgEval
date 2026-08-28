@@ -18,14 +18,14 @@ Hub (`apps/hub`) is the web UI on top of Registry—browse shared packages and r
 - Plugin / Agent marketplace uses **cards** (description, tags, download and favorite counts on one row); datasets, jobs, members, and suites stay hairline tables  
 - Plugin detail: exclusive / chain **declared-slot** timeline; expand jumps into the in-package file preview. The browser never executes plugin code  
 - Official orgs, members of those orgs, and plugins from those orgs show a verified check  
-- Public user page: identity, GitHub link (from login), optional bio (self-PATCH `description`). Orgs may have a `description`. Private memberships stay hidden  
+- Public user page: identity, GitHub link (from login), optional bio (self-PATCH `description`). Orgs may have a `description`. Private memberships stay hidden. Platform Maintainers (`AGEVAL_REGISTRY_MAINTAINERS`) show a Shield mark on the profile and header, independent of Official  
 - Plugin / Agent cards and detail show download and star counts on one row. Downloads increment on a successful package content GET; stars are one row per signed-in user per plugin/agent, toggled only from the detail header. Dataset tables show neither. List tabs are the list query: Explore default (no params or `?visibility=public`), Your organizations `?orgs=1`, Stars `?favorited=1` (plugins/agents only). Org detail uses `?tab=settings`  
 - Org, dataset, plugin, and agent owners can edit the display name (org title, or the leaf after `org/`). The stored package id prefix does not change  
 - Signed-in **Home**: jobs you uploaded, orgs, datasets/tasks you can maintain, plugins and agents you uploaded (same official mark and title as the marketplace). Signed-out visitors go to sign-in. No publish / upload / release buttons  
 - List search sits with the scope tabs; file-tree pane height is stable; trajectory tool-call rows collapse; steps follow sealed file order; a step shows duration only when `elapsed_ms` is on the sealed row  
 
-- Agent detail: published package (binding + files, including bundled `overlays/`) plus appearances from official public suites that named it with a consented `agent_ref` (Agent org owner attach, or an approved appearance request). Suites run with `--profiles` only stay on the Dataset Leaderboard until attached.
-- **Inbox**: Dataset and Agent org owners batch-approve or reject pending listing and appearance requests. Org join stays invite keys.
+- Agent detail: published package (binding + files, including bundled `overlays/`) plus **Performance** (mechanism cards default-collect official plaza; a Maintainer can turn collection off or include non-official orgs; custom cards still need consented `agent_ref`). Suites run with `--profiles` only stay on the Dataset Leaderboard until attached.
+- **Inbox**: Dataset org owners, Agent org owners, and platform Maintainers batch-approve or reject pending listing and Performance requests. Org join stays invite keys. Kind / Dataset filters; History can hide processed rows for the current user.
 
 - **Sign in with GitHub** (browser OAuth; CLI stays on Device Flow)
 
@@ -53,8 +53,8 @@ Or `docker compose -f services/registry/docker-compose.yml up -d` for Hub at `ht
 | `/plugins` | Plugin marketplace |
 | `/plugins/:id` | Plugin detail (declared-slot timeline · file preview · CLI install) |
 | `/agents` | Agent catalog (builtin mechanism cards, then uploads) |
-| `/inbox` | Pending listing and appearance requests the caller can decide |
-| `/agents/:id` | Binding, files, registered models, appearances |
+| `/inbox` | Pending listing and Performance requests the caller can decide |
+| `/agents/:id` | Binding, files, registered models, Performance |
 | `/organizations` | Your orgs · Create / Join · dataset / plugin / agent counts |
 | `/organizations/:orgId` | Overview (members · datasets · plugins · agents) · Settings |
 | `/users/:login` | Public user profile (official orgs and public datasets / plugins / agents; signed-out OK) |

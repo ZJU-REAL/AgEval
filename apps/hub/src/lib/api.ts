@@ -116,6 +116,7 @@ export type UserPublic = {
   description?: string;
   official: boolean;
   official_orgs: UserOfficialOrg[];
+  maintainer?: boolean;
 };
 
 export type OrgInviteKey = {
@@ -267,7 +268,7 @@ export type RuntimeTeammate = {
   display_name: string;
 };
 
-export type AgentAppearance = {
+export type AgentPerformance = {
   package_id: string;
   agent_version: string;
   dataset_id: string;
@@ -542,22 +543,42 @@ export async function setPackageFavorite(
   });
 }
 
-export async function listPackageVersionsWithAppearances(
+export type PerformanceCollectMode = "off" | "official" | "official_and_personal";
+
+export type PerformanceCollect = {
+  mode: PerformanceCollectMode;
+  can_edit: boolean;
+};
+
+export async function listPackageVersionsWithPerformances(
   datasetId: string,
   token: string | null,
   opts?: { packageKind?: "dataset" | "plugin" | "agent" },
-): Promise<{ items: PackageRelease[]; appearances: AgentAppearance[] }> {
+): Promise<{
+  items: PackageRelease[];
+  performances: AgentPerformance[];
+  performanceCollect: PerformanceCollect | null;
+}> {
   const id = datasetId.split("/").map(encodeURIComponent).join("/");
   const q = new URLSearchParams();
   if (opts?.packageKind) q.set("package_kind", opts.packageKind);
   const path = q.toString() ? `/v1/packages/${id}?${q.toString()}` : `/v1/packages/${id}`;
   const data = await requestJson<{
     items?: PackageRelease[];
-    appearances?: AgentAppearance[];
+    performances?: AgentPerformance[];
+    performance_collect?: PerformanceCollect;
   }>(path, { token });
+  const collect = data.performance_collect;
   return {
     items: Array.isArray(data.items) ? data.items : [],
-    appearances: Array.isArray(data.appearances) ? data.appearances : [],
+    performances: Array.isArray(data.performances) ? data.performances : [],
+    performanceCollect:
+      collect &&
+      (collect.mode === "off" ||
+        collect.mode === "official" ||
+        collect.mode === "official_and_personal")
+        ? { mode: collect.mode, can_edit: Boolean(collect.can_edit) }
+        : null,
   };
 }
 
@@ -565,7 +586,31 @@ export async function listPackageVersions(
   datasetId: string,
   token: string | null,
 ): Promise<PackageRelease[]> {
-  return (await listPackageVersionsWithAppearances(datasetId, token)).items;
+  return (await listPackageVersionsWithPerformances(datasetId, token)).items;
+}
+
+export async function setPerformanceCollect(
+  packageId: string,
+  mode: PerformanceCollectMode,
+  token: string | null,
+): Promise<PerformanceCollect> {
+  return requestJson(`/v1/packages/${packageIdPath(packageId)}/performance-collect`, {
+    token,
+    method: "PATCH",
+    body: { mode },
+  });
+}
+
+export async function detachPerformance(
+  packageId: string,
+  body: { suite_run_id: string; role: string },
+  token: string | null,
+): Promise<{ ok?: boolean; suite_run_id?: string; role?: string }> {
+  return requestJson(`/v1/packages/${packageIdPath(packageId)}/performance-detach`, {
+    token,
+    method: "POST",
+    body,
+  });
 }
 
 /** Package meta by digest (includes plugin_preview for ageval.plugin/1). */
@@ -771,6 +816,15 @@ export async function listSuites(
     : "/v1/results/suites";
   const data = await requestJson<{ items?: SuiteRow[] }>(path, { token });
   return Array.isArray(data.items) ? data.items : [];
+}
+
+export async function getSuite(
+  suiteRunId: string,
+  token: string | null,
+): Promise<SuiteRow> {
+  return requestJson(`/v1/results/suites/${encodeURIComponent(suiteRunId)}`, {
+    token,
+  });
 }
 
 export function uniqueAgentRefs(refs: AgentRefLink[] | undefined): AgentRefLink[] {
@@ -1126,7 +1180,7 @@ export async function removeResultShare(
 
 export type ResourceRequest = {
   request_id: string;
-  kind: "leaderboard_list" | "agent_appearance" | string;
+  kind: "leaderboard_list" | "agent_performance" | string;
   status: "pending" | "approved" | "rejected" | string;
   suite_run_id: string;
   dataset_id: string;
@@ -1175,6 +1229,17 @@ export async function decideRequests(
     token,
     method: "POST",
     body: { ids, action },
+  });
+}
+
+export async function hideInboxRequests(
+  ids: string[],
+  token: string | null,
+): Promise<{ ok?: boolean; ids?: string[] }> {
+  return requestJson("/v1/requests/hide", {
+    token,
+    method: "POST",
+    body: { ids },
   });
 }
 

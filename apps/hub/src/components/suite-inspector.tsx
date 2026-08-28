@@ -246,6 +246,8 @@ export function SuiteInspector({
   onClose,
   onSuiteUpdated,
   onSuiteDeleted,
+  canDetachPerformance = false,
+  onRemovePerformance,
 }: {
   suite: SuiteRow;
   datasetId: string;
@@ -256,6 +258,8 @@ export function SuiteInspector({
   onClose: () => void;
   onSuiteUpdated?: (suiteRunId: string, patch: Partial<SuiteRow>) => void;
   onSuiteDeleted?: (suiteRunId: string) => void;
+  canDetachPerformance?: boolean;
+  onRemovePerformance?: () => void;
 }) {
   const navigate = useNavigate();
   const [tab, setTab] = useState<SuiteInspectorTab>("profiles");
@@ -406,7 +410,7 @@ export function SuiteInspector({
                 </div>
               </div>
               <div className="flex shrink-0 items-center gap-0.5">
-                {canManage ? (
+                {canManage || canDetachPerformance ? (
                   <ResultOwnerOps
                     kind="suite"
                     resultId={suite.suite_run_id}
@@ -415,7 +419,9 @@ export function SuiteInspector({
                     boundKind={suite.bound_kind}
                     boardListed={suite.board_listed}
                     jobOverlay={suite.job_overlay}
-                    canManage
+                    canManage={canManage}
+                    canDetachPerformance={canDetachPerformance}
+                    onRemovePerformance={onRemovePerformance}
                     variant="delete"
                     token={getToken()}
                     onDeleted={() => {

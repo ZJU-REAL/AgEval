@@ -26,6 +26,7 @@ import type { NavGlyph } from "@/components/empty-state";
 import { GitHubIcon } from "@/components/github-icon";
 import { HoverTip } from "@/components/hover-tip";
 import { LiquidThumb, useTrackedRect } from "@/components/liquid-thumb";
+import { MaintainerMark } from "@/components/maintainer-mark";
 import { OfficialMark } from "@/components/official-mark";
 import { OwlIcon } from "@/components/owl-icon";
 import { PageHeadSlotProvider } from "@/components/page-head";
@@ -380,6 +381,7 @@ export function Shell({
   const displayName = githubName || githubUser;
   const publicUser = usePublicUser(token ? githubUser : null);
   const showOfficial = Boolean(publicUser?.official);
+  const showMaintainer = Boolean(publicUser?.maintainer);
 
   useEffect(() => {
     setMobileOpen(false);
@@ -526,6 +528,7 @@ export function Shell({
                         {displayName}
                       </span>
                       {showOfficial ? <OfficialMark kind="org" /> : null}
+                      {showMaintainer ? <MaintainerMark /> : null}
                     </span>
                   </Link>
                 ) : null}

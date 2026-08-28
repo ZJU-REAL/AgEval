@@ -51,7 +51,7 @@ same `.env` chain as lock (process env, then dataset `.env`, cwd `.env`, repo
 `.env`). Unset names fail closed. Bare `$NAME` is left for the engine (Pi
 `apiKey`). No JSON deep-merge.
 
-To show the same files on Hub Agent appearances, list them on this role as
+To show the same files on Hub Agent Performance, list them on this role as
 `overlays:` (paths under `overlays/`, resolved from the Agent package when
 `agent_ref` is set). That field is the
 published set; this plugin still copies only its own `files[].src`.
