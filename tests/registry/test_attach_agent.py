@@ -253,6 +253,36 @@ def test_attach_succeeds_when_only_model_differs(tmp_path: Path) -> None:
     assert str(overlay["agent_ref"]).startswith("official/pi-default@0.1.0+")
 
 
+def test_attach_succeeds_when_only_plugin_options_differ(tmp_path: Path) -> None:
+    packages, results, _runtimes = _services(tmp_path)
+    _publish_dataset(packages, tmp_path, dataset_id="official/gaia", org_id="official")
+    _publish_agent(packages, tmp_path, package_id="official/pi-default", org_id="official")
+    _upload(
+        results,
+        tmp_path,
+        suite_run_id="suite_effort",
+        dataset_id="official/gaia",
+        agent_profiles={
+            "solver": {
+                **PI,
+                "extensions": [
+                    {"plugin": "acp", "options": {"entry": "pi", "reasoning_effort": "max"}}
+                ],
+            }
+        },
+    )
+    owner = TokenInfo(scopes=frozenset({"results:upload"}), user_id="alice")
+    attached = results.attach_agent(
+        suite_run_id="suite_effort",
+        agent="official/pi-default@0.1.0",
+        auth=owner,
+    )
+    assert attached["attached"] is True
+    overlay = attached["job_overlay"]["agent_profiles"]["solver"]
+    assert overlay["extensions"][0]["options"]["reasoning_effort"] == "max"
+    assert str(overlay["agent_ref"]).startswith("official/pi-default@0.1.0+")
+
+
 def test_attach_mismatch_and_unauthorized(tmp_path: Path) -> None:
     packages, results, _runtimes = _services(tmp_path)
     _publish_dataset(packages, tmp_path, dataset_id="official/gaia", org_id="official")

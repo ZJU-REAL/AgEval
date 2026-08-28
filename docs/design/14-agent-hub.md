@@ -12,7 +12,7 @@ format `ageval.agent/1`。不要 `ageval.harness/1`，不要第二套 `package_k
 
 文件树有 `overlays/` 就暴露给包预览；没有就不要造。加卡 = 改 JSON + 过检查脚本，不是 `ageval agent publish`，也不是往 packages 表插行。短 id 保留：publish 撞到 fail-closed。
 
-**定制卡（upload）。** `ageval agent publish` → `org/name@version`。身份是 executor、ACP entry、overlays/files、secret-free plugin options。
+**定制卡（upload）。** `ageval agent publish` → `org/name@version`。Harness 身份是 executor + ACP entry。缺省 `binding.model`、overlays/files、其余 plugin options（如 `reasoning_effort`）是 run 配方，不是 attach 尺子。
 
 ## CLI
 
@@ -22,7 +22,7 @@ format `ageval.agent/1`。不要 `ageval.harness/1`，不要第二套 `package_k
 
 ## 溯源与可比性
 
-`agent_ref` 是溯源，不进 `config_fingerprint`。suite 可比性仍含**实际** model（`_binding_role_key`）。延后 attach（upload 包）对齐 executor + ACP entry + secret-free plugin options，**不含** model。plaza 规则不变。`local/` 与 `file:` 不能当 Hub 溯源。
+`agent_ref` 是溯源，不进 `config_fingerprint`。suite 可比性仍含**实际** model 与 secret-free plugin options（`_binding_role_key`）。延后 attach 对齐 executor + ACP entry；**不含** model，也不含其余 plugin options。plaza 规则不变。`local/` 与 `file:` 不能当 Hub 溯源。
 
 ## Hub 浏览与 model
 
@@ -31,6 +31,6 @@ format `ageval.agent/1`。不要 `ageval.harness/1`，不要第二套 `package_k
 - 机制卡：plaza overlay 上 `resolve_agent_id` 等于该短 id 的 `model`。**不**经 Agent org 同意。
 - 定制卡：同意出场的 `agent_ref` 行（owner attach 或批准 `agent_appearance`）。
 
-落地 `/agents/{id}?model=` 是同一详情页 query，不是新路由、不是 combo 包。
+落地 `/agents/{id}?model=` 是同一详情页 query，不是新路由、不是 combo 包。Appearances：机制卡按 overlay `model` 分组，不按 agent package version；没有 `agent_ref` 不渲染 version（不要 `unknown`）。定制卡按所 attach 的 `org/name@version` 的 version 分组。
 
 产品禁止 mock-default Agent。

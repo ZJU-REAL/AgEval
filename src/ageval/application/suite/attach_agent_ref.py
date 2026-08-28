@@ -1,7 +1,7 @@
 """Inject a published ``agent_ref`` onto matching overlay roles (design/12, /14).
 
-Compare uses ``_appearance_role_key`` (executor, ACP entry, secret-free plugin
-options). Model is observational and must not block attach. The write is
+Compare uses ``_appearance_role_key`` (executor, ACP entry). Model and remaining
+plugin options are run parameters and must not block attach. The write is
 provenance only: it must not change fingerprint identity, lock bytes, or PASS.
 """
 

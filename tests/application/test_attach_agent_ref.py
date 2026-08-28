@@ -100,6 +100,53 @@ def test_inject_conflict_and_idempotent_same_ref() -> None:
         )
 
 
+def test_inject_ignores_plugin_options_fingerprint_still_sees_them() -> None:
+    with_effort = {
+        **GROK,
+        "extensions": [
+            {"plugin": "acp", "options": {"entry": "grok-build", "reasoning_effort": "max"}}
+        ],
+    }
+    overlay = {"agent_profiles": {"solver": dict(with_effort)}}
+    bare = {"agent_profiles": {"solver": dict(GROK)}}
+    before = fingerprint_for_job_overlay(overlay)
+    assert before != fingerprint_for_job_overlay(bare)
+    result = inject_published_agent_ref(
+        overlay,
+        published_binding=GROK,
+        agent_ref="acme/http-default@0.1.0",
+    )
+    assert result.roles == ("solver",)
+    assert fingerprint_for_job_overlay(result.overlay) == before
+
+
+def test_inject_openai_http_ignores_model_and_effort() -> None:
+    published = {
+        "executor": "openai-http",
+        "extensions": [{"plugin": "openai-http"}, {"plugin": "local"}],
+    }
+    overlay = {
+        "agent_profiles": {
+            "user": {
+                **published,
+                "model": "dashscope/qwen3.8-max",
+                "options": {"reasoning_effort": "max"},
+            },
+            "service": {
+                **published,
+                "model": "dashscope/deepseek-v4-pro",
+                "options": {"reasoning_effort": "max"},
+            },
+        }
+    }
+    result = inject_published_agent_ref(
+        overlay,
+        published_binding=published,
+        agent_ref="openai-http@0.1.0",
+    )
+    assert result.roles == ("user", "service")
+
+
 def test_inject_ignores_locators_environment_overlays() -> None:
     suite = {
         "agent_profiles": {

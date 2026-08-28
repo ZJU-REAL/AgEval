@@ -250,10 +250,14 @@ def _binding_role_key(binding: Mapping[str, Any]) -> tuple[str, str, str, str]:
     )
 
 
-def _appearance_role_key(binding: Mapping[str, Any]) -> tuple[str, str, str]:
-    """Harness identity for delayed attach (design/12, /14). Model is observational."""
-    executor, entry, _model, opts = _binding_role_key(binding)
-    return (executor, entry, opts)
+def _appearance_role_key(binding: Mapping[str, Any]) -> tuple[str, str]:
+    """Harness identity for delayed attach (design/12, /14).
+
+    Executor + ACP entry. Model and remaining plugin options (including
+    ``reasoning_effort``) are run parameters, not harness identity.
+    """
+    executor, entry, _model, _opts = _binding_role_key(binding)
+    return (executor, entry)
 
 
 def job_overlays_compatible(
