@@ -250,7 +250,13 @@ def test_messages_map_to_layer_b() -> None:
             {
                 "role": "assistant",
                 "content": "I will list files",
-                "extra": {"actions": [{"command": "ls"}]},
+                "extra": {"actions": [{"command": "ls", "tool_call_id": "call_ls"}]},
+            },
+            {
+                "role": "tool",
+                "tool_call_id": "call_ls",
+                "content": "<returncode>0</returncode>\n<output>\na.py\n</output>",
+                "extra": {"returncode": 0, "raw_output": "a.py\n"},
             },
             {"role": "exit", "content": "Submitted", "extra": {"exit_status": "Submitted"}},
         )
@@ -258,12 +264,56 @@ def test_messages_map_to_layer_b() -> None:
     assert all(e.get("schema") == SCHEMA for e in mapped)
     assert all(e.get("source") == "miniswe" for e in mapped)
     assert not any(e.get("type") == "session_update" for e in mapped)
-    kinds = [e["kind"] for e in mapped]
-    assert "text" in kinds
-    assert "tool" in kinds
-    tool = next(e for e in mapped if e["kind"] == "tool")
-    assert tool["name"] == "bash"
-    assert tool["arguments"]["command"] == "ls"
+    start = next(e for e in mapped if e.get("kind") == "tool" and e.get("phase") == "start")
+    assert start["tool_call_id"] == "call_ls"
+    assert start["function_name"] == "bash"
+    assert start["args"] == {"command": "ls"}
+    assert start["status"] == "pending"
+    update = next(e for e in mapped if e.get("kind") == "tool" and e.get("phase") == "update")
+    assert update["tool_call_id"] == "call_ls"
+    assert update["status"] == "completed"
+    assert "a.py" in str(update.get("content") or "")
+
+
+def test_mapped_events_fold_to_viewer_tool_call() -> None:
+    from ageval.evidence.trajectory import turn_rows
+
+    mapped = to_ageval_trajectory_events(
+        (
+            {
+                "role": "assistant",
+                "content": "listing",
+                "extra": {"actions": [{"command": "ls", "tool_call_id": "call_ls"}]},
+            },
+            {
+                "role": "tool",
+                "tool_call_id": "call_ls",
+                "content": "ok",
+                "extra": {"returncode": 0, "raw_output": "ok"},
+            },
+        ),
+        session_id="ageval-solver-x",
+    )
+    lines = turn_rows(
+        prompt="fix the bug",
+        events=mapped,
+        final_text="",
+        structured=None,
+        usage=None,
+        ok=True,
+        error=None,
+        metadata={"plugin": "miniswe", "profile_id": "solver"},
+    )
+    types = [x["type"] for x in lines]
+    assert "tool_call" in types
+    assert "observation" in types
+    tool = next(x for x in lines if x["type"] == "tool_call")
+    assert tool["tool_call_id"] == "call_ls"
+    assert tool["function_name"] == "bash"
+    assert tool["args"] == {"command": "ls"}
+    obs = next(x for x in lines if x["type"] == "observation")
+    assert obs["tool_call_id"] == "call_ls"
+    assert "ok" in str(obs.get("content") or obs.get("raw_output") or "")
 
 
 @pytest.mark.asyncio
