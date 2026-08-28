@@ -284,7 +284,7 @@ export function TrajectoryPanel({
       <div className="space-y-2">
         <p className="text-sm text-mute">No trajectory.jsonl steps for this run.</p>
         {result ? (
-          <pre className="text-[12px] font-mono bg-canvas-soft border border-hairline rounded-[8px] p-3 overflow-auto max-h-64">
+          <pre className="text-[12px] font-mono bg-canvas-soft rounded-[12px] p-3 overflow-auto max-h-64">
             {JSON.stringify(result, null, 2)}
           </pre>
         ) : null}
@@ -402,7 +402,7 @@ export function TrajectoryPanel({
             <li
               key={`${s.invocation || ""}-${s.line || i}-${i}`}
               className={cn(
-                "overflow-hidden rounded-[8px] border border-hairline",
+                "blob-panel overflow-hidden",
                 isObservation && "bg-canvas-soft/40",
               )}
             >

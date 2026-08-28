@@ -115,7 +115,7 @@ export function TaskDetailPage() {
         {error && <p className="text-sm text-error">{error}</p>}
 
         {!loading && !error && (
-          <div className="rounded-[8px] border border-hairline overflow-hidden">
+          <div className="blob-panel overflow-hidden">
             <Table>
               <TableHeader>
                 <TableRow className="hover:bg-transparent">

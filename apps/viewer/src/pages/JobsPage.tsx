@@ -399,7 +399,7 @@ export function JobsPage() {
         {loading ? (
           <LoadingState label="Loading jobs" />
         ) : error ? (
-          <div className="rounded-[8px] border border-hairline bg-canvas-soft p-4 text-sm">
+          <div className="blob-panel bg-canvas-soft p-4 text-sm">
             <p className="text-error font-medium">Could not load jobs</p>
             <p className="mt-1 text-xs text-body">{error}</p>
           </div>
@@ -431,7 +431,7 @@ export function JobsPage() {
             }
           />
         ) : (
-          <div className="rounded-[8px] border border-hairline overflow-hidden">
+          <div className="blob-panel overflow-hidden">
           <Table>
             <TableHeader>
               <TableRow className="hover:bg-transparent">
