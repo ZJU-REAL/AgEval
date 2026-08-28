@@ -90,7 +90,7 @@ landing 的 oklch 系(`oklch(15.4% 0.018 264)` 底等)是本表的 oklch 等值�
 
 | 语汇 | 规则 |
 | --- | --- |
-| 主按钮(SPA Button `default`) | IKB 填充 + `rounded-[8px]` + `font-mono text-[13px] font-semibold` + pop 阴影 + `focus-visible:ring-2 ring-link/70`,hover `link-deep`。`:active` 为 Squish(`scale` 约 0.94、80ms 按下 / spring 松开) |
+| 主按钮(SPA Button `default`) | IKB 填充 + `rounded-[8px]` + `font-mono text-[13px] font-semibold` + pop 阴影 + `focus-visible:ring-2 ring-link/70`,hover `link-deep`。`:active` 为 Squish(`scale` 0.96、80ms 按下 / spring 松开) |
 | 分段 tab | `UnderlineTabs`:sans `text-sm` + Liquid Move thumb(fill `canvas-soft-2`)。一页一条。不要再画 IKB `border-b-2` 底条 |
 | 紧凑 pill | `PillTabs`:同上,11px。只用于面板内紧凑分段。同页再出现互斥选择用 `Select` |
 | 按钮组 | 并列选项收进**一个** hairline 容器(8px 圆角)。选中 `canvas-soft-2` + `ink`,hover `canvas-soft`。字号 `body-sm`。不要 IKB 填充 |
@@ -99,13 +99,13 @@ landing 的 oklch 系(`oklch(15.4% 0.018 264)` 底等)是本表的 oklch 等值�
 | Toast | 底中 Overshoot 进场;只用于没有本地成功态的写操作。Copy / star 等控件自身已有反馈的不要再 toast。实色 `*-soft` 次底 + `--viewer-shadow-pop`,无描边、无第三方面包。图标走对应功能色,正文走 `body` |
 | Select / 下拉 | `Select` / `DropdownMenu` 用 `data-ageval-menu` 进场(220ms smooth, 随 `data-side` 上下),触发器 chevron 旋转 + squish;选项 `data-highlighted` 色过渡,选中勾 `ease-spring` pop。触发器焦点走扫描字段,不是 IKB 描边 |
 | Floating Label | 编辑字段:placeholder 在 focus 或有值时抬成 label;焦点描边走 `link` |
-| Catalog 卡 | 市场实体(plugin / agent)用 `CatalogCard`:14px、四面 hairline + pop 阴影、hover `canvas-soft`,描述两行。卡上不画 slot / binding tag。star 在卡上是计数不是写入口;写收藏不是卡上的控件,填实用 `star` 金。first-party overlay 走短 id + lucide builtin 标(`link`),不要冒充 OfficialMark。可比行(dataset / jobs / leaderboard / members)用表 |
+| Catalog 卡 | 市场实体(plugin / agent)用 `CatalogCard`:14px、四面 hairline + pop 阴影、hover `canvas-soft`、按下 `squish`(0.96)。描述三行。宽屏三列(`xl:grid-cols-3`)。卡上不画 slot / binding tag。star 在卡上是计数不是写入口;写收藏不是卡上的控件,填实用 `star` 金。first-party overlay 走短 id + lucide builtin 标(`link`),不要冒充 OfficialMark。可比行(dataset / jobs / leaderboard / members)用表 |
 | 页头(PageHead) | h1 + 可选 sub + hairline(无编号 kicker) |
 | 相位/耗时图谱 | `--viewer-phase-1..6` 用 ink / body / mute / hairline 冷灰阶。执行段 `--viewer-phase-1` 为 ink 与 mute 的 `color-mix`（约 55% ink），不用实心 ink，也不用 IKB。IKB 留给链接 / 焦点 / 主 CTA。禁 zinc 等外部灰阶 |
 | 弹层(tooltip/select/dropdown/dialog) | hairline 边框 + `--viewer-shadow-pop`。Portal 到 `document.body` 或 `OverlayRoot`;不要挂在已有 `transform` 的 pop 里(`position:fixed` 会跟错) |
 | 危险确认 | Modal：较大标题 + mute 说明后果 + Cancel / Confirm 两枚按钮 |
-| Hub 壳 | 左右分区:整列侧栏 `canvas-soft` + 右 hairline;顶栏与主列 `canvas`(不透明,无 blur)。Logo 行 `border-b`,GitHub / Documentation 脚 `border-t`。选中侧栏行 Liquid fill 走 `canvas`;hover `canvas/50` |
-| Viewer 壳 | 无侧栏。顶栏 `canvas-soft` + `border-b`;主列 `canvas` |
+| Hub 壳 | 左右分区:整列侧栏 `canvas-soft` + 右 hairline;顶栏与主列 `canvas`(不透明,无 blur)。Logo 行 `border-b`,GitHub / Documentation 脚 `border-t`。选中侧栏行 Liquid fill 走 `canvas`;hover `canvas/50`。宽屏(`xl`)正文居中 `w-[80%]`;顶栏仍铺满主列 |
+| Viewer 壳 | 无侧栏。顶栏 `canvas-soft` + `border-b`;主列 `canvas`。宽屏(`xl`)正文居中 `w-[80%]`;顶栏仍铺满 |
 | Docs 壳 | 文档侧栏 `muted`(canvas-soft) + 右 hairline;阅读列 `background`(canvas)。不引入 liquid-gooey |
 | 侧栏字形色 | Hub 目的地 lucide 只涂对应 `nav-*`。标签走正文 sans + `body-sm`(`text-sm`),不是 mono。未选:该令牌与 `mute` 的 `color-mix`,标签 `font-normal`,描边 2;选中:令牌本体 + 行底 `canvas`,标签 `font-semibold`,描边 2.5。字重与描边用默认 200ms `--ease-smooth` 过渡;不要 fill。`prefers-reduced-motion: reduce` 时瞬时到位。焦点环仍是 IKB。不要拿字形色铺页面或涂正文。Viewer 无 Hub 侧栏;功能图标继续 `mute` |
 | Loading | 与 empty **分开**。正在拉取时:`ThinkingLogo` + 一行「Loading …」,不要骨架栅格,也不要用 empty 的虚线井。画布停在屏外/隐藏页时不转 |

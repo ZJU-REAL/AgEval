@@ -24,10 +24,10 @@ The look is already chosen. Shared anti-slop (copy, type, reject list, landing-p
 
 ### Hub chrome
 
-- Left/right shell: entire aside opaque `canvas-soft` + `border-r`; header and main `canvas`. Logo row `border-b`; GitHub / Documentation footer `border-t`. No glass, no blur wash.
+- Left/right shell: entire aside opaque `canvas-soft` + `border-r`; header and main `canvas`. Logo row `border-b`; GitHub / Documentation footer `border-t`. No glass, no blur wash. Wide (`xl`) main copy is `w-[80%]` centered; the top bar still spans the main column.
 - Selected sidebar row is Liquid Move fill `canvas`. Hover is `canvas/50`. Do not reuse `canvas-soft-2` on the rail — it disappears against the soft aside.
 - `nav-*` paints lucide only. Labels stay `ink` / `body`, sans, body-sm. Do not flood the page with those colors.
-- Marketplace entities (plugin / agent) are `CatalogCard`. Comparable rows (datasets, jobs, leaderboard, members) are tables. Do not put a dataset in a card "to match plugins".
+- Marketplace entities (plugin / agent) are `CatalogCard` (squish press, three-line description, three columns at `xl`). Comparable rows (datasets, jobs, leaderboard, members) are tables. Do not put a dataset in a card "to match plugins".
 - Star on a card is a count. The write control is on the package, not the list cell.
 - Search on a catalog list copies `CatalogScopeBar`.
 - Layout: Viewer DESIGN.md **Composition**. New chrome joins the band already scanning the page. Density 6/10 is not an excuse for a vacant half-row.

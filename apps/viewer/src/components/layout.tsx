@@ -36,9 +36,11 @@ export function Shell({
       <main
         id="main"
         tabIndex={-1}
-        className="flex flex-1 w-full max-w-[1400px] mx-auto flex-col px-6 py-5"
+        className="flex flex-1 w-full flex-col px-6 py-5"
       >
-        {children}
+        <div className="flex min-w-0 w-full flex-1 flex-col xl:mx-auto xl:w-[80%]">
+          {children}
+        </div>
       </main>
       <Toaster />
     </div>

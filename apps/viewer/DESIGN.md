@@ -177,4 +177,4 @@ Before drawing a control:
 | Dialog / confirm | existing confirm / pop (`data-ageval-pop`); portal to body / overlay root |
 | Loading / empty | `ThinkingLogo` loading vs centered empty stack (docs/13) |
 
-Viewer has no Hub sidebar. Header is opaque `canvas-soft` + `border-b`; main is `canvas`. Brand is the owl lockup; page-action icons stay `mute`.
+Viewer has no Hub sidebar. Header is opaque `canvas-soft` + `border-b` and spans the viewport. Main is `canvas`; wide (`xl`) copy is `w-[80%]` centered. Brand is the owl lockup; page-action icons stay `mute`.

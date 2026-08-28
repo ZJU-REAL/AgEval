@@ -360,7 +360,7 @@
   transition-timing-function: var(--ease-smooth), var(--ease-smooth),
     var(--ease-smooth), var(--ease-spring);
   &:active {
-    transform: scale(0.94);
+    transform: scale(0.96);
     transition-duration: 200ms, 200ms, 200ms, 80ms;
     transition-timing-function: var(--ease-smooth), var(--ease-smooth),
       var(--ease-smooth), ease-out;

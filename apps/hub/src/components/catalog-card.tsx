@@ -81,8 +81,7 @@ export function CatalogCard({
       onKeyDown={onKeyDown}
       className={cn(
         "flex h-full flex-col rounded-[14px] border border-hairline bg-canvas p-4 text-left shadow-[var(--viewer-shadow-pop)]",
-        "transition-[transform,box-shadow,background-color] duration-200 ease-smooth",
-        "hover:bg-canvas-soft hover:shadow-[var(--viewer-shadow-pop)]",
+        "squish hover:bg-canvas-soft",
         "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-link/70",
         "cursor-pointer",
       )}
@@ -107,7 +106,7 @@ export function CatalogCard({
 
       <p
         className={cn(
-          "mt-3 h-10 line-clamp-2 text-sm leading-5",
+          "mt-3 h-[3.75rem] line-clamp-3 text-sm leading-5",
           description ? "text-body" : "text-mute",
         )}
         title={description ?? undefined}
