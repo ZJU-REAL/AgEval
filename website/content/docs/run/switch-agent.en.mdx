@@ -35,7 +35,8 @@ ACP `entry` lives on `- plugin: acp` / `options.entry`.
 
 `ageval.agent/1` is a harness package (executor, entry, overlays).
 `binding.model` is the default, not identity. Mechanism cards (`pi`,
-`opencode`, `codex`, `claude-code`, `grok-build`, `openai-http`) ship with
+`opencode`, `codex`, `claude-code`, `grok-build`, `openai-http`,
+`anthropic-http`) ship with
 ageval — no `agent install`. Custom overlay packs are `org/name@version` after
 install. `ageval agent install` also installs `binding.extensions[].plugin`
 (skips contrib; missing plugin or unsatisfied `host_requires` fail-closes the

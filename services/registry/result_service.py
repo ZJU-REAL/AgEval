@@ -379,7 +379,17 @@ class ResultService:
                     continue
                 pid = str(item.get("plugin_id") or "").strip()
                 key = pid.casefold()
-                if not pid or key in seen or key in {"default", "acp", "openai-http"}:
+                if (
+                    not pid
+                    or key in seen
+                    or key
+                    in {
+                        "default",
+                        "acp",
+                        "openai-http",
+                        "anthropic-http",
+                    }
+                ):
                     continue
                 seen.add(key)
                 row = {"plugin_id": pid}

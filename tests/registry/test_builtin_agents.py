@@ -24,7 +24,9 @@ from ageval.registry.agent_package import (
 
 REPO = Path(__file__).resolve().parents[2]
 AGENT_FIXTURE = REPO / "examples" / "agents" / "pi-default"
-SIX = frozenset({"pi", "opencode", "codex", "claude-code", "grok-build", "openai-http"})
+SEVEN = frozenset(
+    {"pi", "opencode", "codex", "claude-code", "grok-build", "openai-http", "anthropic-http"}
+)
 
 
 def _service(tmp_path: Path) -> PackageService:
@@ -53,8 +55,8 @@ def _agent_meta(tmp_path: Path) -> tuple[dict[str, object], Path]:
     )
 
 
-def test_catalog_has_six_harness_ids() -> None:
-    assert builtin_harness_ids() == SIX
+def test_catalog_has_seven_harness_ids() -> None:
+    assert builtin_harness_ids() == SEVEN
 
 
 def test_explore_unions_builtin_with_store(tmp_path: Path) -> None:
@@ -72,13 +74,14 @@ def test_explore_unions_builtin_with_store(tmp_path: Path) -> None:
         package_kind="agent",
     )
     ids = [i["dataset_id"] for i in listed["items"]]
-    assert ids[:6] == [
+    assert ids[:7] == [
         "pi",
         "opencode",
         "codex",
         "claude-code",
         "grok-build",
         "openai-http",
+        "anthropic-http",
     ]
     assert "acme/pi-default" in ids
     opencode = next(i for i in listed["items"] if i["dataset_id"] == "opencode")
@@ -247,13 +250,14 @@ def test_http_explore_and_kind_query(tmp_path: Path) -> None:
     assert listed.status == 200, listed.body.decode()
     payload = json.loads(listed.body.decode())
     ids = [i["dataset_id"] for i in payload["items"]]
-    assert ids[:6] == [
+    assert ids[:7] == [
         "pi",
         "opencode",
         "codex",
         "claude-code",
         "grok-build",
         "openai-http",
+        "anthropic-http",
     ]
     plugin = api.dispatch(
         method="GET",

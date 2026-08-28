@@ -16,7 +16,9 @@ from ageval.config.errors import ConfigError
 
 def test_catalog_short_ids() -> None:
     ids = builtin_harness_ids()
-    assert ids >= frozenset({"pi", "opencode", "codex", "claude-code", "grok-build", "openai-http"})
+    assert ids >= frozenset(
+        {"pi", "opencode", "codex", "claude-code", "grok-build", "openai-http", "anthropic-http"}
+    )
     assert "acp" not in ids
     assert "docker" not in ids
 

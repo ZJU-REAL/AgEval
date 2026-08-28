@@ -40,5 +40,12 @@
     "product": "openai-http",
     "label": "OpenAI HTTP",
     "description": "OpenAI-compatible HTTP Chat Completions (`executor: openai-http`). Locators for base_url and api_key. No default model; pass --model on the run."
+  },
+  {
+    "harness_id": "anthropic-http",
+    "kind": "executor",
+    "product": "anthropic-http",
+    "label": "Anthropic HTTP",
+    "description": "Anthropic Messages HTTP (`executor: anthropic-http`). Locators for base_url and api_key. No default model; pass --model on the run."
   }
 ]

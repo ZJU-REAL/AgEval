@@ -1,0 +1,15 @@
+format: ageval.agent/1
+agent_id: anthropic-http
+version: "0.1.0"
+label: "Anthropic HTTP"
+description: >-
+  Anthropic Messages HTTP. No default model; pass --model on the run.
+  Locators stay names until invoke.
+tags: [anthropic-http]
+binding:
+  executor: anthropic-http
+  api_key: ${ANTHROPIC_API_KEY}
+  base_url: https://api.anthropic.com/v1
+  extensions:
+    - plugin: anthropic-http
+    - plugin: local

@@ -26,6 +26,7 @@ _ICON_KEY = {
     "claude-code": "claude-code",
     "grok-build": "grok",
     "openai-http": "openai",
+    "anthropic-http": "anthropic",
 }
 
 

@@ -20,7 +20,9 @@ from ageval.registry.plugin_package import (
 
 REPO = Path(__file__).resolve().parents[2]
 PLUGIN_FIXTURE = REPO / "tests" / "fixtures" / "plugins" / "sample-echo"
-SEVEN = frozenset({"local", "docker", "e2b", "ssh", "daytona", "acp", "openai-http"})
+EIGHT = frozenset(
+    {"local", "docker", "e2b", "ssh", "daytona", "acp", "openai-http", "anthropic-http"}
+)
 
 
 def _service(tmp_path: Path) -> PackageService:
@@ -49,8 +51,8 @@ def _plugin_meta(tmp_path: Path) -> tuple[dict[str, object], Path]:
     )
 
 
-def test_catalog_has_seven_contrib_ids() -> None:
-    assert builtin_plugin_ids() == SEVEN
+def test_catalog_has_eight_contrib_ids() -> None:
+    assert builtin_plugin_ids() == EIGHT
     assert [row["plugin_id"] for row in catalog_rows()] == [
         "local",
         "docker",
@@ -59,6 +61,7 @@ def test_catalog_has_seven_contrib_ids() -> None:
         "daytona",
         "acp",
         "openai-http",
+        "anthropic-http",
     ]
 
 
@@ -77,7 +80,7 @@ def test_explore_unions_builtin_with_store(tmp_path: Path) -> None:
         package_kind="plugin",
     )
     ids = [i["dataset_id"] for i in listed["items"]]
-    assert ids[:7] == [
+    assert ids[:8] == [
         "local",
         "docker",
         "e2b",
@@ -85,6 +88,7 @@ def test_explore_unions_builtin_with_store(tmp_path: Path) -> None:
         "daytona",
         "acp",
         "openai-http",
+        "anthropic-http",
     ]
     assert "acme/sample-echo" in ids
     docker = next(i for i in listed["items"] if i["dataset_id"] == "docker")

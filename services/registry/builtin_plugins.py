@@ -22,6 +22,7 @@ _CONTRIB_DIR = {
     "daytona": "daytona",
     "acp": "acp",
     "openai-http": "openai_http",
+    "anthropic-http": "anthropic_http",
 }
 
 

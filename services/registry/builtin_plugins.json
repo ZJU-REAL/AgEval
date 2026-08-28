@@ -47,5 +47,12 @@
     "host_requires": [],
     "exclusive": ["executor"],
     "chain": []
+  },
+  {
+    "plugin_id": "anthropic-http",
+    "description": "Anthropic Messages HTTP executor (`executor: anthropic-http`). Posts `/messages` to `base_url` with `x-api-key` from a scoped env locator. SDK `tools=` / `messages=` stay OpenAI-shaped and are translated here. No Attempt box and no `attach_stdio`. Default base is `https://api.anthropic.com/v1`.",
+    "host_requires": [],
+    "exclusive": ["executor"],
+    "chain": []
   }
 ]
