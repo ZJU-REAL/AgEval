@@ -271,6 +271,16 @@ def _attach_stderr(envelope: dict[str, Any], stderr: bytes) -> None:
     envelope["stderr"] = (existing + tail)[-_STDERR_TAIL_BYTES:] if existing else tail
 
 
+async def _drain_stderr_tail(stream: asyncio.StreamReader) -> bytes:
+    """Keep the last diagnostic bytes so a chatty evaluator cannot fill the pipe."""
+    buf = b""
+    while True:
+        piece = await stream.read(65536)
+        if not piece:
+            return buf
+        buf = (buf + piece)[-_STDERR_TAIL_BYTES:]
+
+
 async def _serve_eval_worker(
     process: asyncio.subprocess.Process,
     ctx: Any,
@@ -280,6 +290,11 @@ async def _serve_eval_worker(
     """Launch stays open: worker may exec, then send the verdict envelope."""
     assert process.stdin is not None
     assert process.stdout is not None
+    drain = (
+        asyncio.create_task(_drain_stderr_tail(process.stderr))
+        if process.stderr is not None
+        else None
+    )
     started = time.monotonic()
     try:
         while True:
@@ -291,40 +306,54 @@ async def _serve_eval_worker(
             except TimeoutError:
                 process.kill()
                 await process.wait()
-                return {"ok": False, "error": "task_run_timeout", "exit_code": process.returncode}
-            except asyncio.IncompleteReadError:
-                stderr = await process.stderr.read() if process.stderr is not None else b""
-                await process.wait()
                 envelope: dict[str, Any] = {
+                    "ok": False,
+                    "error": "task_run_timeout",
+                    "exit_code": process.returncode,
+                }
+                if drain is not None:
+                    _attach_stderr(envelope, await drain)
+                return envelope
+            except asyncio.IncompleteReadError:
+                await process.wait()
+                envelope = {
                     "ok": False,
                     "error": "task_worker_no_result",
                     "exit_code": process.returncode,
                 }
-                _attach_stderr(envelope, stderr)
+                if drain is not None:
+                    _attach_stderr(envelope, await drain)
                 return envelope
             except (UnicodeDecodeError, json.JSONDecodeError, ValueError):
                 process.kill()
                 await process.wait()
-                return {
+                envelope = {
                     "ok": False,
                     "error": "task_worker_unreadable_result",
                     "exit_code": process.returncode,
                 }
+                if drain is not None:
+                    _attach_stderr(envelope, await drain)
+                return envelope
             if frame.get("op") == "exec":
                 reply = await _handle_eval_exec(ctx, frame)
                 process.stdin.write(_frame(reply))
                 await process.stdin.drain()
                 continue
             process.stdin.close()
-            stderr = await process.stderr.read() if process.stderr is not None else b""
             await process.wait()
             frame["exit_code"] = process.returncode
-            _attach_stderr(frame, stderr)
+            if drain is not None:
+                _attach_stderr(frame, await drain)
             return frame
     except Exception:
         with contextlib.suppress(ProcessLookupError):
             process.kill()
         await process.wait()
+        if drain is not None and not drain.done():
+            drain.cancel()
+            with contextlib.suppress(asyncio.CancelledError):
+                await drain
         raise
 
 
