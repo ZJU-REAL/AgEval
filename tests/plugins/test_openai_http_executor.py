@@ -213,6 +213,101 @@ def test_reasoning_effort_is_posted_when_set() -> None:
     assert result.metadata["actual_reasoning_effort"] == "high"
 
 
+def test_extra_body_merges_into_chat_completions_body() -> None:
+    from ageval.plugins.contrib.openai_http import build_openai_http_executor
+
+    captured: dict[str, Any] = {}
+
+    class Handler(BaseHTTPRequestHandler):
+        def do_POST(self) -> None:  # noqa: N802
+            length = int(self.headers.get("Content-Length") or 0)
+            captured["body"] = json.loads(self.rfile.read(length).decode("utf-8"))
+            payload = {"choices": [{"message": {"role": "assistant", "content": "ok"}}]}
+            raw = json.dumps(payload).encode("utf-8")
+            self.send_response(200)
+            self.send_header("Content-Type", "application/json")
+            self.send_header("Content-Length", str(len(raw)))
+            self.end_headers()
+            self.wfile.write(raw)
+
+        def log_message(self, format: str, *args: object) -> None:  # noqa: A003
+            del format, args
+
+    server, base = _serve(Handler)
+    try:
+        ex = build_openai_http_executor(
+            model="deepseek/deepseek-v4-flash-0731",
+            base_url=base,
+            options={
+                "reasoning_effort": "low",
+                "extra_body": {
+                    "reasoning": {"max_tokens": 128},
+                    "provider": {"allow_fallbacks": False},
+                },
+            },
+        )
+        result = ex.invoke("hi")
+    finally:
+        server.shutdown()
+        server.server_close()
+
+    assert result.ok is True
+    assert captured["body"]["reasoning"] == {"max_tokens": 128}
+    assert captured["body"]["provider"] == {"allow_fallbacks": False}
+    assert captured["body"]["reasoning_effort"] == "low"
+    assert captured["body"]["model"] == "deepseek/deepseek-v4-flash-0731"
+
+
+def test_extra_body_overrides_reasoning_effort() -> None:
+    from ageval.plugins.contrib.openai_http import build_openai_http_executor
+
+    captured: dict[str, Any] = {}
+
+    class Handler(BaseHTTPRequestHandler):
+        def do_POST(self) -> None:  # noqa: N802
+            length = int(self.headers.get("Content-Length") or 0)
+            captured["body"] = json.loads(self.rfile.read(length).decode("utf-8"))
+            payload = {"choices": [{"message": {"role": "assistant", "content": "ok"}}]}
+            raw = json.dumps(payload).encode("utf-8")
+            self.send_response(200)
+            self.send_header("Content-Type", "application/json")
+            self.send_header("Content-Length", str(len(raw)))
+            self.end_headers()
+            self.wfile.write(raw)
+
+        def log_message(self, format: str, *args: object) -> None:  # noqa: A003
+            del format, args
+
+    server, base = _serve(Handler)
+    try:
+        ex = build_openai_http_executor(
+            model="mock",
+            base_url=base,
+            options={
+                "reasoning_effort": "low",
+                "extra_body": {"reasoning_effort": "high"},
+            },
+        )
+        result = ex.invoke("hi")
+    finally:
+        server.shutdown()
+        server.server_close()
+
+    assert result.ok is True
+    assert captured["body"]["reasoning_effort"] == "high"
+
+
+def test_invalid_extra_body() -> None:
+    from ageval.plugins.contrib.openai_http import build_openai_http_executor
+
+    with pytest.raises(ValueError, match="extra_body must be a mapping"):
+        build_openai_http_executor(options={"extra_body": ["provider"]})
+    with pytest.raises(ValueError, match="rejects"):
+        build_openai_http_executor(
+            options={"extra_body": {"model": "other", "tools": []}},
+        )
+
+
 def test_reasoning_content_becomes_thought_event(tmp_path: Path) -> None:
     class Handler(BaseHTTPRequestHandler):
         def do_POST(self) -> None:  # noqa: N802

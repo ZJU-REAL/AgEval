@@ -7,12 +7,13 @@ Native ``tools=`` is first-class; omit the catalog to keep the content path.
 
 from __future__ import annotations
 
+import copy
 import json
 import os
 import urllib.error
 import urllib.request
 from collections.abc import Mapping, Sequence
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Any
 
 from ageval.plugins.agent_result import AgentExecutor, AgentResult
@@ -104,6 +105,7 @@ class OpenAIHTTPExecutor(AgentExecutor):
     base_url: str | None = None
     api_key_env: str | None = None
     reasoning_effort: str | None = None
+    extra_body: dict[str, Any] = field(default_factory=dict)
 
     def invoke(
         self,
@@ -150,6 +152,8 @@ class OpenAIHTTPExecutor(AgentExecutor):
         effort = (self.reasoning_effort or "").strip() or None
         if effort:
             payload["reasoning_effort"] = effort
+        if self.extra_body:
+            payload.update(copy.deepcopy(self.extra_body))
         body = json.dumps(payload).encode("utf-8")
         headers = {"Content-Type": "application/json"}
         if key:
