@@ -1,10 +1,11 @@
-import { Check, Copy, X } from "lucide-react";
+import { X } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { createPortal } from "react-dom";
 
 import { BrandMark } from "@/components/brand-mark";
 import { BuiltinMark } from "@/components/builtin-mark";
+import { CodeFence } from "@/components/code-fence";
 import { TruncateTip } from "@/components/hover-tip";
 import { ModelLabel } from "@/components/model-label";
 import { OverlayRootProvider } from "@/components/overlay-root";
@@ -14,7 +15,6 @@ import { ScoreRing } from "@/components/score-ring";
 import { ScrollTable } from "@/components/scroll-table";
 import { Button } from "@/components/ui/button";
 import { UnderlineTabs } from "@/components/underline-tabs";
-import { CodeHighlight } from "@/lib/code-highlight";
 import {
   encodeDatasetId,
   environmentFromOverlay,
@@ -78,54 +78,6 @@ function jobOverlayToProfilesYaml(overlay: SuiteRow["job_overlay"]): string {
     }
   }
   return lines.join("\n") + "\n";
-}
-
-function CodeBlock({
-  path,
-  content,
-  maxHeightClass = "max-h-56",
-}: {
-  path: string;
-  content: string;
-  maxHeightClass?: string;
-}) {
-  const [copied, setCopied] = useState(false);
-
-  async function onCopy() {
-    try {
-      await navigator.clipboard.writeText(content);
-      setCopied(true);
-      window.setTimeout(() => setCopied(false), 1400);
-    } catch {
-      /* ignore */
-    }
-  }
-
-  return (
-    <div className="relative rounded-[12px] bg-code-bg shadow-[var(--viewer-shadow-pop)]">
-      <Button
-        type="button"
-        variant="ghost"
-        size="icon"
-        onClick={onCopy}
-        aria-label="Copy"
-        className="absolute right-1.5 top-1.5 z-10 h-7 w-7 shrink-0"
-      >
-        {copied ? (
-          <Check className="h-3.5 w-3.5 text-ink" />
-        ) : (
-          <Copy className="h-3.5 w-3.5 text-mute" />
-        )}
-      </Button>
-      <pre
-        className={`m-0 overflow-auto p-3 pr-10 font-mono text-[12px] leading-5 whitespace-pre ${maxHeightClass}`}
-      >
-        <code>
-          <CodeHighlight path={path} content={content} />
-        </code>
-      </pre>
-    </div>
-  );
 }
 
 function suiteJobRows(suite: SuiteRow): Array<{
@@ -456,12 +408,12 @@ export function SuiteInspector({
           <div className="min-h-0 flex-1 overflow-y-auto px-4 py-4">
             {tab === "profiles" ? (
               <div className="space-y-3">
-                <CodeBlock
+                <CodeFence
                   path="profiles.yaml"
                   content={yamlText}
                   maxHeightClass="max-h-56"
                 />
-                <CodeBlock
+                <CodeFence
                   path="rehydrate.sh"
                   content={rehydrateScript}
                   maxHeightClass="max-h-40"

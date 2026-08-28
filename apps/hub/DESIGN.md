@@ -63,6 +63,7 @@ Token values, type stacks, radii, and motion curves: the YAML in Viewer `DESIGN.
 | Filter / overflow menu | `Select` / `DropdownMenu` |
 | Persistable name / description | `FloatingField` / `DisplayNameEditor` / `DescriptionEditor` |
 | Command | `CommandStrip` |
+| Copyable file fence | `CodeFence` (Shiki from path, hairline + code-bg; not the lightweight tokenizer) |
 | Dialog / confirm | `FrameModal` / `ConfirmDialog` (portal via `OverlayRoot` / `document.body`) |
 | Loading / empty | `ThinkingLogo` loading vs centered empty stack (docs/13) |
 
