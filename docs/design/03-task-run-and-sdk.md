@@ -60,7 +60,16 @@ from ageval_sdk import (
 
 `run.py` 通过 `ctx.agent.session(...).invoke` 调 Agent。ACP attach 发生在第一次 invoke。SDK 不拥有 `host.start`、凭据文件内容、final PASS。
 
-evaluate 相位同样可以用 SDK：`evaluator.py` 是 parent 子进程（与 `run.py` 一样），gold 已 materialize 之后可以 `Agent.session(<role>).invoke`（role 须在同一份 `profiles.yaml` 里，且不得复用 solver 的 key locator）。invoke 走本机 Parent Agent Service；ACP `attach_stdio` 打当时的 environment 服务（isolated = 打分 Host）。密封进 `evaluation/observation.jsonl`，省略 `user` 行。`evaluator.py` **不得** bind PASS；仍返回 `{status, score, metrics}`。不调 `Agent.session` = 无 observation 文件。invoke kwargs 仍不得改 `profile_id` / executor。SDK **仍然** 没有环境动词。
+evaluate 相位同样可以用 SDK：`evaluator.py` 是 parent 子进程（与 `run.py` 一样），gold 已 materialize 之后可以 `Agent.session(<role>).invoke`（role 须在同一份 `profiles.yaml` 里，且不得复用 solver 的 key locator）。invoke 走本机 Parent Agent Service；ACP `attach_stdio` 打当时的 environment 服务（isolated = 打分 Host）。有 `evaluation.environments` 时，`Agent.session(id, environment=<name>)` 把 attach 打到那只命名 Host（未知名一次失败 `unknown_evaluate_environment`）。省略 `environment=` = 今日单只打分 Host（或同一环境）。`executor: openai-http` / `anthropic-http` 忽略 `environment=`（出站仍在 parent）。密封进 `evaluation/observation.jsonl`，省略 `user` 行。`evaluator.py` **不得** bind PASS；仍返回 `{status, score, metrics}`。不调 `Agent.session` = 无 observation 文件。invoke kwargs 仍不得改 `profile_id` / executor。SDK **仍然** 没有 `host.start` / `host.upload` / `host.stop` / `dockerfile=`。
+
+脚本阶梯用 Runtime 注入的 `inputs["scoring"]`（不是 SDK 类型、不是第二套 docker 客户端）：
+
+```python
+audit = await scoring.exec("audit", ["python", "/attempt/evaluation/audit.py"])
+# audit.exit_code / stdout / stderr 来自那只容器内 Protocol host.exec
+```
+
+`exec` 的 argv 是列表。第一次点到某名字时 Runtime 才 start 那只 Host 并 upload 快照 + gold。未知名失败且不 start。`exec` 退出码、start 事实都不是 PASS。`evaluator.py` 源码不见 `container_id`。
 
 `ctx.publish_tree(id, path)` 是可选登记：告诉 Runtime「这份 tree 已由 Agent 写在 workspace」。**拷贝与 exclude 仍归 harvest**，不在 SDK 里做。题包 yaml 已经声明 `kind: tree` 且 `path` 指向 Agent 写过的工作区时，`run.py` 不必再调。`publish_json` / `publish_file` 仍是单文件。登记成功不是 PASS。
 

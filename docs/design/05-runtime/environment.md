@@ -48,16 +48,17 @@ docker `environment_options`：
 
 ## 第二份环境（evaluate，opt-in）
 
-`environment` 独占槽仍一份赢家。`evaluate_host.isolated: true` 时 Runtime 再 `start` **同一个赢家类** 的第二实例：
+`environment` 独占槽仍一份赢家。`evaluate_host.isolated: true` 时 Runtime 再 `start` **同一个赢家类** 的更多实例：
 
-- 配方：题包 `environment/evaluate.Dockerfile`，或 `evaluation.docker_image`。与 Agent 的 `environment/Dockerfile` 不是同一文件。Current 只要求 docker。
-- work root **独立**（另一份 `BoxSpec.attempt_root`）。禁止把 Agent 的 bind-mount 或 live workspace symlink 进打分环境。
+- 单只配方：题包 `environment/evaluate.Dockerfile`，或 `evaluation.docker_image`。与 Agent 的 `environment/Dockerfile` 不是同一文件。Current 只要求 docker。
+- 名表：成员 `evaluation.environments.<name>.dockerfile` 或 `.docker_image`。每只一个 `BoxSpec.attempt_root`（evidence `eval-box/<name>`）。evaluate 开头不 start；第一次 `exec` / `session(environment=)` 才 start。写出名表则忽略单只配方。
+- work root **独立**。禁止把 Agent 的 bind-mount 或 live workspace symlink 进打分环境。
 - 不加入 Agent compose 网络。compose 侧车仍随 Agent `host.start()` 起来，寿命与 Agent 环境相同；不要拿侧车当打分镜像。
 - **禁止**把 docker daemon socket 挂进 **Agent** 环境。打分环境也不挂 daemon socket。locator 只给 parent 的 docker CLI。
-- gold、tree/file 快照只 upload 到打分实例。`evaluator.py` 在 parent 跑，连本机 Agent Service socket；不要把该 socket bind-mount 进容器。
-- cleanup 先停打分实例再停 Agent 实例（或并行，但两个都要停）。`keep_workspace` 只保留引擎声明要留的 work root，不得把第二环境的盘并回 Agent 盘。
+- gold、tree/file 快照只 upload 到 **已 start** 的打分实例。`evaluator.py` 在 parent 跑，连本机 Agent Service socket；不要把该 socket bind-mount 进容器。
+- cleanup 停每一只已启动的打分实例再停 Agent 实例（或并行，但都要停）。`keep_workspace` 只保留引擎声明要留的 work root，不得把打分盘并回 Agent 盘。
 
-不能再起第二环境的 kind（Current：`local` 以及尚未兑现的云 kind）遇到 `isolated: true` → lock 失败。不要为此发明 cap 名。
+不能再起第二环境的 kind（Current：`local` 以及尚未兑现的云 kind）遇到 `isolated: true` 或名表 → lock 失败。不要为此发明 cap 名。
 
 ## `attach_stdio`
 
