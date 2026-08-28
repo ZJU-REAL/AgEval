@@ -1,4 +1,4 @@
-import { Settings, Share2, Trash2 } from "lucide-react";
+import { ArrowRight, Settings, Share2, Trash2 } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 
 import { Button } from "@/components/ui/button";
@@ -36,6 +36,12 @@ import {
   type SuiteRow,
   RegistryHttpError,
 } from "@/lib/api";
+import {
+  ATTACH_ROLE_ALL,
+  composeAttachSpec,
+  defaultAttachChoice,
+  overlayRoles,
+} from "@/lib/agent-attach";
 import { overlayHarnessIds } from "@/lib/utils";
 
 /** Compare Hub appearance specs: optional `role=`, ignore `+digest`. */
@@ -90,6 +96,10 @@ export function ResultOwnerOps({
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [withAttempts, setWithAttempts] = useState(false);
   const [agentRef, setAgentRef] = useState("");
+  const [attachRole, setAttachRole] = useState(ATTACH_ROLE_ALL);
+  const [harnessAgents, setHarnessAgents] = useState<Record<string, string>>(
+    {},
+  );
 
   const loadShares = variant === "panel" || shareOpen;
 
@@ -101,8 +111,10 @@ export function ResultOwnerOps({
     setShares([]);
     setRequests([]);
     setAgentRef("");
-    const ids =
-      kind === "suite" ? overlayHarnessIds(jobOverlay) : [];
+    setAttachRole(ATTACH_ROLE_ALL);
+    setHarnessAgents({});
+    const roles = kind === "suite" ? overlayRoles(jobOverlay) : [];
+    const ids = kind === "suite" ? overlayHarnessIds(jobOverlay) : [];
     const builtinLoad =
       ids.length > 0
         ? Promise.all(
@@ -114,11 +126,20 @@ export function ResultOwnerOps({
                 .catch(() => null),
             ),
           ).then((rows) => {
-            const hits = rows.filter(
-              (row): row is NonNullable<typeof row> => row != null,
+            const map: Record<string, string> = {};
+            ids.forEach((id, index) => {
+              const hit = rows[index];
+              const agentId = hit?.dataset_id?.trim();
+              if (agentId) map[id] = agentId;
+            });
+            const choice = defaultAttachChoice(
+              roles,
+              (harness) => map[harness] || "",
             );
-            if (!cancelled && hits.length === 1) {
-              setAgentRef(hits[0].dataset_id);
+            if (!cancelled) {
+              setHarnessAgents(map);
+              setAttachRole(choice.role);
+              setAgentRef(choice.agent);
             }
           })
         : Promise.resolve();
@@ -166,6 +187,10 @@ export function ResultOwnerOps({
       return pendingAppearance.find((row) => appearanceKey(row.agent_ref) === want);
     },
     [pendingAppearance, agentRef],
+  );
+  const roleChoices = useMemo(
+    () => (kind === "suite" ? overlayRoles(jobOverlay) : []),
+    [kind, jobOverlay],
   );
 
   if (!canManage || !token) return null;
@@ -264,8 +289,29 @@ export function ResultOwnerOps({
     }
   }
 
+  function agentForRole(role: string): string {
+    if (role === ATTACH_ROLE_ALL) {
+      if (roleChoices.length === 0) return "";
+      const first = harnessAgents[roleChoices[0]?.harness || ""];
+      if (!first) return "";
+      return roleChoices.every(
+        (row) => (harnessAgents[row.harness] || "") === first,
+      )
+        ? first
+        : "";
+    }
+    const hit = roleChoices.find((row) => row.id === role);
+    return hit ? harnessAgents[hit.harness] || "" : "";
+  }
+
+  function onAttachRoleChange(next: string) {
+    setAttachRole(next);
+    const agent = agentForRole(next);
+    if (agent) setAgentRef(agent);
+  }
+
   async function attachOrRequest() {
-    const spec = agentRef.trim();
+    const spec = composeAttachSpec(attachRole, agentRef);
     if (!spec || kind !== "suite" || matchingAppearance) return;
     setBusy(true);
     try {
@@ -345,6 +391,36 @@ export function ResultOwnerOps({
             Attach agent
           </p>
           <div className="flex flex-wrap items-center gap-2">
+            {roleChoices.length > 0 ? (
+              <>
+                <Select
+                  value={attachRole}
+                  onValueChange={onAttachRoleChange}
+                  disabled={busy}
+                >
+                  <SelectTrigger
+                    aria-label="Attach role"
+                    className="h-8 min-w-0 w-auto shrink-0 text-xs"
+                  >
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value={ATTACH_ROLE_ALL} mono={false}>
+                      all
+                    </SelectItem>
+                    {roleChoices.map((row) => (
+                      <SelectItem key={row.id} value={row.id} mono={false}>
+                        {row.id}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <ArrowRight
+                  className="h-3.5 w-3.5 shrink-0 text-mute"
+                  aria-hidden
+                />
+              </>
+            ) : null}
             <Input
               value={agentRef}
               onChange={(e) => setAgentRef(e.target.value)}

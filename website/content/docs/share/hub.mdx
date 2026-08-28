@@ -14,7 +14,7 @@ Hub（`apps/hub`）是连 Registry 的网页端，用来浏览共享的包与跑
 - Task 下的 **Jobs**：已上传运行产物时可点进详情（界面与本机 Viewer 相近，含轨迹）  
 - Dataset 版本切换：有权限的人能看到 **draft (current)**，其他人只能切已发布 release。org owner 可改当前版本可见性、删除该版本，或把 draft 发布成 release  
 - Tasks 表：README 是否存在、近期 job 数、最近一次分数/状态；分页（`?tab=tasks&offset=`）。Dataset / Task 的 README 不再等整包文件树。  
-- Leaderboard：**Public**（默认）只列完备、绑定 release、且经 Dataset 所属 org 的 owner 批准上榜的 suite。`public` 不等于上榜。**Internal** 用同一张表列出当前可见的缺题 / draft 绑定跑次。可点表头排序；观测指标，非 suite PASS。展开行有 **profiles** / **plugin** / **jobs** 页签（无密钥 YAML 与再跑命令；插件进 marketplace）。上传者用设置菜单打开 Share / Delete：Share 在弹层里改可见性、分享给 org/user、用一个 Attach 按钮挂 published `agent_ref`（owner 直写，其他人进 Inbox；已有 pending 则显示状态）。Task Jobs 不变。  
+- Leaderboard：**Public**（默认）只列完备、绑定 release、且经 Dataset 所属 org 的 owner 批准上榜的 suite。`public` 不等于上榜。**Internal** 用同一张表列出当前可见的缺题 / draft 绑定跑次。可点表头排序；观测指标，非 suite PASS。展开行有 **profiles** / **plugin** / **jobs** 页签（无密钥 YAML 与再跑命令；插件进 marketplace）。上传者用设置菜单打开 Share / Delete：Share 在弹层里改可见性、分享给 org/user、Attach（先选 overlay role，再填 published `agent_ref`；owner 直写，其他人进 Inbox；已有 pending 则显示状态）。Task Jobs 不变。  
 - 插件 / Agent 市场用 **卡片**（说明、标签、同一行的累计下载量与收藏量）；Dataset、Jobs、成员、suite 仍是细线表  
 - 插件详情：独占 / 链 **声明槽**时间线，点开跳到包内文件预览；浏览器不执行插件  
 - 官方组织、这些组织的成员、以及这些组织上的插件显示已验证对勾  
