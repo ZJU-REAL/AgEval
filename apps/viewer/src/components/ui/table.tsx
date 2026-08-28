@@ -69,7 +69,7 @@ export function TableCell({
   return (
     <td
       className={cn(
-        "px-4 py-2.5 align-middle text-sm text-ink whitespace-nowrap overflow-hidden text-ellipsis",
+        "min-w-0 px-4 py-2.5 align-middle text-sm text-ink whitespace-nowrap overflow-hidden text-ellipsis",
         className,
       )}
       {...props}
