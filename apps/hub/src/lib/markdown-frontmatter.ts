@@ -44,3 +44,8 @@ function unquote(value: string): string {
   }
   return value;
 }
+
+export function isMarkdownPath(path: string | null | undefined): boolean {
+  const name = (path || "").split("/").pop() || "";
+  return /\.(md|markdown|mdx)$/i.test(name);
+}
