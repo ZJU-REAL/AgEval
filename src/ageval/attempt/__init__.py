@@ -21,22 +21,56 @@ from ageval.attempt.phases import cleanup, environment, evaluate, record, run
 Phase = Callable[[AttemptCtx], Awaitable[None]]
 
 
+def _failed_phase(ctx: AttemptCtx) -> str | None:
+    for fact in ctx.phase_facts:
+        if fact.name == "phase_failed":
+            phase = fact.detail.get("phase")
+            if isinstance(phase, str) and phase.strip():
+                return phase
+    return None
+
+
+def _note_phase_failed(ctx: AttemptCtx, exc: BaseException) -> None:
+    if _failed_phase(ctx) is not None:
+        return
+    ctx.record_fact(
+        "phase_failed",
+        {"phase": ctx.phase, "error": f"{type(exc).__name__}: {exc}"},
+    )
+
+
 async def run_attempt(ctx: AttemptCtx) -> None:
     """Open the box, run the task, judge it, record it, tear the box down.
 
-    A phase failure is an outcome, not a crash: it is recorded against the phase
-    that failed and the Attempt still produces a result document. Cancellation
-    (``BaseException``) still propagates, and cleanup still runs either way.
+    A phase failure is an outcome, not a crash: it is recorded against the
+    first phase that failed and the Attempt still produces a result document.
+    After environment starts, ``record`` still seals whatever invoke scratch
+    exists so Viewer / upload can read ``trajectory.jsonl`` on ERROR.
+    Cancellation (``BaseException``) still propagates; cleanup always runs.
     """
+    should_record = False
     try:
-        for phase in (environment.run, run.run, evaluate.run, record.run):
-            await _timed(ctx, phase)
+        await _timed(ctx, environment.run)
+        should_record = True
+        await _timed(ctx, run.run)
+        try:
+            await _timed(ctx, evaluate.run)
+        except Exception as exc:  # noqa: BLE001 — evaluate ERROR still seals
+            _note_phase_failed(ctx, exc)
     except Exception as exc:  # noqa: BLE001 — the phase name is the operator's answer
-        ctx.record_fact(
-            "phase_failed",
-            {"phase": ctx.phase, "error": f"{type(exc).__name__}: {exc}"},
-        )
+        _note_phase_failed(ctx, exc)
     finally:
+        if should_record:
+            try:
+                await _timed(ctx, record.run)
+            except Exception as exc:  # noqa: BLE001 — do not hide an earlier phase
+                if _failed_phase(ctx) is None:
+                    _note_phase_failed(ctx, exc)
+                else:
+                    ctx.record_fact(
+                        "record_warning",
+                        {"error": f"{type(exc).__name__}: {exc}"},
+                    )
         await _timed(ctx, cleanup.run)
 
 

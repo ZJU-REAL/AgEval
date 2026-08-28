@@ -46,12 +46,12 @@ async def run_attempt(ctx) -> None:
         await environment.run(ctx)  # start + overlay + setup.entry
         await run.run(ctx)          # 调 task 的 run.py
         await evaluate.run(ctx)     # 独立 evaluator.py
-        await record.run(ctx)       # 轨迹落盘
     finally:
+        await record.run(ctx)       # 轨迹落盘（environment 已 start 后，evaluate ERROR 也封）
         await cleanup.run(ctx)
 ```
 
-Current 实现把前四相放进循环并在相位失败时记 `phase_failed`，取消（`BaseException`）仍传播；cleanup 总是跑。相位失败是结果，不是静默吞掉。
+environment / run 失败记 `phase_failed` 并跳过未跑的相；**environment 一旦 start，evaluate 无论成败都进 record**，把已有 invoke scratch 封成 `trajectory.jsonl`（Viewer / 上传读层 C）。record 自己再失败且前面已有 `phase_failed` 时记 `record_warning`，不覆盖原相位。取消（`BaseException`）仍传播；cleanup 总是跑。相位失败是结果，不是静默吞掉。
 
 `emit(slot)` 走 `lock.extension_bindings` 已排好的链。插件改的是绑定，不是运行时改写 `run_attempt`。
 

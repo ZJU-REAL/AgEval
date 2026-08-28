@@ -16,7 +16,7 @@ created
   → terminal         # PASS | FAIL | ERROR
 ```
 
-实现：`application/run.py` 铸造 identity 与 evidence 根，然后 `attempt.run_attempt`。相位失败记 `phase_failed` 事实；`BaseException`（取消）仍传播；cleanup 总是跑。
+实现：`application/run.py` 铸造 identity 与 evidence 根，然后 `attempt.run_attempt`。相位失败记 `phase_failed` 事实（只记第一处）；environment 已 start 后，evaluate / run ERROR **仍跑 record**，密封已有 `trajectory.jsonl`。`BaseException`（取消）仍传播；cleanup 总是跑。
 
 ## 相位
 
