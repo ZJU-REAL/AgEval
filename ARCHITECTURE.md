@@ -148,7 +148,8 @@ ageval/                              # GitHub: ZJU-REAL/ageval
 │   │       ├── e2b/
 │   │       ├── daytona/
 │   │       ├── ssh/                 # A whole host / B remote container
-│   │       └── openai_http/
+│   │       ├── openai_http/
+│   │       └── anthropic_http/
 │   ├── runtime/
 │   │   ├── identity.py
 │   │   ├── parent_agent.py          # executor service + host.attach_stdio only
@@ -198,7 +199,7 @@ This is the accepted direction, **not** splitting Current back into `adapters/` 
 src/ageval/
   cli/ application/ attempt/phases/ config/
   environments/protocol.py          # still no vendor SDK
-  plugins/contrib/{acp,docker,local,e2b,daytona,ssh,openai_http}
+  plugins/contrib/{acp,docker,local,e2b,daytona,ssh,openai_http,anthropic_http}
   plugins/defaults/                 # or move to contrib/defaults — pick one, not both
   runtime/{identity,parent_agent,task_launch,task_worker}
   evaluation/{bind,package_evaluator} + runtime/eval_worker.py
@@ -387,7 +388,7 @@ Phase detail: [docs/design/05-runtime/lifecycle.md](docs/design/05-runtime/lifec
 | `environment: e2b` | `plugins/contrib/e2b` | SDK only in this package; missing `E2B_API_KEY` fails preflight |
 | `environment: ssh` A/B | `plugins/contrib/ssh` | A has no image; B has a remote tag |
 | ACP coding-agent | `plugins/contrib/acp` | Sole coding-agent inlet; `attach_stdio` |
-| Other Agent backends | `openai-http` / external `nooa` `dsh` | Not vendor stdout scrape |
+| Other Agent backends | `openai-http` / `anthropic-http` / external `nooa` `dsh` | Not vendor stdout scrape |
 | Official base image | `docker/attempt/` | Bake ACP entries at build; no `npm i` at invoke |
 | Registry HTTP | `services/registry/` | Handlers do not touch `state.meta` directly |
 

@@ -13,6 +13,7 @@ RESERVED_PLUGIN_IDS: frozenset[str] = frozenset(
         "daytona",
         "acp",
         "openai-http",
+        "anthropic-http",
     }
 )
 

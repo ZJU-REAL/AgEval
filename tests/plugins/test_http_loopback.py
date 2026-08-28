@@ -53,8 +53,8 @@ def test_is_http_loopback_host_only(url: str | None, expected: bool) -> None:
     assert is_http_loopback(url) is expected
 
 
-def test_http_executors_are_the_four_openai_compatible_kinds() -> None:
-    assert frozenset({"openai-http", "dsh", "nooa", "miniswe"}) == HTTP_EXECUTORS
+def test_http_executors_include_first_party_and_plugin_http_kinds() -> None:
+    assert frozenset({"openai-http", "anthropic-http", "dsh", "nooa", "miniswe"}) == HTTP_EXECUTORS
 
 
 def _load_worker(path: Path, name: str) -> Any:

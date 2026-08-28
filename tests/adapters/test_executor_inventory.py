@@ -42,6 +42,10 @@ def test_describe_api_client_no_binary() -> None:
     assert row["host_ready"] is True
     assert row["tools"] == "native"
     assert row["session"] == "new-only"
+    anthropic = describe_executor("anthropic-http", which=lambda _n: None, verbose=True)
+    assert anthropic["execution_mode"] == "api-client"
+    assert anthropic["host_ready"] is True
+    assert anthropic["tools"] == "native"
 
 
 def test_describe_acp_entry_adapter_missing() -> None:

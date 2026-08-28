@@ -14,7 +14,7 @@
 
 ## Adapter naming
 
-- **OK:** yaml `executor: acp` + `- plugin: acp` / `options.entry: codex|pi|opencode|…`; `openai-http`; docker environment winner.
+- **OK:** yaml `executor: acp` + `- plugin: acp` / `options.entry: codex|pi|opencode|…`; `openai-http`; `anthropic-http`; docker environment winner.
 - **Forbidden:** `executor: codex|pi|opencode|claude-code` as private CLI kinds; `TerminalBenchAdapter`; task-id branches.
 
 ## Plugins

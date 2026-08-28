@@ -38,6 +38,7 @@ def test_executors_lists_supported_and_host_probe() -> None:
     }
     assert "acp" in data["supported"]
     assert "openai-http" in data["supported"]
+    assert "anthropic-http" in data["supported"]
     for gone in ("codex", "pi", "opencode", "claude-code"):
         assert gone not in data["supported"]
 
@@ -45,6 +46,9 @@ def test_executors_lists_supported_and_host_probe() -> None:
     http = by_kind["openai-http"]
     assert http["execution_mode"] == "api-client"
     assert http["host_ready"] is True
+    anthropic = by_kind["anthropic-http"]
+    assert anthropic["execution_mode"] == "api-client"
+    assert anthropic["host_ready"] is True
     assert "sk-" not in result.stdout.lower()
 
     entry_ids = {r["entry_id"] for r in data["acp_entries"]}

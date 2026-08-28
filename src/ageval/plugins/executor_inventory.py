@@ -14,6 +14,7 @@ from ageval.plugins.executor_capabilities import get_capabilities
 _BINARY_CANDIDATES: Mapping[str, tuple[str, ...]] = {
     "acp": (),
     "openai-http": (),
+    "anthropic-http": (),
     "openai": (),
 }
 
@@ -21,7 +22,7 @@ _API_ALIASES: frozenset[str] = frozenset({"openai"})
 
 # First-party contrib ids. Everything else joins the exclusive executor slot
 # through an installed plugin.
-FIRST_PARTY_KINDS: frozenset[str] = frozenset({"acp", "openai-http", "openai"})
+FIRST_PARTY_KINDS: frozenset[str] = frozenset({"acp", "openai-http", "anthropic-http", "openai"})
 
 
 def known_executor_kinds() -> frozenset[str]:

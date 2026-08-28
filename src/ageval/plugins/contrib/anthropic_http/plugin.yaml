@@ -1,0 +1,14 @@
+format: ageval.plugin/1
+plugin_id: anthropic-http
+version: bundled
+description: >
+  Anthropic Messages HTTP executor (`executor: anthropic-http`). Posts
+  `/messages` to `base_url` with `x-api-key` from a scoped env locator.
+  SDK `tools=` / `messages=` stay OpenAI-shaped and are translated here.
+  No Attempt box and no `attach_stdio`. Default base is
+  `https://api.anthropic.com/v1`.
+slots:
+  exclusive:
+    - id: executor
+      priority: 120
+      entry: ageval.plugins.contrib.anthropic_http:build_anthropic_http_executor

@@ -13,7 +13,7 @@ Stdout JSON (high level):
 
 | Key | Meaning |
 | --- | --- |
-| `supported` | Kind names valid for `agent_profiles[].executor` (e.g. `acp`, `openai-http`) |
+| `supported` | Kind names valid for `agent_profiles[].executor` (e.g. `acp`, `openai-http`, `anthropic-http`) |
 | `host_ready` | Subset of kinds that can be constructed on this host |
 | `executors[]` | Per kind: `execution_mode` (from `describe()` when published), `host_ready` |
 | `acp_entries[]` | Per ACP `entry_id`: `acp_command`, `engine_ready`, `acp_entry_ready`, `host_ready`, credential env *names*; `-v` adds `credential_missing` / `keyless_auth` |

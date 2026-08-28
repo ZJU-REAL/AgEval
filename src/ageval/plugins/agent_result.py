@@ -23,7 +23,7 @@ class AgentResult:
     extra: dict[str, Any] | None = None
     # ACP / executor metadata (lock-safe, no secrets).
     metadata: dict[str, Any] | None = None
-    # Native tool channel (openai-http). Empty when the turn is text-only.
+    # Native tool channel (openai-http / anthropic-http). Empty when text-only.
     tool_calls: tuple[dict[str, Any], ...] = ()
 
 

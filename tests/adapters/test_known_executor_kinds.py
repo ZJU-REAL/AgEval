@@ -8,7 +8,7 @@ from ageval.plugins.executor_inventory import known_executor_kinds, supported_ex
 
 def test_first_party_executors_are_registered() -> None:
     known = set(known_executor_kinds())
-    assert {"acp", "openai-http"} <= known
+    assert {"acp", "openai-http", "anthropic-http"} <= known
     assert set(supported_executor_kinds()) == known
     assert "not-a-real-executor" not in known
 

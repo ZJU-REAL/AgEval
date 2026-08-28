@@ -1,6 +1,7 @@
 """Built-in executor capability matrix.
 
-Spec 19: coding-agent surface is ``acp`` only; ``openai-http`` remains api-client.
+Spec 19: coding-agent surface is ``acp`` only; ``openai-http`` /
+``anthropic-http`` remain api-client.
 Private vendor CLI kinds are not first-class.
 """
 
@@ -52,6 +53,16 @@ BUILTIN_CAPABILITIES: Final[dict[str, ExecutorCapabilities]] = {
         stream="synthetic-lifecycle",
         execution_mode="api-client",
         credential_env_names=("OPENAI_API_KEY",),
+        binary="",
+    ),
+    "anthropic-http": ExecutorCapabilities(
+        kind="anthropic-http",
+        tools="native",
+        structured_output="validated-text",
+        session="new-only",
+        stream="synthetic-lifecycle",
+        execution_mode="api-client",
+        credential_env_names=("ANTHROPIC_API_KEY",),
         binary="",
     ),
 }

@@ -21,8 +21,8 @@ from typing import Any
 _ACTOR_KEYS = ("profile_id", "entry", "executor", "model", "options")
 
 # Builtin executor kinds are not marketplace plugins (Hub plugin tab).
-_BUILTIN_EXECUTOR_KINDS = frozenset({"acp", "openai-http"})
-_SKIP_PLUGIN_IDS = frozenset({"default", "acp", "openai-http"})
+_BUILTIN_EXECUTOR_KINDS = frozenset({"acp", "openai-http", "anthropic-http"})
+_SKIP_PLUGIN_IDS = frozenset({"default", "acp", "openai-http", "anthropic-http"})
 
 
 def _profile_entry(profile: Mapping[str, Any]) -> str:
