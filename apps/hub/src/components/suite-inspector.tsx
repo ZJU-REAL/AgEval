@@ -10,6 +10,7 @@ import { ModelLabel } from "@/components/model-label";
 import { OverlayRootProvider } from "@/components/overlay-root";
 import { JobOverlayPreview } from "@/components/overlay-file-panel";
 import { ResultOwnerOps } from "@/components/result-owner-ops";
+import { ScoreRing } from "@/components/score-ring";
 import { ScrollTable } from "@/components/scroll-table";
 import { Button } from "@/components/ui/button";
 import { UnderlineTabs } from "@/components/underline-tabs";
@@ -215,7 +216,9 @@ function SuiteJobsList({
             cells: [
               <span key="t">{j.taskId}</span>,
               j.status || "—",
-              formatScore(j.score),
+              <ScoreRing key="score" value={j.score}>
+                {formatScore(j.score)}
+              </ScoreRing>,
               j.runId ? (
                 <span key="r">
                   {shortSuiteId(j.runId)}

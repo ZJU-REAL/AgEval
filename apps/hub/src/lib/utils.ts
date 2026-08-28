@@ -40,7 +40,7 @@ export function lastModelSegment(raw: string): string {
   return (bits[bits.length - 1] || value).trim();
 }
 
-/** Short model: last ``/`` segment, optional ``(effort)``. Tooltip is the full name. */
+/** Short model: last ``/`` segment, optional ``[effort]``. Tooltip is the full name. */
 export function formatModelLabel(
   raw: string | null | undefined,
   effort?: string | null,
@@ -52,7 +52,7 @@ export function formatModelLabel(
   let text =
     short.length <= 1 ? short[0] || value : `${short[0]}+...`;
   const extra = (effort || "").trim();
-  if (extra) text = `${text} (${extra})`;
+  if (extra) text = `${text}[${extra}]`;
   return { text, title: value };
 }
 

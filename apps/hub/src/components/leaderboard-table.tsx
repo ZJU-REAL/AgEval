@@ -38,11 +38,13 @@ import {
 import { BrandMark } from "@/components/brand-mark";
 import { HoverTip, TruncateTip } from "@/components/hover-tip";
 import { ModelLabel } from "@/components/model-label";
+import { ScoreRing } from "@/components/score-ring";
 import { resolveMechanismMark } from "@/lib/brand-marks";
 import { shortSuiteId, SuiteInspector } from "@/components/suite-inspector";
 
 const COL_TEXT = "max-w-[12rem] overflow-hidden";
 const COL_METRIC = "w-[6.5rem]";
+const COL_SCORE = "w-[8.5rem]";
 
 export const LEADERBOARD_OPTIONAL_COLUMNS = [
   { id: "pass_at_k", label: "pass@k" },
@@ -227,14 +229,13 @@ export function LeaderboardTable({
     setSortDir(next.dir);
   }
 
-  function head(key: string, label: string, alignRight?: boolean) {
+  function head(key: string, label: string) {
     return (
       <SortableHead
         label={label}
         active={sortKey === key}
         dir={sortKey === key ? sortDir : null}
         onClick={() => onSort(key)}
-        className={alignRight ? "ml-auto" : undefined}
       />
     );
   }
@@ -276,28 +277,28 @@ export function LeaderboardTable({
               <TableHead className={COL_METRIC}>
                 {head("environment", "Environment")}
               </TableHead>
-              <TableHead className={`text-right ${COL_METRIC}`}>
-                {head("pass_rate", "Pass rate", true)}
+              <TableHead className={COL_SCORE}>
+                {head("pass_rate", "Pass rate")}
               </TableHead>
-              <TableHead className={`text-right ${COL_METRIC}`}>
-                {head("mean_score", "Mean score", true)}
+              <TableHead className={COL_SCORE}>
+                {head("mean_score", "Mean score")}
               </TableHead>
               {show.has("pass_at_k") ? (
-                <TableHead className={`text-right ${COL_METRIC}`}>
+                <TableHead className={COL_SCORE}>
                   <HoverTip content="Largest k from metrics.k_values / n_attempts; cell labels @k">
-                    <span className="inline-flex">{head("pass_at_k", "pass@k", true)}</span>
+                    <span className="inline-flex">{head("pass_at_k", "pass@k")}</span>
                   </HoverTip>
                 </TableHead>
               ) : null}
               {show.has("pass_power_k") ? (
-                <TableHead className={`text-right ${COL_METRIC}`}>
+                <TableHead className={COL_SCORE}>
                   <HoverTip content="Same display k as pass@k; cell labels ^k">
-                    <span className="inline-flex">{head("pass_power_k", "pass^k", true)}</span>
+                    <span className="inline-flex">{head("pass_power_k", "pass^k")}</span>
                   </HoverTip>
                 </TableHead>
               ) : null}
-              <TableHead className={`text-right ${COL_METRIC}`}>
-                {head("tasks", "Tasks", true)}
+              <TableHead className={COL_METRIC}>
+                {head("tasks", "Tasks")}
               </TableHead>
               <TableHead className={COL_TEXT}>
                 {head("uploaded_by", "Uploader")}
@@ -359,23 +360,23 @@ export function LeaderboardTable({
                       </TableCell>
                     )}
                     <TableCell className={COL_TEXT}>
-                      {runtimeLinks.length && modelText ? (
-                        <Link
-                          to={agentPackageHref(runtimeLinks[0].package_id, modelText)}
-                          onClick={(e) => e.stopPropagation()}
-                          className="inline-flex max-w-full text-link hover:text-link-deep hover:underline underline-offset-2"
-                        >
-                          <ModelLabel
-                            value={modelText}
-                            effort={reasoningEffortFromOverlay(s.job_overlay)}
-                          />
-                        </Link>
-                      ) : (
-                        <ModelLabel
-                          value={modelText}
-                          effort={reasoningEffortFromOverlay(s.job_overlay)}
-                        />
-                      )}
+                      <ModelLabel
+                        value={modelText}
+                        effort={reasoningEffortFromOverlay(s.job_overlay)}
+                        to={
+                          runtimeLinks.length && modelText
+                            ? agentPackageHref(
+                                runtimeLinks[0].package_id,
+                                modelText,
+                              )
+                            : undefined
+                        }
+                        onClick={
+                          runtimeLinks.length
+                            ? (e) => e.stopPropagation()
+                            : undefined
+                        }
+                      />
                     </TableCell>
                     <TableCell
                       className={`${COL_METRIC}`}
@@ -390,53 +391,47 @@ export function LeaderboardTable({
                         {environment || "—"}
                       </span>
                     </TableCell>
-                    <TableCell
-                      className={`text-right tabular-nums ${COL_METRIC}`}
-                    >
-                      {s.pass_rate == null
-                        ? "—"
-                        : `${(Number(s.pass_rate) * 100).toFixed(1)}%`}
+                    <TableCell className={`tabular-nums ${COL_SCORE}`}>
+                      <ScoreRing value={s.pass_rate}>
+                        {s.pass_rate == null
+                          ? "—"
+                          : `${(Number(s.pass_rate) * 100).toFixed(1)}%`}
+                      </ScoreRing>
                     </TableCell>
-                    <TableCell
-                      className={`text-right tabular-nums ${COL_METRIC}`}
-                    >
-                      {formatScore(s.mean_score)}
+                    <TableCell className={`tabular-nums ${COL_SCORE}`}>
+                      <ScoreRing value={s.mean_score}>
+                        {formatScore(s.mean_score)}
+                      </ScoreRing>
                     </TableCell>
                     {show.has("pass_at_k") ? (
-                      <TableCell
-                        className={`text-right tabular-nums ${COL_METRIC}`}
-                      >
+                      <TableCell className={`tabular-nums ${COL_SCORE}`}>
                         {atK.value == null ? (
                           "—"
                         ) : (
                           <HoverTip content={`pass@${atK.k}`}>
-                            <span>
+                            <ScoreRing value={atK.value}>
                               {formatPassMetric(atK.value)}
                               <span className="ml-1 text-mute">@{atK.k}</span>
-                            </span>
+                            </ScoreRing>
                           </HoverTip>
                         )}
                       </TableCell>
                     ) : null}
                     {show.has("pass_power_k") ? (
-                      <TableCell
-                        className={`text-right tabular-nums ${COL_METRIC}`}
-                      >
+                      <TableCell className={`tabular-nums ${COL_SCORE}`}>
                         {powK.value == null ? (
                           "—"
                         ) : (
                           <HoverTip content={`pass^${powK.k}`}>
-                            <span>
+                            <ScoreRing value={powK.value}>
                               {formatPassMetric(powK.value)}
                               <span className="ml-1 text-mute">^{powK.k}</span>
-                            </span>
+                            </ScoreRing>
                           </HoverTip>
                         )}
                       </TableCell>
                     ) : null}
-                    <TableCell
-                      className={`text-right tabular-nums ${COL_METRIC}`}
-                    >
+                    <TableCell className={`tabular-nums ${COL_METRIC}`}>
                       {nPass != null && nTasks != null
                         ? `${nPass}/${nTasks}`
                         : nTasks != null
