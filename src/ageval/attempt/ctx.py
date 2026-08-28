@@ -53,6 +53,9 @@ class AttemptCtx:
     dataset_root: Path
     # Isolated evaluate: a second EnvironmentProvider instance. None = same box.
     evaluate_host: EnvironmentProvider | None = None
+    # Named scoring hosts (evaluation.environments). Bound at composition; started lazily.
+    evaluate_hosts: dict[str, EnvironmentProvider] = field(default_factory=dict)
+    started_evaluate_names: set[str] = field(default_factory=set)
     # Host-side upload sources. Phases never read the rest of the task tree.
     seed_dir: Path | None = None
     environment_src: Path | None = None
@@ -106,7 +109,7 @@ class AttemptCtx:
 
     @property
     def scoring_host(self) -> EnvironmentProvider:
-        """Host that runs evaluator.py. Isolated evaluate uses the second box."""
+        """Singular scoring box. Named maps use ``evaluate_hosts`` instead."""
         return self.evaluate_host if self.evaluate_host is not None else self.host
 
     # --- facts ---------------------------------------------------------------

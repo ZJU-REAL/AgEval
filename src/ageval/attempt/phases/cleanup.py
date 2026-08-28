@@ -25,6 +25,15 @@ async def run(ctx: AttemptCtx) -> None:
             ctx.record_fact("evaluate_host_stopped", {"deleted": delete})
         except Exception as exc:  # noqa: BLE001 — cleanup failure is a warning, not a verdict
             errors.append(f"{type(exc).__name__}: {exc}")
+    for name in list(ctx.started_evaluate_names):
+        named = ctx.evaluate_hosts.get(name)
+        if named is None or named is ctx.host or named is scoring:
+            continue
+        try:
+            await named.stop(delete=delete)
+            ctx.record_fact("evaluate_host_stopped", {"deleted": delete, "name": name})
+        except Exception as exc:  # noqa: BLE001 — cleanup failure is a warning, not a verdict
+            errors.append(f"{name}: {type(exc).__name__}: {exc}")
     try:
         await ctx.host.stop(delete=delete)
         ctx.record_fact("environment_stopped", {"deleted": delete})

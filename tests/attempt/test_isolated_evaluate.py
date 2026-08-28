@@ -71,6 +71,7 @@ def _ctx(
     evaluate_host: RecordingHost | None,
     lock: Any,
     evaluation_src: Path | None = None,
+    evaluate_hosts: dict[str, RecordingHost] | None = None,
 ) -> AttemptCtx:
     registry = _registry()
     graph = resolve(
@@ -96,6 +97,7 @@ def _ctx(
         task_root=tmp_path,
         dataset_root=tmp_path,
         evaluate_host=evaluate_host,  # type: ignore[arg-type]
+        evaluate_hosts=dict(evaluate_hosts or {}),  # type: ignore[arg-type]
         evaluation_src=evaluation_src,
     )
     ctx.mark_writers_stopped()
@@ -189,3 +191,117 @@ async def test_same_box_evaluate_does_not_start_a_second_host(tmp_path: Path) ->
     assert agent.started is False
     assert any(dest == EVALUATION_PATH for _src, dest in agent.uploads)
     assert not any(f.name == "evaluate_host_started" for f in ctx.phase_facts)
+
+
+def _named_lock() -> SimpleNamespace:
+    return SimpleNamespace(
+        force_build=False,
+        resolved_references={
+            "evaluation_environments": {
+                "audit": {"dockerfile": "environment/evaluate/audit/Dockerfile"},
+                "unused": {"dockerfile": "environment/evaluate/unused/Dockerfile"},
+            },
+            "artifacts": [
+                {"id": "repo", "path": "workspace", "kind": "tree", "exclude": ["target"]}
+            ],
+            "evaluation_inputs": [{"artifact": "repo", "target": "workspace"}],
+        },
+        job_overlay={"evaluate_host": {"isolated": True}},
+    )
+
+
+@pytest.mark.asyncio
+async def test_named_evaluate_does_not_start_hosts_until_exec(tmp_path: Path) -> None:
+    gold = tmp_path / "evaluation"
+    gold.mkdir()
+    (gold / "hidden.txt").write_text("secret\n", encoding="utf-8")
+    snap = tmp_path / "run" / "task-artifacts" / "repo"
+    snap.mkdir(parents=True)
+    (snap / "src.py").write_text("from snapshot\n", encoding="utf-8")
+    agent = RecordingHost(root=tmp_path / "agent")
+    audit = RecordingHost(root=tmp_path / "audit")
+    unused = RecordingHost(root=tmp_path / "unused")
+    ctx = _ctx(
+        tmp_path,
+        agent=agent,
+        evaluate_host=None,
+        evaluate_hosts={"audit": audit, "unused": unused},
+        lock=_named_lock(),
+        evaluation_src=gold,
+    )
+    await evaluate.run(ctx)
+    assert audit.started is False
+    assert unused.started is False
+    assert not any(f.name == "evaluate_host_started" for f in ctx.phase_facts)
+    assert ctx.evaluation_result == {"status": "PASS", "score": 1}
+
+
+@pytest.mark.asyncio
+async def test_named_ensure_starts_only_requested_host(tmp_path: Path) -> None:
+    gold = tmp_path / "evaluation"
+    gold.mkdir()
+    (gold / "hidden.txt").write_text("secret\n", encoding="utf-8")
+    snap = tmp_path / "run" / "task-artifacts" / "repo"
+    snap.mkdir(parents=True)
+    (snap / "src.py").write_text("from snapshot\n", encoding="utf-8")
+    agent = RecordingHost(root=tmp_path / "agent")
+    audit = RecordingHost(root=tmp_path / "audit")
+    unused = RecordingHost(root=tmp_path / "unused")
+    ctx = _ctx(
+        tmp_path,
+        agent=agent,
+        evaluate_host=None,
+        evaluate_hosts={"audit": audit, "unused": unused},
+        lock=_named_lock(),
+        evaluation_src=gold,
+    )
+    ctx.phase = "evaluate"
+    host = await evaluate.ensure_named_host(ctx, "audit")
+    assert host is audit
+    assert audit.started is True
+    assert unused.started is False
+    assert any(dest == EVALUATION_PATH for _src, dest in audit.uploads)
+    assert any(dest == WORKSPACE_PATH for src, dest in audit.uploads if src == snap)
+    assert not any(dest == EVALUATION_PATH for _src, dest in unused.uploads)
+    facts = [f for f in ctx.phase_facts if f.name == "evaluate_host_started"]
+    assert len(facts) == 1
+    assert facts[0].detail.get("name") == "audit"
+
+
+@pytest.mark.asyncio
+async def test_named_unknown_environment_does_not_start(tmp_path: Path) -> None:
+    agent = RecordingHost(root=tmp_path / "agent")
+    audit = RecordingHost(root=tmp_path / "audit")
+    ctx = _ctx(
+        tmp_path,
+        agent=agent,
+        evaluate_host=None,
+        evaluate_hosts={"audit": audit},
+        lock=_named_lock(),
+    )
+    ctx.phase = "evaluate"
+    with pytest.raises(RuntimeError, match="unknown_evaluate_environment"):
+        await evaluate.ensure_named_host(ctx, "nope")
+    assert audit.started is False
+
+
+@pytest.mark.asyncio
+async def test_cleanup_stops_only_started_named_hosts(tmp_path: Path) -> None:
+    agent = RecordingHost(root=tmp_path / "agent")
+    audit = RecordingHost(root=tmp_path / "audit")
+    unused = RecordingHost(root=tmp_path / "unused")
+    ctx = _ctx(
+        tmp_path,
+        agent=agent,
+        evaluate_host=None,
+        evaluate_hosts={"audit": audit, "unused": unused},
+        lock=_named_lock(),
+    )
+    ctx.phase = "evaluate"
+    await evaluate.ensure_named_host(ctx, "audit")
+    await cleanup.run(ctx)
+    assert audit.stopped is True
+    assert unused.stopped is False
+    names = [f.name for f in ctx.phase_facts]
+    assert "evaluate_host_stopped" in names
+    assert "environment_stopped" in names
