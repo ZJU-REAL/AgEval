@@ -1,0 +1,21 @@
+format: ageval.task/1
+task_id: publish-tree
+description: Named scoring hosts rematerialize a harvested tree; unused stage is not started.
+limits:
+  wall_time_seconds: 180
+  agent_invocations: 0
+artifacts:
+  publishable:
+    - id: repo
+      path: workspace
+      kind: tree
+      exclude: [target, "*.so", .git]
+evaluation:
+  inputs:
+    - artifact: repo
+      target: workspace
+  environments:
+    audit:
+      dockerfile: environment/evaluate/audit/Dockerfile
+    unused:
+      dockerfile: environment/evaluate/unused/Dockerfile
