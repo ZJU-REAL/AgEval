@@ -4,10 +4,11 @@ import { cn } from "@/lib/utils";
 
 export function Table({
   className,
+  wrapClassName,
   ...props
-}: React.HTMLAttributes<HTMLTableElement>) {
+}: React.HTMLAttributes<HTMLTableElement> & { wrapClassName?: string }) {
   return (
-    <div className="relative w-full overflow-auto">
+    <div className={cn("relative w-full overflow-auto", wrapClassName)}>
       <table
         className={cn("w-full table-fixed caption-bottom text-sm", className)}
         {...props}

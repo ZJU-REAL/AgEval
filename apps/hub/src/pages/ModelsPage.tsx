@@ -1,14 +1,13 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import { Boxes } from "lucide-react";
 
 import { CatalogScopeBar } from "@/components/catalog-scope-bar";
 import { EmptyState, LoadingState } from "@/components/empty-state";
 import { MODALITY_TAB_META } from "@/components/modality-mark";
-import { ModelDirectory, type ModelDirectoryRow } from "@/components/model-directory";
+import { ModelLabTables, type ModelLabRow } from "@/components/model-lab-tables";
 import { PageHead } from "@/components/page-head";
 import { UnderlineTabs } from "@/components/underline-tabs";
-import { encodeDatasetId } from "@/lib/api";
 import { getToken } from "@/lib/auth";
 import {
   appearancesByCanonical,
@@ -72,17 +71,13 @@ export function ModelsPage() {
 
   const rows = useMemo(() => {
     const q = query.trim().toLowerCase();
-    const out: ModelDirectoryRow[] = [];
+    const out: ModelLabRow[] = [];
     for (const [canonical, info] of Object.entries(pin.models)) {
       if (scope === "performance" && !perfCanonicals?.has(canonical)) continue;
       if (!matchesModalityTab(modelModalities(info), modality)) continue;
       const hay = `${canonical} ${info.name} ${info.family} ${info.lab}`.toLowerCase();
       if (q && !hay.includes(q)) continue;
-      out.push({
-        overlay: canonical,
-        canonical,
-        href: `/models/${encodeDatasetId(canonical)}`,
-      });
+      out.push({ overlay: canonical, canonical });
     }
     return out;
   }, [pin.models, query, scope, modality, perfCanonicals]);
@@ -93,6 +88,25 @@ export function ModelsPage() {
 
   const emptyPin = Object.keys(pin.models).length === 0;
   const waiting = scope === "performance" && (loadingPerf || perfCanonicals === null);
+  const chromeRef = useRef<HTMLDivElement>(null);
+
+  useLayoutEffect(() => {
+    const chrome = chromeRef.current;
+    const scroller = document.getElementById("main");
+    if (!chrome || !scroller) return;
+    const apply = () => {
+      scroller.style.setProperty("--models-stick-top", `${chrome.offsetHeight}px`);
+    };
+    const ro = new ResizeObserver(apply);
+    ro.observe(chrome);
+    window.addEventListener("resize", apply);
+    apply();
+    return () => {
+      ro.disconnect();
+      window.removeEventListener("resize", apply);
+      scroller.style.removeProperty("--models-stick-top");
+    };
+  }, []);
 
   return (
     <>
@@ -100,22 +114,35 @@ export function ModelsPage() {
         title="Models"
         sub="Pinned encyclopedia. Overlay invoke ids stay as run; Hub joins a unique canonical when it can."
       />
-      <CatalogScopeBar
-        scope={scope}
-        onScope={setScope}
-        items={SCOPE_ITEMS}
-        query={query}
-        onQuery={setQuery}
-        searchLabel="Search models"
-        searchPlaceholder="Search models…"
-      />
-      <UnderlineTabs
-        className="mb-4"
-        ariaLabel="Model modalities"
-        items={MODALITY_TAB_META}
-        value={modality}
-        onChange={(next) => writeFilters(scope, next)}
-      />
+      <div
+        id="models-chrome"
+        ref={chromeRef}
+        className="relative sticky top-0 z-20 flex flex-col -mx-4 -mt-5 bg-canvas px-4 pt-5 sm:-mx-6 sm:px-6"
+      >
+        <div
+          aria-hidden
+          className="pointer-events-none absolute inset-x-0 bottom-full h-24 bg-canvas"
+        />
+        <CatalogScopeBar
+          scope={scope}
+          onScope={setScope}
+          items={SCOPE_ITEMS}
+          query={query}
+          onQuery={setQuery}
+          searchLabel="Search models"
+          searchPlaceholder="Search models…"
+          variant="group"
+          className="mb-3"
+        />
+        <UnderlineTabs
+          className="shrink-0"
+          ariaLabel="Model modalities"
+          items={MODALITY_TAB_META}
+          value={modality}
+          onChange={(next) => writeFilters(scope, next)}
+        />
+        <div id="models-lab-pin" className="bg-canvas pt-3 pb-3 empty:hidden" />
+      </div>
       {emptyPin ? (
         <EmptyState
           icon={Boxes}
@@ -151,7 +178,7 @@ export function ModelsPage() {
         />
       ) : (
         <>
-          <ModelDirectory rows={rows} showOverlay={false} />
+          <ModelLabTables rows={rows} />
           <p className="mt-3 text-xs text-mute tabular-nums">
             {rows.length} model{rows.length === 1 ? "" : "s"}
           </p>

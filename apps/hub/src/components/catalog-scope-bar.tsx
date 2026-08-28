@@ -2,6 +2,7 @@ import type { ReactNode } from "react";
 
 import { UnderlineTabs } from "@/components/underline-tabs";
 import { Input } from "@/components/ui/input";
+import { cn } from "@/lib/utils";
 
 export type CatalogScope = "orgs" | "explore" | "favorites";
 
@@ -62,6 +63,8 @@ export function CatalogScopeBar<T extends string>({
   searchLabel,
   searchPlaceholder,
   end,
+  variant = "tabs",
+  className,
 }: {
   scope: T;
   onScope: (next: T) => void;
@@ -72,9 +75,51 @@ export function CatalogScopeBar<T extends string>({
   searchPlaceholder: string;
   /** Trailing chrome on the search row. */
   end?: ReactNode;
+  /** tabs = UnderlineTabs row above the search; group = hairline button group right of the search. */
+  variant?: "tabs" | "group";
+  className?: string;
 }) {
+  if (variant === "group") {
+    return (
+      <div className={cn("mb-4", className)}>
+        <div className="flex items-center gap-2">
+          <Input
+            value={query}
+            onChange={(e) => onQuery(e.target.value)}
+            placeholder={searchPlaceholder}
+            aria-label={searchLabel}
+            className="min-w-0 w-full max-w-sm"
+          />
+          <div
+            role="group"
+            aria-label="Catalog scope"
+            className="inline-flex shrink-0 items-center gap-0.5 rounded-[8px] border border-hairline p-0.5"
+          >
+            {items.map((item) => (
+              <button
+                key={item.id}
+                type="button"
+                aria-pressed={scope === item.id}
+                onClick={() => onScope(item.id)}
+                className={cn(
+                  "rounded-[6px] px-2.5 py-1 text-sm transition-colors duration-200 ease-smooth",
+                  "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-link/70",
+                  scope === item.id
+                    ? "bg-canvas-soft-2 text-ink"
+                    : "text-body hover:bg-canvas-soft",
+                )}
+              >
+                {item.label}
+              </button>
+            ))}
+          </div>
+          {end ? <div className="ml-auto shrink-0">{end}</div> : null}
+        </div>
+      </div>
+    );
+  }
   return (
-    <div className="mb-4">
+    <div className={cn("mb-4", className)}>
       <UnderlineTabs
         items={items}
         value={scope}
