@@ -28,6 +28,7 @@ class RequestService:
         suite_run_id: str,
         auth: TokenInfo,
         agent: str | None = None,
+        canonical_model: str | None = None,
     ) -> dict[str, Any]:
         kind = kind.strip()
         if kind not in REQUEST_KINDS:
@@ -41,7 +42,7 @@ class RequestService:
             raise RegistryAppError("not_found", "suite not found", http_status=404)
         if kind == "leaderboard_list":
             return self._apply_listing(suite, auth)
-        return self._apply_performance(suite, auth, agent or "")
+        return self._apply_performance(suite, auth, agent or "", canonical_model or "")
 
     def inbox(self, *, auth: TokenInfo) -> dict[str, Any]:
         org_ids = self._owner_org_ids(auth)
@@ -78,6 +79,7 @@ class RequestService:
         request_ids: list[str],
         action: str,
         auth: TokenInfo,
+        canonical_model: str | None = None,
     ) -> dict[str, Any]:
         action = action.strip()
         if action not in DECIDE_ACTIONS:
@@ -97,7 +99,7 @@ class RequestService:
         for rid in ids:
             row = by_id[rid]
             if action == "approve":
-                self._approve(row, auth)
+                self._approve(row, auth, canonical_model=canonical_model)
             updated = self.meta.update_resource_request_status(
                 rid,
                 status="approved" if action == "approve" else "rejected",
@@ -154,7 +156,9 @@ class RequestService:
         self.meta.insert_resource_request(row)
         return request_to_dict(row)
 
-    def _apply_performance(self, suite: Any, auth: TokenInfo, agent: str) -> dict[str, Any]:
+    def _apply_performance(
+        self, suite: Any, auth: TokenInfo, agent: str, canonical_model: str
+    ) -> dict[str, Any]:
         from services.registry.store import package_kind_for_media_type
 
         from ageval.application.suite.attach_agent_ref import (
@@ -171,6 +175,7 @@ class RequestService:
         stored_ref = (
             f"{spec_role}={package_id}@{version}" if spec_role else f"{package_id}@{version}"
         )
+        stored_canonical = canonical_model.strip()
         if builtin is not None:
             if auth_is_maintainer(auth):
                 attached = self.results.attach_agent(
@@ -178,6 +183,7 @@ class RequestService:
                     agent=agent,
                     auth=auth,
                     grant_consent=True,
+                    canonical_model=stored_canonical,
                 )
                 attached["request"] = None
                 attached["direct_attach"] = True
@@ -197,6 +203,7 @@ class RequestService:
                 applicant=auth.user_id or "",
                 owner_org_id=MAINTAINER_INBOX_ORG,
                 agent_ref=stored_ref,
+                canonical_model=stored_canonical,
             )
             self.meta.insert_resource_request(row)
             return request_to_dict(row)
@@ -222,6 +229,7 @@ class RequestService:
                 agent=agent,
                 auth=auth,
                 grant_consent=True,
+                canonical_model=stored_canonical,
             )
             attached["request"] = None
             attached["direct_attach"] = True
@@ -241,21 +249,30 @@ class RequestService:
             applicant=auth.user_id or "",
             owner_org_id=owner_org,
             agent_ref=stored_ref,
+            canonical_model=stored_canonical,
         )
         self.meta.insert_resource_request(row)
         return request_to_dict(row)
 
-    def _approve(self, row: ResourceRequestRow, auth: TokenInfo) -> None:
+    def _approve(
+        self,
+        row: ResourceRequestRow,
+        auth: TokenInfo,
+        *,
+        canonical_model: str | None = None,
+    ) -> None:
         try:
             if row.kind == "leaderboard_list":
                 self.meta.set_suite_board_listed(row.suite_run_id, True)
                 return
+            chosen = (canonical_model or row.canonical_model or "").strip()
             self.results.attach_agent(
                 suite_run_id=row.suite_run_id,
                 agent=row.agent_ref,
                 auth=auth,
                 grant_consent=True,
                 skip_owner_check=True,
+                canonical_model=chosen,
             )
         except LookupError as exc:
             raise RegistryAppError("not_found", "suite not found", http_status=404) from exc
@@ -293,6 +310,7 @@ class RequestService:
         applicant: str,
         owner_org_id: str,
         agent_ref: str,
+        canonical_model: str = "",
     ) -> ResourceRequestRow:
         return ResourceRequestRow(
             request_id=f"req_{secrets.token_hex(12)}",
@@ -304,4 +322,5 @@ class RequestService:
             owner_org_id=owner_org_id,
             agent_ref=agent_ref,
             created_at=now(),
+            canonical_model=canonical_model.strip(),
         )

@@ -111,6 +111,7 @@ class ResourceRequestRow:
     created_at: float
     decided_at: float | None = None
     decided_by: str = ""
+    canonical_model: str = ""
 
 
 @dataclass(frozen=True, slots=True)
@@ -869,6 +870,40 @@ class MetadataStore(MetadataStoreProtocol):
             )
             conn.commit()
 
+    def set_suite_canonical_model(
+        self, suite_run_id: str, overlay_model: str, canonical_model: str
+    ) -> None:
+        overlay = overlay_model.strip()
+        canonical = canonical_model.strip()
+        if not overlay or not canonical:
+            return
+        with self._connect() as conn:
+            self._exec(
+                conn,
+                Q.UPSERT_SUITE_CANONICAL_MODEL,
+                (suite_run_id, overlay, canonical),
+            )
+            conn.commit()
+
+    def list_canonical_models_for_suites(
+        self, suite_run_ids: list[str]
+    ) -> dict[str, dict[str, str]]:
+        out: dict[str, dict[str, str]] = {sid: {} for sid in suite_run_ids}
+        ids = [sid for sid in suite_run_ids if sid]
+        if not ids:
+            return out
+        placeholders = ",".join("?" * len(ids))
+        sql = Q.LIST_CANONICAL_MODELS_FOR_SUITES.format(placeholders=placeholders)
+        with self._connect() as conn:
+            cur = self._exec(conn, sql, tuple(ids))
+            for row in cur.fetchall():
+                sid = str(row["suite_run_id"] or "")
+                overlay = str(row["overlay_model"] or "").strip()
+                canonical = str(row["canonical_model"] or "").strip()
+                if sid and overlay and canonical:
+                    out.setdefault(sid, {})[overlay] = canonical
+        return out
+
     def has_agent_consent(self, suite_run_id: str, package_id: str) -> bool:
         with self._connect() as conn:
             cur = self._exec(conn, Q.SELECT_SUITE_AGENT_CONSENT, (suite_run_id, package_id))
@@ -905,6 +940,7 @@ class MetadataStore(MetadataStoreProtocol):
                         row.applicant,
                         row.owner_org_id,
                         row.agent_ref,
+                        row.canonical_model,
                         row.created_at,
                         row.decided_at,
                         row.decided_by,
@@ -998,6 +1034,9 @@ class MetadataStore(MetadataStoreProtocol):
             created_at=float(r["created_at"]),
             decided_at=decided_at,
             decided_by=str(r["decided_by"] or "") if "decided_by" in keys else "",
+            canonical_model=(
+                str(r["canonical_model"] or "") if "canonical_model" in keys else ""
+            ),
         )
 
     def list_agent_consents_for_suites(self, suite_run_ids: list[str]) -> dict[str, set[str]]:
@@ -2364,6 +2403,8 @@ def request_to_dict(row: ResourceRequestRow) -> dict[str, Any]:
     }
     if row.agent_ref:
         out["agent_ref"] = row.agent_ref
+    if row.canonical_model:
+        out["canonical_model"] = row.canonical_model
     if row.decided_at is not None:
         out["decided_at"] = row.decided_at
     if row.decided_by:

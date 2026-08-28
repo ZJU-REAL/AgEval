@@ -151,6 +151,7 @@ class RuntimeService:
         items = [s for s in (listed.get("items") or []) if isinstance(s, Mapping)]
         suite_ids = [str(s.get("suite_run_id") or "") for s in items]
         consents = self.meta.list_agent_consents_for_suites(suite_ids)
+        canonicals = self.meta.list_canonical_models_for_suites(suite_ids)
         mode = self._collect_mode(harness_id)
         digest_cache: dict[tuple[str, str], str] = {}
         out: list[dict[str, Any]] = []
@@ -177,7 +178,7 @@ class RuntimeService:
                 rows = stamped
             elif not auto:
                 continue
-            out.extend(rows)
+            out.extend(_with_canonical_models(rows, canonicals.get(sid) or {}))
         return out
 
     def _reduce(self, auth: TokenInfo) -> dict[str, list[dict[str, Any]]]:
@@ -186,6 +187,7 @@ class RuntimeService:
         items = [s for s in (listed.get("items") or []) if isinstance(s, Mapping)]
         suite_ids = [str(s.get("suite_run_id") or "") for s in items]
         consents = self.meta.list_agent_consents_for_suites(suite_ids)
+        canonicals = self.meta.list_canonical_models_for_suites(suite_ids)
         grouped: dict[str, list[dict[str, Any]]] = {}
         digest_cache: dict[tuple[str, str], str] = {}
         for suite in items:
@@ -194,7 +196,10 @@ class RuntimeService:
             sid = str(suite.get("suite_run_id") or "")
             allowed = consents.get(sid) or set()
             package_digest = _package_digest_for_suite(self.meta, suite, digest_cache)
-            for row in _performances_from_suite(suite, package_digest=package_digest):
+            for row in _with_canonical_models(
+                _performances_from_suite(suite, package_digest=package_digest),
+                canonicals.get(sid) or {},
+            ):
                 pid = str(row.get("package_id") or "")
                 if not pid or pid not in allowed:
                     continue
@@ -402,5 +407,20 @@ def _performances_from_suite(
         overlays = _overlay_paths(raw)
         if overlays:
             row["overlays"] = overlays
+        out.append(row)
+    return out
+
+
+def _with_canonical_models(
+    rows: list[dict[str, Any]], stored: Mapping[str, str]
+) -> list[dict[str, Any]]:
+    if not stored:
+        return rows
+    out: list[dict[str, Any]] = []
+    for row in rows:
+        overlay = str(row.get("model") or "").strip()
+        canonical = stored.get(overlay, "").strip()
+        if canonical:
+            row = {**row, "canonical_model": canonical}
         out.append(row)
     return out

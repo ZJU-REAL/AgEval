@@ -626,7 +626,7 @@ class RegistryHttpApi:
         body = self._read_json_body()
         if isinstance(body, HttpResult):
             return body
-        extra = set(body) - {"kind", "suite_run_id", "agent"}
+        extra = set(body) - {"kind", "suite_run_id", "agent", "canonical_model"}
         if extra:
             return json_result(
                 400,
@@ -639,9 +639,17 @@ class RegistryHttpApi:
         suite_run_id = str(body.get("suite_run_id") or "").strip()
         agent_raw = body.get("agent")
         agent = str(agent_raw).strip() if isinstance(agent_raw, str) else None
+        canonical_raw = body.get("canonical_model")
+        canonical_model = (
+            str(canonical_raw).strip() if isinstance(canonical_raw, str) else None
+        )
         try:
             payload = self.state.requests.apply(
-                kind=kind, suite_run_id=suite_run_id, auth=auth, agent=agent
+                kind=kind,
+                suite_run_id=suite_run_id,
+                auth=auth,
+                agent=agent,
+                canonical_model=canonical_model,
             )
         except RegistryAppError as exc:
             return _caught(exc)
@@ -651,7 +659,7 @@ class RegistryHttpApi:
         body = self._read_json_body()
         if isinstance(body, HttpResult):
             return body
-        extra = set(body) - {"ids", "action"}
+        extra = set(body) - {"ids", "action", "canonical_model"}
         if extra:
             return json_result(
                 400,
@@ -664,9 +672,16 @@ class RegistryHttpApi:
         if not isinstance(ids, list):
             return json_result(400, {"error": "invalid_request", "message": "ids required"})
         action = str(body.get("action") or "").strip()
+        canonical_raw = body.get("canonical_model")
+        canonical_model = (
+            str(canonical_raw).strip() if isinstance(canonical_raw, str) else None
+        )
         try:
             payload = self.state.requests.decide(
-                request_ids=[str(i) for i in ids], action=action, auth=auth
+                request_ids=[str(i) for i in ids],
+                action=action,
+                auth=auth,
+                canonical_model=canonical_model,
             )
         except RegistryAppError as exc:
             return _caught(exc)

@@ -690,6 +690,7 @@ class ResultService:
         role: str | None = None,
         grant_consent: bool | None = None,
         skip_owner_check: bool = False,
+        canonical_model: str | None = None,
     ) -> dict[str, Any]:
         """Write published ``agent_ref`` onto the stored suite overlay.
 
@@ -804,6 +805,24 @@ class ResultService:
                 granted_by=auth.user_id or "",
                 source="attach",
             )
+        chosen_canonical = (canonical_model or "").strip()
+        if chosen_canonical:
+            overlay_after = result.overlay if isinstance(result.overlay, Mapping) else {}
+            profiles = overlay_after.get("agent_profiles")
+            if isinstance(profiles, Mapping):
+                for role_id in result.roles:
+                    raw = profiles.get(role_id)
+                    if not isinstance(raw, Mapping):
+                        continue
+                    model = raw.get("model")
+                    overlay_model = model.strip() if isinstance(model, str) else ""
+                    if overlay_model:
+                        self.meta.set_suite_canonical_model(
+                            suite_run_id, overlay_model, chosen_canonical
+                        )
+            payload_canonical = chosen_canonical
+        else:
+            payload_canonical = ""
         if skip_owner_check:
             stored = self.meta.get_suite(suite_run_id)
             if stored is None:
@@ -817,6 +836,8 @@ class ResultService:
         payload["idempotent"] = not result.changed
         payload["attached_roles"] = list(result.roles)
         payload["agent_ref"] = result.agent_ref
+        if payload_canonical:
+            payload["canonical_model"] = payload_canonical
         return payload
 
     def detach_agent_role(

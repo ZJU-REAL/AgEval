@@ -533,3 +533,76 @@ def test_hide_processed_inbox_is_per_user(tmp_path: Path, monkeypatch: pytest.Mo
     assert perf["request_id"] in {i["request_id"] for i in requests.inbox(auth=carol)["items"]}
     requests.hide(request_ids=[perf["request_id"]], auth=carol)
     assert requests.inbox(auth=carol)["items"] == []
+
+
+def test_performance_request_stores_canonical_and_approve_may_override(
+    tmp_path: Path,
+) -> None:
+    packages, results, requests, runtimes = _svcs(tmp_path)
+    _publish_dataset(
+        packages, tmp_path, dataset_id="official/gaia", org_id="official", owner="alice"
+    )
+    _publish_agent(
+        packages, tmp_path, package_id="official/pi-default", org_id="official", owner="alice"
+    )
+    alice = TokenInfo(scopes=frozenset({"results:upload"}), user_id="alice")
+    bob = TokenInfo(scopes=frozenset({"results:upload"}), user_id="bob")
+    _upload(
+        results,
+        tmp_path,
+        suite_run_id="s_model",
+        dataset_id="official/gaia",
+        user_id="bob",
+        agent_profiles={"solver": {**PI, "model": "dashscope/qwen-max"}},
+    )
+    applied = requests.apply(
+        kind="agent_performance",
+        suite_run_id="s_model",
+        auth=bob,
+        agent="official/pi-default@0.1.0",
+        canonical_model="alibaba/qwen-max",
+    )
+    assert applied["status"] == "pending"
+    assert applied["canonical_model"] == "alibaba/qwen-max"
+    assert runtimes.performances_for_agent("official/pi-default", alice) == []
+    requests.decide(
+        request_ids=[applied["request_id"]],
+        action="approve",
+        auth=alice,
+        canonical_model="alibaba/qwen-flash",
+    )
+    rows = runtimes.performances_for_agent("official/pi-default", alice)
+    assert [r["suite_run_id"] for r in rows] == ["s_model"]
+    assert rows[0]["model"] == "dashscope/qwen-max"
+    assert rows[0]["canonical_model"] == "alibaba/qwen-flash"
+
+
+def test_owner_direct_attach_records_canonical_bucket(tmp_path: Path) -> None:
+    packages, results, requests, runtimes = _svcs(tmp_path)
+    _publish_dataset(
+        packages, tmp_path, dataset_id="official/gaia", org_id="official", owner="alice"
+    )
+    _publish_agent(
+        packages, tmp_path, package_id="official/pi-default", org_id="official", owner="alice"
+    )
+    alice = TokenInfo(scopes=frozenset({"results:upload"}), user_id="alice")
+    _upload(
+        results,
+        tmp_path,
+        suite_run_id="s_owner",
+        dataset_id="official/gaia",
+        user_id="alice",
+        agent_profiles={"solver": {**PI, "model": "openrouter/deepseek/deepseek-v4-flash"}},
+    )
+    attached = requests.apply(
+        kind="agent_performance",
+        suite_run_id="s_owner",
+        auth=alice,
+        agent="official/pi-default@0.1.0",
+        canonical_model="deepseek/deepseek-v4-flash",
+    )
+    assert attached.get("direct_attach") is True
+    assert attached.get("canonical_model") == "deepseek/deepseek-v4-flash"
+    rows = runtimes.performances_for_agent("official/pi-default", alice)
+    assert rows[0]["canonical_model"] == "deepseek/deepseek-v4-flash"
+    assert rows[0]["model"] == "openrouter/deepseek/deepseek-v4-flash"

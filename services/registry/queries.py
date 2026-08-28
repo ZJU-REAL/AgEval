@@ -338,6 +338,14 @@ SCHEMA_STATEMENTS: tuple[str, ...] = (
     )
     """,
     """
+    CREATE TABLE IF NOT EXISTS suite_canonical_models (
+        suite_run_id TEXT NOT NULL,
+        overlay_model TEXT NOT NULL,
+        canonical_model TEXT NOT NULL,
+        PRIMARY KEY (suite_run_id, overlay_model)
+    )
+    """,
+    """
     CREATE TABLE IF NOT EXISTS resource_requests (
         request_id TEXT PRIMARY KEY,
         kind TEXT NOT NULL,
@@ -347,6 +355,7 @@ SCHEMA_STATEMENTS: tuple[str, ...] = (
         applicant TEXT NOT NULL,
         owner_org_id TEXT NOT NULL,
         agent_ref TEXT NOT NULL DEFAULT '',
+        canonical_model TEXT NOT NULL DEFAULT '',
         created_at REAL NOT NULL,
         decided_at REAL,
         decided_by TEXT NOT NULL DEFAULT ''
@@ -455,6 +464,7 @@ SCHEMA_MIGRATIONS: tuple[tuple[str, str, str], ...] = (
     ("organizations", "description", "TEXT NOT NULL DEFAULT ''"),
     ("user_profiles", "description", "TEXT NOT NULL DEFAULT ''"),
     ("package_task_summaries", "overlay_prefixes_json", "TEXT"),
+    ("resource_requests", "canonical_model", "TEXT NOT NULL DEFAULT ''"),
 )
 
 # Do not bind created_at. Pre-unification Postgres token tables are
@@ -502,11 +512,20 @@ LIST_AGENT_CONSENTS_FOR_SUITES = (
     "SELECT * FROM suite_agent_consents WHERE suite_run_id IN ({placeholders})"
 )
 UPDATE_SUITE_BOARD_LISTED = "UPDATE suite_results SET board_listed=? WHERE suite_run_id=?"
+UPSERT_SUITE_CANONICAL_MODEL = """
+INSERT INTO suite_canonical_models(suite_run_id, overlay_model, canonical_model)
+VALUES (?, ?, ?)
+ON CONFLICT(suite_run_id, overlay_model) DO UPDATE SET
+    canonical_model=excluded.canonical_model
+"""
+LIST_CANONICAL_MODELS_FOR_SUITES = (
+    "SELECT * FROM suite_canonical_models WHERE suite_run_id IN ({placeholders})"
+)
 INSERT_RESOURCE_REQUEST = """
 INSERT INTO resource_requests(
     request_id, kind, status, suite_run_id, dataset_id, applicant,
-    owner_org_id, agent_ref, created_at, decided_at, decided_by
-) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    owner_org_id, agent_ref, canonical_model, created_at, decided_at, decided_by
+) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 """
 SELECT_RESOURCE_REQUEST = "SELECT * FROM resource_requests WHERE request_id=?"
 LIST_RESOURCE_REQUESTS_BY_IDS = (
