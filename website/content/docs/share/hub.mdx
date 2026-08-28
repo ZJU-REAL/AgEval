@@ -92,4 +92,6 @@ uv run ageval results upload-suite <dataset|id@version> --suite-run <8-hex> --pu
 # uv run ageval results upload <dataset> --run <run_id>
 ```
 
+Dataset Leaderboard 默认列出该包全部过门 suite。页顶版本切换只切 README / Tasks；榜上 Public 右侧的版本选择器才按 suite 的 `dataset_version` 过滤，默认 All versions。
+
 Hub 前端必须指向与 `ageval login` / `~/.ageval/credentials` **同一** Registry（本机开发常见 `127.0.0.1:8700`）。详见 [运行 Suite](/docs/run/suite)。

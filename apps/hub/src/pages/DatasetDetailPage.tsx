@@ -49,6 +49,7 @@ import {
   listPackageTasks,
   listPackageVersions,
   listSuites,
+  isDraftRelease,
   pickPackageVersion,
   splitPackageId,
   updatePackageDisplayName,
@@ -63,10 +64,60 @@ import {
 import { getGithubUser, getToken } from "@/lib/auth";
 import { buildNestedTree } from "@/lib/file-tree";
 import { LEADERBOARD_K_FIXTURES } from "@/lib/leaderboard-fixtures";
-import { formatScore } from "@/lib/utils";
+import { formatDay, formatScore } from "@/lib/utils";
 
 type Tab = "readme" | "tasks" | "shared" | "overlays" | "leaderboard";
 type BoardView = "public" | "internal";
+
+/** Sentinel for the Leaderboard version Select (omit `?dataset_version=`). */
+const ALL_BOARD_VERSIONS = "all";
+
+function suiteDatasetVersion(suite: SuiteRow): string {
+  return (suite.dataset_version || "").trim();
+}
+
+function filterSuitesByDatasetVersion(
+  suites: SuiteRow[],
+  version: string | null,
+): SuiteRow[] {
+  if (!version) return suites;
+  return suites.filter((row) => suiteDatasetVersion(row) === version);
+}
+
+function boardVersionLabel(
+  version: string,
+  releases: PackageRelease[],
+): string {
+  const hit = releases.find((row) => row.version === version);
+  if (hit) return versionLabel(hit);
+  return version === "draft" ? "draft" : `v${version}`;
+}
+
+function compareBoardVersions(
+  a: string,
+  aRelease: PackageRelease | null,
+  b: string,
+  bRelease: PackageRelease | null,
+): number {
+  const aDraft = aRelease
+    ? isDraftRelease(aRelease)
+      ? 1
+      : 0
+    : a === "draft"
+      ? 1
+      : 0;
+  const bDraft = bRelease
+    ? isDraftRelease(bRelease)
+      ? 1
+      : 0
+    : b === "draft"
+      ? 1
+      : 0;
+  if (aDraft !== bDraft) return bDraft - aDraft;
+  const byDate = (bRelease?.created_at ?? 0) - (aRelease?.created_at ?? 0);
+  if (byDate !== 0) return byDate;
+  return b.localeCompare(a, undefined, { numeric: true });
+}
 
 const TASK_OPTIONAL_COLUMNS = [
   { id: "readme", label: "README" },
@@ -90,6 +141,11 @@ export function DatasetDetailPage() {
     search.get("board") === "internal" ? "internal" : "public";
   /** Local smoke: `?tab=leaderboard&demo=1` injects mock k-metric rows. */
   const demoLeaderboard = search.get("demo") === "1";
+  const requestedBoardVersion = (search.get("dataset_version") || "").trim();
+  const boardVersion =
+    requestedBoardVersion && requestedBoardVersion !== ALL_BOARD_VERSIONS
+      ? requestedBoardVersion
+      : null;
 
   const [versions, setVersions] = useState<PackageRelease[]>([]);
   const [release, setRelease] = useState<PackageRelease | null>(null);
@@ -365,6 +421,7 @@ export function DatasetDetailPage() {
     if (next !== "leaderboard") {
       n.delete("board");
       n.delete("suite");
+      n.delete("dataset_version");
     }
     if (next !== "tasks") n.delete("offset");
     setSearch(n, { replace: true });
@@ -392,6 +449,15 @@ export function DatasetDetailPage() {
     n.set("tab", "leaderboard");
     if (id) n.set("suite", id);
     else n.delete("suite");
+    setSearch(n, { replace: true });
+  }
+
+  function setBoardVersion(next: string) {
+    const n = new URLSearchParams(search);
+    n.set("tab", "leaderboard");
+    if (!next || next === ALL_BOARD_VERSIONS) n.delete("dataset_version");
+    else n.set("dataset_version", next);
+    n.delete("suite");
     setSearch(n, { replace: true });
   }
 
@@ -424,6 +490,41 @@ export function DatasetDetailPage() {
         (row) => !publicSuites.some((listed) => listed.suite_run_id === row.suite_run_id),
       ),
     [awaitingListing, publicSuites],
+  );
+  const boardVersionOptions = useMemo(() => {
+    const byVersion = new Map<string, PackageRelease | null>();
+    for (const row of versions) {
+      if (row.version) byVersion.set(row.version, row);
+    }
+    const suitePool = demoLeaderboard
+      ? LEADERBOARD_K_FIXTURES
+      : [...jobSuites, ...boardSuites];
+    for (const row of suitePool) {
+      const v = suiteDatasetVersion(row);
+      if (v && !byVersion.has(v)) byVersion.set(v, null);
+    }
+    if (boardVersion && !byVersion.has(boardVersion)) {
+      byVersion.set(boardVersion, null);
+    }
+    return [...byVersion.entries()].sort(([a, ra], [b, rb]) =>
+      compareBoardVersions(a, ra, b, rb),
+    );
+  }, [versions, jobSuites, boardSuites, boardVersion, demoLeaderboard]);
+  const visiblePublicSuites = useMemo(
+    () => filterSuitesByDatasetVersion(publicSuites, boardVersion),
+    [publicSuites, boardVersion],
+  );
+  const visibleInternalSuites = useMemo(
+    () => filterSuitesByDatasetVersion(internalSuites, boardVersion),
+    [internalSuites, boardVersion],
+  );
+  const visibleAwaitingListing = useMemo(
+    () => filterSuitesByDatasetVersion(awaitingListingVisible, boardVersion),
+    [awaitingListingVisible, boardVersion],
+  );
+  const visibleDemoSuites = useMemo(
+    () => filterSuitesByDatasetVersion(LEADERBOARD_K_FIXTURES, boardVersion),
+    [boardVersion],
   );
 
   function setVersion(next: string) {
@@ -707,37 +808,70 @@ export function DatasetDetailPage() {
       ) : (
         <div className="space-y-3">
           <div className="flex flex-wrap items-center justify-between gap-2">
-            {demoLeaderboard ? (
-              <p className="text-sm text-mute">
-                Demo fixtures loaded (
-                <code className="font-mono">?demo=1</code>) - mock pass@k rows
-                for local smoke only; not Registry data.
-              </p>
-            ) : (
-              <Select
-                value={boardView}
-                onValueChange={(next) => {
-                  if (next === "public" || next === "internal") {
-                    setBoardView(next);
-                  }
-                }}
-              >
-                <SelectTrigger
-                  aria-label="Leaderboard visibility"
-                  className="h-9 w-auto min-w-[8.5rem]"
+            <div className="flex flex-wrap items-center gap-2">
+              {demoLeaderboard ? (
+                <p className="text-sm text-mute">
+                  Demo fixtures loaded (
+                  <code className="font-mono">?demo=1</code>) - mock pass@k rows
+                  for local smoke only; not Registry data.
+                </p>
+              ) : (
+                <Select
+                  value={boardView}
+                  onValueChange={(next) => {
+                    if (next === "public" || next === "internal") {
+                      setBoardView(next);
+                    }
+                  }}
                 >
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="public" mono={false}>
-                    Public
-                  </SelectItem>
-                  <SelectItem value="internal" mono={false}>
-                    Internal
-                  </SelectItem>
-                </SelectContent>
-              </Select>
-            )}
+                  <SelectTrigger
+                    aria-label="Leaderboard visibility"
+                    className="h-9 w-auto min-w-[8.5rem]"
+                  >
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="public" mono={false}>
+                      Public
+                    </SelectItem>
+                    <SelectItem value="internal" mono={false}>
+                      Internal
+                    </SelectItem>
+                  </SelectContent>
+                </Select>
+              )}
+              {boardVersionOptions.length > 0 ? (
+                <Select
+                  value={boardVersion ?? ALL_BOARD_VERSIONS}
+                  onValueChange={setBoardVersion}
+                >
+                  <SelectTrigger
+                    aria-label="Leaderboard dataset version"
+                    className="h-9 w-auto min-w-[8.5rem]"
+                  >
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent className="w-max min-w-0">
+                    <SelectItem value={ALL_BOARD_VERSIONS} mono={false}>
+                      All versions
+                    </SelectItem>
+                    {boardVersionOptions.map(([ver, row]) => (
+                      <SelectItem
+                        key={ver}
+                        value={ver}
+                        trailing={
+                          row?.created_at != null
+                            ? formatDay(row.created_at)
+                            : undefined
+                        }
+                      >
+                        {boardVersionLabel(ver, versions)}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              ) : null}
+            </div>
             <TableColumnPicker
               options={LEADERBOARD_OPTIONAL_COLUMNS}
               value={leaderboardColumns}
@@ -754,10 +888,10 @@ export function DatasetDetailPage() {
           <LeaderboardTable
             suites={
               demoLeaderboard
-                ? LEADERBOARD_K_FIXTURES
+                ? visibleDemoSuites
                 : boardView === "internal"
-                  ? internalSuites
-                  : publicSuites
+                  ? visibleInternalSuites
+                  : visiblePublicSuites
             }
             optionalColumns={leaderboardColumns}
             datasetId={datasetId}
@@ -782,17 +916,21 @@ export function DatasetDetailPage() {
             openSuiteId={demoLeaderboard ? null : search.get("suite")}
             onOpenSuite={demoLeaderboard ? undefined : setSuite}
             emptyTitle={
-              boardView === "internal" && !demoLeaderboard
-                ? "No internal suite runs"
-                : undefined
+              boardVersion
+                ? `No suite runs for ${boardVersionLabel(boardVersion, versions)}`
+                : boardView === "internal" && !demoLeaderboard
+                  ? "No internal suite runs"
+                  : undefined
             }
             emptyBody={
-              boardView === "internal" && !demoLeaderboard
-                ? "Caller-visible incomplete or draft-bound suite uploads appear here. Complete, release-bound rows stay on Public after listing approval. Task Jobs and attempt evidence are unchanged."
-                : undefined
+              boardVersion
+                ? "No matching suite runs for this Dataset version on this board. All versions still lists every row that passed the board gate."
+                : boardView === "internal" && !demoLeaderboard
+                  ? "Caller-visible incomplete or draft-bound suite uploads appear here. Complete, release-bound rows stay on Public after listing approval. Task Jobs and attempt evidence are unchanged."
+                  : undefined
             }
           />
-          {boardView === "public" && !demoLeaderboard && awaitingListingVisible.length > 0 ? (
+          {boardView === "public" && !demoLeaderboard && visibleAwaitingListing.length > 0 ? (
             <div className="space-y-2">
               <p className="text-xs text-mute">
                 Your complete release-bound suites that are not listed yet. Request
@@ -800,7 +938,7 @@ export function DatasetDetailPage() {
                 decide in Inbox.
               </p>
               <LeaderboardTable
-                suites={awaitingListingVisible}
+                suites={visibleAwaitingListing}
                 optionalColumns={leaderboardColumns}
                 datasetId={datasetId}
                 orgId={release?.org_id}

@@ -80,6 +80,7 @@ modal; the list only shows a prefix. Members join from **Organizations → Join*
 | `/agents` | Published Agent catalog |
 | `/agents/:id` | Agent detail: `?model=` chips + CLI; tabs Overview / Appearances / Files |
 | `/datasets/:id?tab=leaderboard&suite=` | Public Leaderboard with that suite inspector open |
+| `/datasets/:id?tab=leaderboard&dataset_version=` | Leaderboard filtered to that Dataset version (omit = all versions) |
 | `/organizations` | Your orgs · Create · Join |
 | `/organizations/:orgId` | Overview (members · datasets · plugins · agents) · Settings |
 | `/users/:login` | Public user profile (official orgs only; signed-out OK) |
