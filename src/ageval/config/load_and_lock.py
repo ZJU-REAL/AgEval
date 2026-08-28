@@ -401,9 +401,26 @@ _EGRESS_KINDS = frozenset({"docker"})
 def _apply_evaluate_job(job: JobDocument, resolved_refs: dict[str, Any]) -> None:
     """Fail closed on isolated / egress; ignore evaluate recipes when omitted."""
     isolated = bool(job.evaluate_host.get("isolated"))
-    if not isolated:
+    named = resolved_refs.get("evaluation_environments")
+    if named:
+        if not isolated:
+            raise ConfigError(
+                ERROR_INVALID_SCHEMA,
+                "evaluation.environments requires evaluate_host.isolated",
+                location="/evaluate_host",
+            )
+        if job.environment not in _ISOLATED_EVALUATE_KINDS:
+            raise ConfigError(
+                ERROR_INVALID_SCHEMA,
+                "evaluation.environments requires environment: docker",
+                location="/evaluate_host",
+            )
         resolved_refs.pop("environment_evaluate_dockerfile", None)
         resolved_refs.pop("evaluation_docker_image", None)
+    elif not isolated:
+        resolved_refs.pop("environment_evaluate_dockerfile", None)
+        resolved_refs.pop("evaluation_docker_image", None)
+        resolved_refs.pop("evaluation_environments", None)
     else:
         if job.environment not in _ISOLATED_EVALUATE_KINDS:
             raise ConfigError(

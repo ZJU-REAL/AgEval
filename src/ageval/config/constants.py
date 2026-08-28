@@ -38,6 +38,8 @@ EVALUATOR_ENTRYPOINT_DEFAULT = "evaluator:evaluate"
 ENVIRONMENT_DIR = "environment"
 DOCKERFILE_DEFAULT = "environment/Dockerfile"
 EVALUATE_DOCKERFILE_DEFAULT = "environment/evaluate.Dockerfile"
+# Named scoring hosts live under environment/evaluate/<name>/, never evaluation/.
+EVALUATE_ENVIRONMENT_NAME_PATTERN = r"^[a-z][a-z0-9_-]*$"
 COMPOSE_DEFAULT = "environment/compose.yaml"
 SETUP_SCRIPT_DEFAULT = "environment/setup.sh"
 SEED_DIR = "data"
