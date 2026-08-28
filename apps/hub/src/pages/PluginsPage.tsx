@@ -91,7 +91,7 @@ export function PluginsPage() {
         ) : loading ? (
           <CatalogLoading kind="plugin" />
         ) : error ? (
-          <div className="rounded-[8px] border border-hairline bg-canvas-soft p-4 text-sm text-body">
+          <div className="blob-panel p-4 text-sm text-body">
             <p className="text-error font-medium">Could not load plugins</p>
             <p className="mt-1 text-xs">{error}</p>
           </div>

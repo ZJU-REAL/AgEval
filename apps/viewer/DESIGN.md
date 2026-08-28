@@ -65,9 +65,9 @@ type-scale:
   caption: { fontSize: 12px, fontWeight: 400, lineHeight: 16px }
   code: { fontSize: 13px, fontWeight: 400, lineHeight: 20px, fontFamily: mono }
 rounded:
-  sm: 6px
-  md: 8px
-  lg: 12px
+  sm: 8px
+  md: 10px
+  lg: 14px
 spacing:
   xxs: 4px
   xs: 8px
@@ -118,7 +118,8 @@ The look is already chosen. Do not run a greenfield identity exercise. Skills li
 - Sentence case. `PageHead` is h1 + optional sub + hairline. No numbered kicker. No `uppercase tracking` eyebrow as section rhythm.
 - Sans for readable row text. Mono only for commands, digests, and `tabular-nums`.
 - Operator-facing controls and table column labels use **body-sm / `text-sm` (14px)**. Caption is timestamps and mute meta, not column names. Do not invent a third, smaller clickable size.
-- One radius scale (6 / 8 / 12). One pop shadow (`--viewer-shadow-pop`). No new easing.
+- One radius scale (8 / 10 / 14). Search is stadium. One pop shadow (`--viewer-shadow-pop`). No second liquid shadow token. No new easing.
+- Sliding tabs use `liquid-gooey` Move (`UnderlineTabs` / `PillTabs`). Do not draw an IKB underline.
 - Semantic tokens only (`text-ink`, `border-hairline`). No `slate-` / `zinc-` / `gray-` / raw hex in app code.
 
 ### Composition
@@ -171,9 +172,9 @@ Before drawing a control:
 | Jobs search | `Input` + `focus-visible:border-hairline` |
 | Kind / source / time filter | `Select` |
 | Row / theme overflow | `DropdownMenu` |
-| Evidence section switcher | `UnderlineTabs` |
+| Evidence section switcher | `UnderlineTabs` (Liquid Move) |
 | Command | `CommandStrip` (shell highlight on `code-bg`, not flat link-blue) |
 | Dialog / confirm | existing confirm / pop (`data-ageval-pop`); portal to body / overlay root |
 | Loading / empty | `ThinkingLogo` loading vs centered empty stack (docs/13) |
 
-Viewer has no Hub sidebar. Header brand is the owl lockup; page-action icons stay `mute`.
+Viewer has no Hub sidebar. Header is opaque `canvas-soft` + `border-b` and spans the viewport. Main is `canvas`; wide (`xl`) copy is `w-[80%]` centered. Brand is the owl lockup; page-action icons stay `mute`.

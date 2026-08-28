@@ -27,7 +27,7 @@ export function ScrollTable({
   return (
     <div
       className={cn(
-        "rounded-[8px] border border-hairline max-h-72 overflow-y-auto",
+        "blob-panel max-h-72 overflow-y-auto",
         className,
       )}
     >

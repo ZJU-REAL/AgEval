@@ -96,7 +96,7 @@ export function PluginSlotTimeline({
   }
 
   return (
-    <div className="rounded-[8px] border border-hairline bg-canvas overflow-hidden">
+    <div className="blob-panel overflow-hidden">
       <ol className="divide-y divide-hairline">
         {LEVEL_LABELS.map((label, level) => {
           const slots = declaredForLevel(declared, level);

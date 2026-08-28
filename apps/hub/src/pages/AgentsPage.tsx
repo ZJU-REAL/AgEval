@@ -92,7 +92,7 @@ export function AgentsPage() {
         ) : loading ? (
           <CatalogLoading kind="agent" />
         ) : error ? (
-          <div className="rounded-[8px] border border-hairline bg-canvas-soft p-4 text-sm text-body">
+          <div className="blob-panel p-4 text-sm text-body">
             <p className="text-error font-medium">Could not load agents</p>
             <p className="mt-1 text-xs">{error}</p>
           </div>

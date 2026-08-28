@@ -60,7 +60,7 @@ export function StarToggle({
         onToggle();
       }}
       className={cn(
-        "relative inline-flex h-8 w-8 items-center justify-center overflow-visible rounded-[6px] squish",
+        "relative inline-flex h-8 w-8 items-center justify-center overflow-visible rounded-[8px] squish hover:bg-liquid-hover",
         "transition-colors duration-200 ease-smooth",
         "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-link/70",
         "disabled:pointer-events-none disabled:opacity-50",

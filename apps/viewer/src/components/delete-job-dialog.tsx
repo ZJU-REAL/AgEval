@@ -185,7 +185,7 @@ export function DeleteJobDialog({ jobs, onClose, onDeleted }: Props) {
         {blockedHint ? <p className="text-sm text-body">{blockedHint}</p> : null}
         {paths.length > 0 ? (
           <>
-            <ul className="max-h-48 overflow-auto rounded-[6px] border border-hairline bg-canvas-soft divide-y divide-hairline">
+            <ul className="max-h-48 overflow-auto rounded-[8px] border border-hairline bg-canvas-soft divide-y divide-hairline">
               {paths.map((row) => (
                 <li
                   key={`${row.locator}-${row.run_id || ""}`}

@@ -1,9 +1,11 @@
 import {
   useEffect,
+  useRef,
   useState,
   type ComponentType,
   type ReactNode,
 } from "react";
+import { Liquid } from "liquid-gooey";
 import { Link, NavLink, useLocation } from "react-router-dom";
 import {
   ArrowUpRight,
@@ -23,6 +25,7 @@ import {
 import type { NavGlyph } from "@/components/empty-state";
 import { GitHubIcon } from "@/components/github-icon";
 import { HoverTip } from "@/components/hover-tip";
+import { LiquidThumb, useTrackedRect } from "@/components/liquid-thumb";
 import { OfficialMark } from "@/components/official-mark";
 import { OwlIcon } from "@/components/owl-icon";
 import { PageHeadSlotProvider } from "@/components/page-head";
@@ -31,6 +34,7 @@ import { ThemeToggle } from "@/components/theme-toggle";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { Toaster } from "@/components/ui/toaster";
 import { usePublicUser } from "@/hooks/use-public-user";
+import { liquidGroup } from "@/lib/liquid";
 import {
   clearToken,
   getGithubAvatar,
@@ -46,7 +50,7 @@ const SIDEBAR_COLLAPSED_KEY = "ageval-hub-sidebar-collapsed";
 type Glyph = ComponentType<{ className?: string; strokeWidth?: number }>;
 
 const navItemClass =
-  "flex h-9 w-full items-center rounded-[6px] text-sm motion-safe:transition-[color,background-color,font-weight] motion-safe:duration-200 motion-safe:ease-smooth focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-link/70";
+  "flex h-9 w-full items-center rounded-[8px] text-sm motion-safe:transition-[color,background-color,font-weight] motion-safe:duration-200 motion-safe:ease-smooth focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-link/70";
 
 function useDesktopNav(): boolean {
   const [desktop, setDesktop] = useState(
@@ -129,7 +133,7 @@ function SidebarLink({
           aria-label={label}
           className={cn(
             buttonVariants({ variant: "ghost", size: "icon" }),
-            "hover:bg-canvas aria-[current=page]:bg-canvas",
+            "hover:bg-canvas/50 aria-[current=page]:bg-transparent aria-[current=page]:shadow-none",
           )}
         >
           <SidebarGlyph icon={icon} glyph={glyph} />
@@ -149,8 +153,8 @@ function SidebarLink({
           navItemClass,
           "gap-2 px-2",
           isActive
-            ? "bg-canvas font-semibold text-ink"
-            : "font-normal text-body hover:bg-canvas hover:text-ink",
+            ? "font-semibold text-ink"
+            : "font-normal text-body hover:bg-canvas/50 hover:text-ink",
         )
       }
     >
@@ -193,7 +197,10 @@ function SidebarExternal({
       target="_blank"
       rel="noreferrer"
       aria-label={label}
-      className={cn(navItemClass, "gap-2 px-2 text-body hover:bg-canvas hover:text-ink")}
+      className={cn(
+        navItemClass,
+        "gap-2 px-2 text-body hover:bg-canvas/50 hover:text-ink",
+      )}
     >
       <Icon className="h-4 w-4 shrink-0 text-mute" strokeWidth={2.5} />
       <span className="min-w-0 flex-1 truncate">{label}</span>
@@ -241,13 +248,28 @@ function SidebarNav({
   onNavigate?: () => void;
   collapsed: boolean;
 }) {
+  const location = useLocation();
   const token = getToken();
   const github = githubRepoUrl();
   const docs = docsSiteUrl();
+  const navRef = useRef<HTMLDivElement>(null);
+  const { bar, ready } = useTrackedRect(
+    navRef,
+    '[aria-current="page"]',
+    `${location.pathname}\0${collapsed}\0${token ?? ""}`,
+  );
 
   return (
     <div className="flex min-h-0 flex-1 flex-col">
-      <nav className="flex flex-1 flex-col gap-5 overflow-y-auto px-2 pb-3 pt-5">
+      <Liquid
+        ref={navRef}
+        {...liquidGroup}
+        fill="var(--viewer-canvas)"
+        filterPadding={32}
+        role="navigation"
+        className="relative flex min-h-0 flex-1 flex-col gap-5 overflow-y-auto px-2 pb-3 pt-5"
+      >
+        <LiquidThumb bar={bar} ready={ready} />
         <SidebarGroup label="Catalog" collapsed={collapsed}>
           <SidebarLink
             to="/datasets"
@@ -305,7 +327,7 @@ function SidebarNav({
             collapsed={collapsed}
           />
         </SidebarGroup>
-      </nav>
+      </Liquid>
       {github || docs ? (
         <div className="mt-auto shrink-0 border-t border-hairline px-2 py-3">
           <div
@@ -381,7 +403,7 @@ export function Shell({
     <PageHeadSlotProvider slot={headSlot}>
       <a
         href="#main"
-        className="sr-only focus:not-sr-only focus:absolute focus:left-3 focus:top-3 focus:z-[80] focus:rounded-[6px] focus:bg-link focus:px-3 focus:py-2 focus:text-sm focus:font-medium focus:text-on-accent"
+        className="sr-only focus:not-sr-only focus:absolute focus:left-3 focus:top-3 focus:z-[80] focus:rounded-[8px] focus:bg-link focus:px-3 focus:py-2 focus:text-sm focus:font-medium focus:text-on-accent"
       >
         Skip to content
       </a>
@@ -461,7 +483,7 @@ export function Shell({
         </aside>
 
         <div className="flex min-h-0 min-w-0 flex-1 flex-col">
-          <header className="sticky top-0 z-30 flex h-[4.5rem] shrink-0 items-center gap-3 border-b border-hairline bg-canvas-soft px-4 sm:px-6">
+          <header className="sticky top-0 z-30 flex h-[4.5rem] shrink-0 items-center gap-3 border-b border-hairline bg-canvas px-4 sm:px-6">
             <Button
               type="button"
               variant="outline"
@@ -496,7 +518,7 @@ export function Shell({
                         alt=""
                         width={28}
                         height={28}
-                        className="h-7 w-7 shrink-0 rounded-full border border-hairline bg-canvas-soft object-cover"
+                        className="h-7 w-7 shrink-0 rounded-full bg-canvas-soft object-cover shadow-[var(--viewer-shadow-pop)]"
                       />
                     ) : null}
                     <span className="inline-flex min-w-0 items-center gap-1">
@@ -526,9 +548,11 @@ export function Shell({
           <main
             id="main"
             tabIndex={-1}
-            className="flex min-h-0 flex-1 flex-col overflow-auto px-4 pb-5 pt-5 sm:px-6"
+            className="flex min-h-0 flex-1 flex-col overflow-auto bg-canvas px-4 pb-5 pt-5 sm:px-6"
           >
-            {children}
+            <div className="flex min-w-0 w-full flex-1 flex-col xl:mx-auto xl:w-[80%]">
+              {children}
+            </div>
           </main>
         </div>
       </div>

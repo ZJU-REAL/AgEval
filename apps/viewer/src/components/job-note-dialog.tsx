@@ -42,7 +42,7 @@ export function JobNoteDialog({ job, initialNote, onClose, onSave }: Props) {
         role="dialog"
         aria-modal="true"
         aria-labelledby={titleId}
-        className="w-full max-w-lg rounded-[12px] border border-hairline bg-canvas shadow-[var(--viewer-shadow-pop)]"
+        className="w-full max-w-lg rounded-[14px] border border-hairline bg-canvas shadow-[var(--viewer-shadow-pop)]"
         onClick={(e) => e.stopPropagation()}
       >
         <div className="border-b border-hairline px-4 py-3">

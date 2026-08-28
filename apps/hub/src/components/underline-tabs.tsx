@@ -1,5 +1,8 @@
-import { useLayoutEffect, useRef, useState } from "react";
+import { useRef } from "react";
+import { Liquid } from "liquid-gooey";
 
+import { LiquidThumb, useTrackedRect } from "@/components/liquid-thumb";
+import { liquidGroup } from "@/lib/liquid";
 import { cn } from "@/lib/utils";
 
 type Item<T extends string> = { id: T; label: string };
@@ -20,34 +23,26 @@ export function UnderlineTabs<T extends string>({
   className?: string;
 }) {
   const listRef = useRef<HTMLDivElement>(null);
-  const [bar, setBar] = useState({ x: 0, w: 0 });
-
-  useLayoutEffect(() => {
-    const root = listRef.current;
-    if (!root) return;
-    const btn = root.querySelector<HTMLElement>(
-      `[data-tab-id="${CSS.escape(value)}"]`,
-    );
-    if (!btn) return;
-
-    const measure = () => {
-      setBar({ x: btn.offsetLeft, w: btn.offsetWidth });
-    };
-    measure();
-    if (typeof ResizeObserver === "undefined") return;
-    const ro = new ResizeObserver(measure);
-    ro.observe(root);
-    ro.observe(btn);
-    return () => ro.disconnect();
-  }, [value, items]);
+  const itemsKey = items.map((item) => item.id).join("\0");
+  const { bar, ready } = useTrackedRect(
+    listRef,
+    '[aria-selected="true"]',
+    `${value}\0${itemsKey}`,
+  );
 
   return (
-    <div
+    <Liquid
       ref={listRef}
+      {...liquidGroup}
+      fill="var(--viewer-canvas-soft-2)"
       role="tablist"
       aria-label={ariaLabel}
-      className={cn("relative flex flex-wrap gap-1 border-b border-hairline", className)}
+      className={cn(
+        "relative inline-flex flex-wrap gap-0.5 rounded-[8px] bg-canvas p-1",
+        className,
+      )}
     >
+      <LiquidThumb bar={bar} ready={ready} />
       {items.map((item) => (
         <button
           key={item.id}
@@ -57,22 +52,17 @@ export function UnderlineTabs<T extends string>({
           aria-selected={value === item.id}
           onClick={() => onChange(item.id)}
           className={cn(
-            "relative z-10 text-sm font-medium",
+            "relative z-10 rounded-[8px] text-sm font-medium",
             "transition-colors duration-200 ease-smooth",
-            size === "sm" ? "px-2.5 py-1.5" : "px-3 py-2",
+            size === "sm" ? "px-2.5 py-1.5" : "px-3.5 py-1.5",
             value === item.id
               ? "font-semibold text-ink"
-              : "text-mute hover:text-body",
+              : "text-mute hover:bg-liquid-hover hover:text-ink",
           )}
         >
           {item.label}
         </button>
       ))}
-      <span
-        aria-hidden
-        className="pointer-events-none absolute bottom-0 left-0 h-0.5 bg-link motion-safe:transition-[transform,width] motion-safe:duration-200 motion-safe:ease-smooth"
-        style={{ width: bar.w, transform: `translateX(${bar.x}px)` }}
-      />
-    </div>
+    </Liquid>
   );
 }

@@ -155,7 +155,7 @@ export function DatasetsPage() {
       ) : loading ? (
         <CatalogLoading kind="dataset" />
       ) : error ? (
-        <div className="rounded-[8px] border border-hairline bg-canvas-soft p-4 text-sm text-body">
+        <div className="blob-panel p-4 text-sm text-body">
           <p className="text-error font-medium">Could not load packages</p>
           <p className="mt-1 text-xs">{error}</p>
         </div>
@@ -170,7 +170,7 @@ export function DatasetsPage() {
         />
       ) : (
         <>
-          <div className="rounded-[8px] border border-hairline overflow-hidden">
+          <div className="blob-panel overflow-hidden">
               <Table>
                 <TableHeader>
                   <TableRow className="hover:bg-transparent">

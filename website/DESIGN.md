@@ -12,7 +12,7 @@
 
 - 面向 benchmark 作者、研究工程师和 Agent infrastructure 团队。
 - **Landing** 使用深色冷墨 + Anton 字标 + Geist / Noto Sans SC + 圆角按钮。
-- **文档阅读层** 使用同一套克莱因蓝与冷墨中性色；标题与正文都走 Geist / Noto Sans SC，不再用衬线。
+- **文档阅读层** 使用同一套克莱因蓝与冷墨中性色；壳与 SPA 一样左右分区（侧栏 `canvas-soft`、阅读列 `canvas`）。标题与正文都走 Geist / Noto Sans SC，不再用衬线。不引入 `liquid-gooey`。
 - 装饰服从信息，不使用生成插画、拟真场景图或无语义的发光背景。
 
 ### 设计参数
@@ -44,7 +44,7 @@
 
 - 一个视口内最多出现一个主 CTA；主 CTA 用 accent 实底，链接与路径强调用同一套克莱因蓝。
 - 中性色保持冷相，不要回暖棕。
-- 浅色卡片用 hairline 与表面色差建层级，少用重阴影。
+- 文档卡片 / 弹层用 1px hairline 四面 + 与 SPA 相同的 `--viewer-shadow-pop` 几何。不要第二套阴影。Landing 深色面继续用 inset hairline，不搬 SPA pop。
 - 深色技术区可用极轻的蓝色径向光带作路径提示，不使用多色 AI 渐变。
 
 ## 字体
@@ -90,9 +90,9 @@
 
 ### 圆角与边界
 
-- 默认圆角为 `4px`。
-- 大型演示容器最多使用 `8px`。
-- 只允许圆形 icon button 使用全圆角。
+- 文档阅读层跟 SPA：`8 / 10 / 14px`。搜索是 stadium。
+- Landing 主按钮 `6px` 是 marketing 例外；大型演示容器最多 `8px`。
+- 只允许圆形 icon button 与搜索使用全圆角。
 - 按钮、卡片、节点和表格统一使用 1px hairline。
 
 ## 产品演示
@@ -146,15 +146,15 @@ SPA 第二档曲线见 `docs/design/13`（`--ease-spring` / `--ease-glide`）。
 
 ### 按钮
 
-- 高度最少 `44px`，圆角 `4px`。
+- 高度最少 `44px`，圆角 `6px`（landing 例外；文档 chrome 走 8px）。
 - Label 使用 Geist Mono，保持短且不换行。
 - hover 改变背景、边框或文字色。Landing 卡片允许 1px 上移；CTA hover 不位移，`:active` 允许 Squish 缩放。
 - focus-visible 使用 3px 半透明 accent ring。
 
 ### 卡片与数据区
 
-- Light surface 使用半透明暖灰 canvas、hairline，不使用投影。
-- Dark surface 使用 `canvas-dark` 与 `hairline-dark`。
+- Docs 卡片用冷纸 canvas、四面 hairline、pop 阴影。
+- Landing 深色面继续用 inset hairline，不搬 SPA pop。
 - 技术字段采用 `label / value` 结构，label 使用 mono uppercase。
 - 状态颜色必须同时配合文字，不能只依赖颜色传递信息。
 

@@ -20,7 +20,7 @@ export const TooltipContent = React.forwardRef<
       sideOffset={sideOffset}
       data-ageval-pop=""
       className={cn(
-        "z-[70] max-w-xs rounded-[6px] border border-hairline bg-canvas px-2 py-1 text-xs text-ink shadow-[var(--viewer-shadow-pop)]",
+        "z-[70] max-w-xs rounded-[10px] border border-hairline bg-canvas px-2.5 py-1.5 text-xs text-ink shadow-[var(--viewer-shadow-pop)]",
         className,
       )}
       {...props}

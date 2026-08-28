@@ -200,7 +200,7 @@ export function JobDetailPage() {
         {loading ? (
           <LoadingState label="Loading tasks" />
         ) : (
-        <div className="rounded-[8px] border border-hairline overflow-hidden">
+        <div className="blob-panel overflow-hidden">
           <Table>
             <TableHeader>
               <TableRow className="hover:bg-transparent">
@@ -304,7 +304,7 @@ export function JobDetailPage() {
               Declared <code className="font-mono">overlays:</code> from this
               job binding. Files are read from the opened Dataset root.
             </p>
-            <div className="rounded-[8px] border border-hairline overflow-hidden">
+            <div className="blob-panel overflow-hidden">
               <FileSplitPanel
                 tree={overlayTree}
                 treeLoading={overlayTreeLoading}

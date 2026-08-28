@@ -9,7 +9,7 @@ export function OutcomeStrip({ trial }: { trial: Trial }) {
 
   return (
     <>
-      <div className="grid grid-cols-2 gap-3 rounded-[8px] border border-hairline p-4 sm:grid-cols-4">
+      <div className="grid grid-cols-2 gap-3 blob-panel p-4 sm:grid-cols-4">
         <Outcome label="Status">
           <span className={bad ? "text-error font-medium" : "text-ink font-medium"}>
             {status || "-"}
@@ -37,7 +37,7 @@ export function OutcomeStrip({ trial }: { trial: Trial }) {
         </details>
       ) : null}
       {trial.error ? (
-        <p className="text-sm text-error rounded-[8px] bg-error-soft/40 px-3 py-2">
+        <p className="text-sm text-error rounded-[12px] bg-error-soft/40 px-3 py-2">
           {String(trial.error)}
         </p>
       ) : null}

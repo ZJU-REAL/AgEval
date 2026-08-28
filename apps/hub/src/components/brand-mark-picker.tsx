@@ -78,7 +78,7 @@ export function BrandMarkPicker({
         onChange={(event) => setQuery(event.target.value)}
         placeholder="Search catalog"
         aria-label="Search icons"
-        className="mb-3 focus-visible:border-hairline"
+        className="mb-3"
         autoFocus
       />
       <div className="grid max-h-56 grid-cols-4 gap-1.5 overflow-auto sm:grid-cols-5">
@@ -86,10 +86,10 @@ export function BrandMarkPicker({
           type="button"
           onClick={() => setSelected({ mode: "default" })}
           className={cn(
-            "flex flex-col items-center gap-1 rounded-[8px] border px-2 py-2 text-center",
+            "flex flex-col items-center gap-1 rounded-[12px] px-2 py-2 text-center",
             selected.mode === "default"
-              ? "border-link bg-canvas-soft"
-              : "border-hairline hover:bg-canvas-soft",
+              ? "bg-canvas shadow-[var(--viewer-shadow-pop)]"
+              : "hover:bg-canvas-soft",
           )}
         >
           <BrandMark
@@ -112,10 +112,10 @@ export function BrandMarkPicker({
             key={row.id}
             onClick={() => setSelected({ mode: "catalog", id: row.id })}
             className={cn(
-              "flex flex-col items-center gap-1 rounded-[8px] border px-2 py-2 text-center",
+              "flex flex-col items-center gap-1 rounded-[12px] px-2 py-2 text-center",
               selected.mode === "catalog" && selected.id === row.id
-                ? "border-link bg-canvas-soft"
-                : "border-hairline hover:bg-canvas-soft",
+                ? "bg-canvas shadow-[var(--viewer-shadow-pop)]"
+                : "hover:bg-canvas-soft",
             )}
           >
             <BrandMark mark={{ kind: "catalog", id: row.id }} size={20} />

@@ -454,7 +454,7 @@ export function ResultOwnerOps({
         {shares.length === 0 ? (
           <p className="text-xs text-mute">Not shared with anyone yet.</p>
         ) : (
-          <ul className="divide-y divide-hairline rounded-[6px] border border-hairline">
+          <ul className="divide-y divide-hairline rounded-[14px] border border-hairline bg-canvas">
             {shares.map((row) => (
               <li
                 key={`${row.target_type}:${row.target_id}`}

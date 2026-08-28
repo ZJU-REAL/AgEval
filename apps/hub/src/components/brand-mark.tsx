@@ -17,7 +17,7 @@ function LetterMark({
   return (
     <span
       className={cn(
-        "inline-flex shrink-0 items-center justify-center rounded-[6px] bg-canvas-soft font-mono font-medium text-mute",
+        "inline-flex shrink-0 items-center justify-center rounded-full bg-canvas-soft font-mono font-medium text-mute",
         className,
       )}
       title={title}
@@ -59,7 +59,7 @@ export function BrandMark({
     return (
       <span
         className={cn(
-          "inline-flex shrink-0 items-center justify-center rounded-[6px]",
+          "inline-flex shrink-0 items-center justify-center rounded-full",
           tone === "ink" && "bg-white p-0.5",
           tone === "paper" && "bg-black p-0.5",
           className,
@@ -99,7 +99,7 @@ export function BrandMark({
         title={title}
         referrerPolicy="no-referrer"
         className={cn(
-          "inline-block shrink-0 rounded-[6px] border border-hairline bg-canvas-soft object-cover",
+          "inline-block shrink-0 rounded-full bg-canvas-soft object-cover shadow-[var(--viewer-shadow-pop)]",
           className,
         )}
         style={{ width: size, height: size }}

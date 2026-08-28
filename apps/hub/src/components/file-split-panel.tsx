@@ -253,7 +253,7 @@ export function FileSplitPanel({
     <div
       className={cn(
         "grid grid-cols-1 md:grid-cols-[280px_1fr] gap-0",
-        "rounded-[8px] border border-hairline overflow-hidden bg-canvas",
+        "blob-panel overflow-hidden bg-canvas",
         "min-h-[360px] md:h-[75vh] md:min-h-[75vh] md:max-h-[75vh]",
       )}
     >

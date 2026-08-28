@@ -87,7 +87,7 @@ export function CatalogScopeBar<T extends string>({
           onChange={(e) => onQuery(e.target.value)}
           placeholder={searchPlaceholder}
           aria-label={searchLabel}
-          className="min-w-0 w-full max-w-sm focus-visible:border-hairline"
+          className="min-w-0 w-full max-w-sm"
         />
         {end ? <div className="ml-auto shrink-0">{end}</div> : null}
       </div>

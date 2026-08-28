@@ -39,7 +39,7 @@ export function TableRow({
   return (
     <tr
       className={cn(
-        "border-b border-hairline transition-colors hover:bg-row-hover data-[state=selected]:bg-canvas-soft",
+        "border-b border-hairline/50 transition-colors hover:bg-row-hover data-[state=selected]:bg-canvas-soft",
         className,
       )}
       {...props}
@@ -69,7 +69,7 @@ export function TableCell({
   return (
     <td
       className={cn(
-        "px-4 py-2.5 align-middle text-sm text-ink whitespace-nowrap overflow-hidden text-ellipsis",
+        "min-w-0 px-4 py-2.5 align-middle text-sm text-ink whitespace-nowrap overflow-hidden text-ellipsis",
         className,
       )}
       {...props}

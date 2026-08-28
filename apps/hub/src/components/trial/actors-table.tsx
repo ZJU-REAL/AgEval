@@ -17,7 +17,7 @@ export function ActorsTable({ actors }: { actors: NonNullable<Trial["actors"]> }
 
   return (
     <div className="space-y-1.5">
-      <div className="rounded-[8px] border border-hairline overflow-hidden overflow-x-auto">
+      <div className="blob-panel overflow-hidden overflow-x-auto">
         <Table>
           <TableHeader>
             <TableRow className="hover:bg-transparent">

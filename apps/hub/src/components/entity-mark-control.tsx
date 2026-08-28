@@ -54,7 +54,7 @@ export function EntityMarkControl({
         }}
         aria-label="Change icon"
         className={cn(
-          "inline-flex shrink-0 rounded-[6px] p-0.5",
+          "inline-flex shrink-0 rounded-[8px] p-0.5",
           "hover:bg-canvas-soft focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-link/70",
         )}
       >

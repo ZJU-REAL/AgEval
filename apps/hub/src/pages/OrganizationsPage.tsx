@@ -249,7 +249,7 @@ export function OrganizationsPage() {
       ) : loading ? (
         <LoadingState label="Loading organizations" />
       ) : error ? (
-        <div className="rounded-[8px] border border-hairline bg-canvas-soft p-4 text-sm">
+        <div className="blob-panel p-4 text-sm">
           <p className="text-error font-medium">Could not load organizations</p>
           <p className="mt-1 text-xs text-body">{error}</p>
         </div>
@@ -321,7 +321,7 @@ export function OrganizationsPage() {
             )
           ) : (
             <>
-            <div className="rounded-[8px] border border-hairline overflow-hidden">
+            <div className="blob-panel overflow-hidden">
               <Table>
                 <TableHeader>
                   <TableRow className="hover:bg-transparent">
@@ -417,7 +417,7 @@ export function OrganizationsPage() {
             if (e.target === e.currentTarget && !createBusy) setCreateOpen(false);
           }}
         >
-          <div className="w-full max-w-md rounded-[12px] border border-hairline bg-canvas shadow-[var(--viewer-shadow-pop)] p-5 space-y-4">
+          <div className="w-full max-w-md rounded-[14px] border border-hairline bg-canvas shadow-[var(--viewer-shadow-pop)] p-5 space-y-4">
             <div>
               <h2
                 id="create-org-title"
@@ -513,7 +513,7 @@ export function OrganizationsPage() {
             if (e.target === e.currentTarget && !joinBusy) setJoinOpen(false);
           }}
         >
-          <div className="w-full max-w-md rounded-[12px] border border-hairline bg-canvas shadow-[var(--viewer-shadow-pop)] p-5 space-y-4">
+          <div className="w-full max-w-md rounded-[14px] border border-hairline bg-canvas shadow-[var(--viewer-shadow-pop)] p-5 space-y-4">
             <div>
               <h2
                 id="join-org-title"

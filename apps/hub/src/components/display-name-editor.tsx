@@ -120,7 +120,7 @@ export function DisplayNameEditor({
         <HoverTip content="Edit display name">
           <button
             type="button"
-            className="inline-flex shrink-0 rounded-[6px] p-1 text-mute hover:text-body hover:bg-canvas-soft"
+            className="inline-flex shrink-0 rounded-[8px] p-1 text-mute hover:text-body hover:bg-liquid-hover"
             aria-label="Edit display name"
             onClick={() => setEditing(true)}
           >

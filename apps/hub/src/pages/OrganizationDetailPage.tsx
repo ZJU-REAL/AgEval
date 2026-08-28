@@ -376,7 +376,7 @@ export function OrganizationDetailPage() {
             { label: orgId || "…" },
           ]}
         />
-        <div className="rounded-[8px] border border-hairline bg-canvas-soft p-6 text-sm">
+        <div className="blob-panel p-6 text-sm">
           <p className="font-medium text-ink">Sign in required</p>
           <p className="mt-1 text-mute">
             <SignInLink /> to view this organization.
@@ -399,7 +399,7 @@ export function OrganizationDetailPage() {
       {loading ? (
         <LoadingState label="Loading organization" />
       ) : error ? (
-        <div className="rounded-[8px] border border-hairline bg-canvas-soft p-4 text-sm">
+        <div className="blob-panel p-4 text-sm">
           <p className="text-error font-medium">Could not load organization</p>
           <p className="mt-1 text-xs text-body">{error}</p>
         </div>
@@ -460,7 +460,7 @@ export function OrganizationDetailPage() {
                 {members.length === 0 ? (
                   <p className="text-sm text-mute">No members listed.</p>
                 ) : (
-                  <div className="rounded-[8px] border border-hairline overflow-hidden">
+                  <div className="blob-panel overflow-hidden">
                     <Table>
                       <TableHeader>
                         <TableRow className="hover:bg-transparent">
@@ -496,7 +496,7 @@ export function OrganizationDetailPage() {
                                     alt=""
                                     width={36}
                                     height={36}
-                                    className="h-9 w-9 rounded-full bg-canvas-soft border border-hairline shrink-0 object-cover"
+                                    className="h-9 w-9 rounded-full bg-canvas-soft shrink-0 object-cover shadow-[var(--viewer-shadow-pop)]"
                                     loading="lazy"
                                   />
                                   <div className="min-w-0 leading-tight">
@@ -524,11 +524,11 @@ export function OrganizationDetailPage() {
               <section>
                 <h2 className="text-sm font-medium text-ink mb-2">Datasets</h2>
                 {datasets.length === 0 ? (
-                  <div className="rounded-[8px] border border-dashed border-hairline p-6 text-sm text-mute">
+                  <div className="rounded-[14px] border border-dashed border-hairline/70 p-6 text-sm text-mute">
                     No datasets published under this org yet.
                   </div>
                 ) : (
-                  <div className="rounded-[8px] border border-hairline overflow-hidden">
+                  <div className="blob-panel overflow-hidden">
                     <Table>
                       <TableHeader>
                         <TableRow className="hover:bg-transparent">
@@ -578,7 +578,7 @@ export function OrganizationDetailPage() {
               <section>
                 <h2 className="text-sm font-medium text-ink mb-2">Plugins</h2>
                 {plugins.length === 0 ? (
-                  <div className="rounded-[8px] border border-dashed border-hairline p-6 text-sm text-mute">
+                  <div className="rounded-[14px] border border-dashed border-hairline/70 p-6 text-sm text-mute">
                     No plugins published under this org yet.
                   </div>
                 ) : (
@@ -595,7 +595,7 @@ export function OrganizationDetailPage() {
               <section>
                 <h2 className="text-sm font-medium text-ink mb-2">Agents</h2>
                 {agents.length === 0 ? (
-                  <div className="rounded-[8px] border border-dashed border-hairline p-6 text-sm text-mute">
+                  <div className="rounded-[14px] border border-dashed border-hairline/70 p-6 text-sm text-mute">
                     No agents published under this org yet.
                   </div>
                 ) : (
@@ -616,12 +616,12 @@ export function OrganizationDetailPage() {
                   (visible to you).
                 </p>
                 {sharedSuites.length === 0 ? (
-                  <div className="rounded-[8px] border border-dashed border-hairline p-6 text-sm text-mute">
+                  <div className="rounded-[14px] border border-dashed border-hairline/70 p-6 text-sm text-mute">
                     No suite results have been shared with this organization
                     yet.
                   </div>
                 ) : (
-                  <div className="rounded-[8px] border border-hairline overflow-hidden">
+                  <div className="blob-panel overflow-hidden">
                     <Table>
                       <TableHeader>
                         <TableRow className="hover:bg-transparent">
@@ -703,7 +703,7 @@ export function OrganizationDetailPage() {
                   {members.length === 0 ? (
                     <p className="text-sm text-mute">No members listed.</p>
                   ) : (
-                    <div className="rounded-[8px] border border-hairline overflow-hidden">
+                    <div className="blob-panel overflow-hidden">
                       <Table>
                         <TableHeader>
                           <TableRow className="hover:bg-transparent">
@@ -910,11 +910,11 @@ export function OrganizationDetailPage() {
                   ) : null}
 
                   {inviteKeys.length === 0 ? (
-                    <div className="rounded-[8px] border border-dashed border-hairline p-8 text-sm text-mute">
+                    <div className="rounded-[14px] border border-dashed border-hairline/70 p-8 text-sm text-mute">
                       No invite keys yet. Create one to reveal the secret once.
                     </div>
                   ) : (
-                    <div className="rounded-[8px] border border-hairline overflow-hidden">
+                    <div className="blob-panel overflow-hidden">
                       <Table>
                         <TableHeader>
                           <TableRow className="hover:bg-transparent">
@@ -994,7 +994,7 @@ export function OrganizationDetailPage() {
 
               <section>
                 <h2 className="text-sm font-medium text-ink mb-1">Secrets</h2>
-                <div className="rounded-[8px] border border-dashed border-hairline p-6 text-sm text-mute">
+                <div className="rounded-[14px] border border-dashed border-hairline/70 p-6 text-sm text-mute">
                   Organization-scoped secrets (API keys for hosted jobs) are not
                   implemented in AGEVAL Registry. Use host env / CLI credentials
                   instead.
@@ -1046,7 +1046,7 @@ export function OrganizationDetailPage() {
             }
           }}
         >
-          <div className="w-full max-w-md rounded-[12px] border border-hairline bg-canvas shadow-[var(--viewer-shadow-pop)] p-5 space-y-4">
+          <div className="w-full max-w-md rounded-[14px] border border-hairline bg-canvas shadow-[var(--viewer-shadow-pop)] p-5 space-y-4">
             <div>
               <h2
                 id="add-member-title"
@@ -1118,7 +1118,7 @@ export function OrganizationDetailPage() {
             }
           }}
         >
-          <div className="w-full max-w-lg rounded-[12px] border border-hairline bg-canvas shadow-[var(--viewer-shadow-pop)] p-5 space-y-4">
+          <div className="w-full max-w-lg rounded-[14px] border border-hairline bg-canvas shadow-[var(--viewer-shadow-pop)] p-5 space-y-4">
             <div>
               <h2
                 id="invite-key-reveal-title"
@@ -1131,7 +1131,7 @@ export function OrganizationDetailPage() {
                 somewhere safe — you cannot view it again.
               </p>
             </div>
-            <div className="rounded-[8px] border border-hairline bg-canvas-soft/40 px-3 py-2.5">
+            <div className="rounded-[8px] border border-hairline bg-canvas-soft px-3 py-2.5">
               <code className="block font-mono text-sm text-ink break-all select-all">
                 {revealedKey}
               </code>

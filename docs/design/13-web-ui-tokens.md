@@ -60,25 +60,28 @@ landing 的 oklch 系(`oklch(15.4% 0.018 264)` 底等)是本表的 oklch 等值�
 
 ## 形状与动效
 
-- **圆角**:6 / 8 / 12px 三档(sm 控件、md 默认、lg 卡片);不发明新档,hero 面板上限 16px。
-  按钮走 6px,不要 `clip-path` 切角。
+- **圆角**:8 / 10 / 14px 三档(sm 控件、md 字段、lg 卡片/弹层);不发明新档。
+  按钮走 8px,不要 `clip-path` 切角。搜索扫描字段是 stadium(`rounded-full`),已记录例外。Landing 主按钮可保留 6px。
 - **动效**:默认 `--ease-smooth` `cubic-bezier(0.22, 1, 0.36, 1)`、200ms。
-  Hub / Viewer 只允许 CSS(无 GSAP / Motion),**一条命名例外**:列表/详情的 Loading 用 `ThinkingLogo`(本地 canvas 2D,owl 面标点云绕成工作结;不是 playground iframe,也不是 GSAP/Motion)。`prefers-reduced-motion: reduce` 时同一组件停在静态帧,不是第二棵树。Landing 允许一次性 hero stagger 与 8px view-timeline 揭示,进场可到 400ms(强调瞬间,须在 `website/DESIGN.md` 写明)。
-  Landing 像素标(`OwlPixelMark`)是第三条 landing 例外:canvas 2D 把 owl 面标栅格成方块,hero 一次性 assemble(约 1.4s);指针在 hero 内时方块径向推开;assemble 完成后整标共用一条透明度呼吸(6s,最暗 35%,最亮 80%),并带轻微整体起伏/旋转与边缘 drift。不是磁吸或光标拖尾。`prefers-reduced-motion` 为静止像素标。导航 logo 仍用静态 SVG。
+  Hub / Viewer 默认只允许 CSS(无 GSAP / Motion),两条命名例外:
+  1. 列表/详情 Loading 用 `ThinkingLogo`(本地 canvas 2D,owl 面标点云绕成工作结;不是 playground iframe)。`prefers-reduced-motion: reduce` 时同一组件停在静态帧,不是第二棵树。
+  2. 滑动选中指示用 npm `liquid-gooey`(0 依赖):`Liquid` + `Liquid.Item` **Move**。只包 UnderlineTabs / PillTabs / Hub 侧栏选中行。Blur 3、Item radius 8。填充走 `canvas-soft-2`;侧栏选中走 `canvas`(侧栏底已是 `canvas-soft`)。Hover 走 `canvas-soft` 或 `canvas/50`,不得与选中填充同色。Morph 不进产品。Radix portal 不能加入 Liquid group。`prefers-reduced-motion` 时 thumb 仍测量到位,关掉 goo。Website docs / landing **不**引入该库。
+  Landing 允许一次性 hero stagger 与 8px view-timeline 揭示,进场可到 400ms(强调瞬间,须在 `website/DESIGN.md` 写明)。
+  Landing 像素标(`OwlPixelMark`)是 landing 例外:canvas 2D 把 owl 面标栅格成方块,hero 一次性 assemble(约 1.4s);指针在 hero 内时方块径向推开;assemble 完成后整标共用一条透明度呼吸(6s,最暗 35%,最亮 80%),并带轻微整体起伏/旋转与边缘 drift。不是磁吸或光标拖尾。`prefers-reduced-motion` 为静止像素标。导航 logo 仍用静态 SVG。
   Landing hero 背景允许 ThreeUI `signal-particles` 点阵场(本地 canvas,不走其 iframe;`speed` 为原 `time += 0.02` 的倍率)。只铺在 hero,`pointer-events: none`,`prefers-reduced-motion` 不挂载。
   第二档命名曲线是已记录例外,不得再发明 playground 弹簧:
   - `--ease-spring` `cubic-bezier(0.34, 1.56, 0.64, 1)`:toast 进场(可到 550ms)、star burst 回弹、按钮松开回弹(可到 500ms)
-  - `--ease-glide` `cubic-bezier(0.65, 0, 0.35, 1)`:PillTabs 指示条(250ms)
+  - `--ease-glide` `cubic-bezier(0.65, 0, 0.35, 1)`:Liquid thumb 的 CSS `transform`/`width`/`height`(200ms)
   按下 `--t-press` 80ms `ease-out`(Squish Button)。Tooltip 等待 80ms 是意图延迟,不是位移时长。关闭可以快于打开。
-  允许的语汇:UnderlineTabs 滑条、PillTabs 分段指示、Toast Overshoot(底中)、Like Burst(仅 plugin/agent star;粒子最多 8 颗,色走 `star` 令牌)、Floating Label(编辑字段)、Squish Button、`data-ageval-pop` 弹层、`data-ageval-menu` 下拉。
+  允许的语汇:UnderlineTabs / PillTabs / Hub 侧栏的 Liquid Move thumb、Chip、Toast Overshoot(底中)、Like Burst(仅 plugin/agent star;粒子最多 8 颗,色走 `star` 令牌)、Floating Label(编辑字段)、Squish Button、`data-ageval-pop` 弹层、`data-ageval-menu` 下拉。
   禁止:磁吸、光标拖尾、3D tilt、自定义光标、无限漂浮/旋转/脉冲、滚动钉住、横向 hijack。
-  `prefers-reduced-motion: reduce` 必须落到最终态(toast 仍出现但不位移;burst 无粒子;按钮不缩放)。
+  `prefers-reduced-motion: reduce` 必须落到最终态(toast 仍出现但不位移;burst 无粒子;按钮不缩放;liquid thumb 无 goo)。
 - **焦点**:分角色,不是「凡是可聚焦就刷 IKB」。IKB 仍是唯一允许的焦点**强调**色。
   - 按钮 / 链接 / 可点击卡:`ring-2 ring-link/70`(landing 3px outline)。
   - **扫描控件**(搜索、过滤、Select 触发器):焦点时描边保持 `hairline`,不换色、不叠 ring。产品语言是栏还在那儿,不是栏亮了。
   - **编辑控件**(要写入的值:Floating Label、名称 / 描述 / 邀请等表单):焦点时 1px `border-link`,不叠 ring。
 - **选区**:`::selection` 用 IKB 28% 透明底(三端统一)。
-- **深度**:弹层阴影用 `--viewer-shadow-pop` 令牌(hub/viewer);禁硬投影。
+- **深度**:唯一弹层阴影 `--viewer-shadow-pop`(hub/viewer/docs 弹层):浅色 `0 1px 1px rgb(0 0 0 / 3%), 0 4px 8px -2px rgb(0 0 0 / 8%)`;深色同一几何、不透明度 40% / 50%。禁硬投影,不要第二套 liquid 阴影令牌。blob-panel / 卡 / 弹层都是 1px hairline **四面** + 该阴影。
   `backdrop-blur` 至多两档(sticky header 用薄档)。
 
 ## 组件语汇(应用层)
@@ -87,20 +90,23 @@ landing 的 oklch 系(`oklch(15.4% 0.018 264)` 底等)是本表的 oklch 等值�
 
 | 语汇 | 规则 |
 | --- | --- |
-| 主按钮(SPA Button `default`) | IKB 填充 + `rounded-[6px]` + `font-mono text-[13px] font-semibold` + `focus-visible:ring-2 ring-link/70`,hover `link-deep`。`:active` 为 Squish(`scale` 约 0.94、80ms 按下 / spring 松开) |
-| 下划线 tab | `UnderlineTabs`:sans `text-sm font-medium` + 滑动 IKB 条(`transform`/`width` 200ms)。一页一条。不要再复制 `border-b-2` 手写条 |
-| 分段 pill | `PillTabs`:测量目标宽后 glide 指示条。只用于面板内紧凑分段。同页再出现互斥选择用 `Select`,不要叠第二条下划线 |
-| 按钮组 | 并列选项收进**一个** hairline 容器(6px 圆角),段间竖线、无间隙。选中 `canvas-soft-2` + `ink`,未选 `canvas` + `body`。字号 `body-sm`。不要散开 chip,不要 IKB 填充 |
-| 扫描字段 | 搜索 / 过滤:焦点描边保持 `hairline`。不要给新搜索叠 `border-link` |
+| 主按钮(SPA Button `default`) | IKB 填充 + `rounded-[8px]` + `font-mono text-[13px] font-semibold` + pop 阴影 + `focus-visible:ring-2 ring-link/70`,hover `link-deep`。`:active` 为 Squish(`scale` 0.96、80ms 按下 / spring 松开) |
+| 分段 tab | `UnderlineTabs`:sans `text-sm` + Liquid Move thumb(fill `canvas-soft-2`)。一页一条。不要再画 IKB `border-b-2` 底条 |
+| 紧凑 pill | `PillTabs`:同上,11px。只用于面板内紧凑分段。同页再出现互斥选择用 `Select` |
+| 按钮组 | 并列选项收进**一个** hairline 容器(8px 圆角)。选中 `canvas-soft-2` + `ink`,hover `canvas-soft`。字号 `body-sm`。不要 IKB 填充 |
+| Chip | 散开的标签 / 可选模型用 `Chip`:8px、hairline、选中 `canvas-soft-2`、hover `canvas-soft`。不要 `bg-link/10` |
+| 扫描字段 | 搜索是 stadium,焦点描边保持 `hairline`。不要给新搜索叠 `border-link` |
 | Toast | 底中 Overshoot 进场;只用于没有本地成功态的写操作。Copy / star 等控件自身已有反馈的不要再 toast。实色 `*-soft` 次底 + `--viewer-shadow-pop`,无描边、无第三方面包。图标走对应功能色,正文走 `body` |
 | Select / 下拉 | `Select` / `DropdownMenu` 用 `data-ageval-menu` 进场(220ms smooth, 随 `data-side` 上下),触发器 chevron 旋转 + squish;选项 `data-highlighted` 色过渡,选中勾 `ease-spring` pop。触发器焦点走扫描字段,不是 IKB 描边 |
 | Floating Label | 编辑字段:placeholder 在 focus 或有值时抬成 label;焦点描边走 `link` |
-| Catalog 卡 | 市场实体(plugin / agent)用 `CatalogCard`:12px、hairline、hover `canvas-soft`,描述两行。卡上不画 slot / binding tag。star 在卡上是计数不是写入口;写收藏不是卡上的控件,填实用 `star` 金。first-party overlay 走短 id + lucide builtin 标(`link`),不要冒充 OfficialMark。可比行(dataset / jobs / leaderboard / members)用表 |
+| Catalog 卡 | 市场实体(plugin / agent)用 `CatalogCard`:14px、四面 hairline + pop 阴影、hover `canvas-soft`、按下 `squish`(0.96)。描述三行。宽屏三列(`xl:grid-cols-3`)。卡上不画 slot / binding tag。star 在卡上是计数不是写入口;写收藏不是卡上的控件,填实用 `star` 金。first-party overlay 走短 id + lucide builtin 标(`link`),不要冒充 OfficialMark。可比行(dataset / jobs / leaderboard / members)用表 |
 | 页头(PageHead) | h1 + 可选 sub + hairline(无编号 kicker) |
 | 相位/耗时图谱 | `--viewer-phase-1..6` 用 ink / body / mute / hairline 冷灰阶。执行段 `--viewer-phase-1` 为 ink 与 mute 的 `color-mix`（约 55% ink），不用实心 ink，也不用 IKB。IKB 留给链接 / 焦点 / 主 CTA。禁 zinc 等外部灰阶 |
 | 弹层(tooltip/select/dropdown/dialog) | hairline 边框 + `--viewer-shadow-pop`。Portal 到 `document.body` 或 `OverlayRoot`;不要挂在已有 `transform` 的 pop 里(`position:fixed` 会跟错) |
 | 危险确认 | Modal：较大标题 + mute 说明后果 + Cancel / Confirm 两枚按钮 |
-| Hub 壳 | 侧栏与顶栏同一实底 `canvas-soft`(不透明,顶栏不做半透明/blur)。正文列 `canvas`。选中侧栏行底走 `canvas`,hover 同;不要再铺 `canvas-soft`(会与壳糊在一起) |
+| Hub 壳 | 左右分区:整列侧栏 `canvas-soft` + 右 hairline;顶栏与主列 `canvas`(不透明,无 blur)。Logo 行 `border-b`,GitHub / Documentation 脚 `border-t`。选中侧栏行 Liquid fill 走 `canvas`;hover `canvas/50`。宽屏(`xl`)正文居中 `w-[80%]`;顶栏仍铺满主列 |
+| Viewer 壳 | 无侧栏。顶栏 `canvas-soft` + `border-b`;主列 `canvas`。宽屏(`xl`)正文居中 `w-[80%]`;顶栏仍铺满 |
+| Docs 壳 | 文档侧栏 `muted`(canvas-soft) + 右 hairline;阅读列 `background`(canvas)。不引入 liquid-gooey |
 | 侧栏字形色 | Hub 目的地 lucide 只涂对应 `nav-*`。标签走正文 sans + `body-sm`(`text-sm`),不是 mono。未选:该令牌与 `mute` 的 `color-mix`,标签 `font-normal`,描边 2;选中:令牌本体 + 行底 `canvas`,标签 `font-semibold`,描边 2.5。字重与描边用默认 200ms `--ease-smooth` 过渡;不要 fill。`prefers-reduced-motion: reduce` 时瞬时到位。焦点环仍是 IKB。不要拿字形色铺页面或涂正文。Viewer 无 Hub 侧栏;功能图标继续 `mute` |
 | Loading | 与 empty **分开**。正在拉取时:`ThinkingLogo` + 一行「Loading …」,不要骨架栅格,也不要用 empty 的虚线井。画布停在屏外/隐藏页时不转 |
 | Empty | 在剩余主列里**双轴居中**。栈:大图标(owl 或该目的地 lucide,静态,无 thinking) → 一行标题 → **要么**一行说明 **要么**一个控件,不要一段里两者都有。无 thinking 动效 |
@@ -111,12 +117,12 @@ landing 的 oklch 系(`oklch(15.4% 0.018 264)` 底等)是本表的 oklch 等值�
 2. IKB 仍是链接 / 焦点 / 主 CTA / 品牌位,禁大面积底色(landing ink-banner 例外)。error / warning / star 等功能色走各自令牌,不挤进 IKB,也不要求界面只有墨纸蓝。
 3. 中性色三层语义:`canvas*` 是面、`hairline` 是线、`ink/body/mute` 是字;`mute` 永不做正文。
 4. `Anton` 只做 wordmark;正文一律 sans 栈 + CJK 回退;中文标题粗细上限 semibold。
-5. 主 CTA 用 6px 圆角 + IKB 填充;表格 / 输入 / 普通控件用同一套圆角三档。不要切角 `clip-path`。
+5. 主 CTA 用 8px 圆角 + IKB 填充;表格 / 输入 / 普通控件用同一套圆角三档。搜索是 stadium。不要切角 `clip-path`。
 6. 焦点可见性不妥协,但扫描与编辑不是同一条。按钮 / 链接 / 卡用 2px IKB 环(landing 3px outline);编辑字段用 1px IKB 描边;搜索与过滤保持 hairline 描边,不换焦点色。
 7. 选区、hover、active 的色彩表达一律引用令牌,不自调 hex / opacity 组合。
-8. 动效默认 `--ease-smooth` 200ms。`--ease-spring` / `--ease-glide`、按下 80ms、toast 550ms、landing hero/章节揭示 400ms、Hub/Viewer `ThinkingLogo` canvas 是已记录的例外。其它曲线或时长先改本文件。
+8. 动效默认 `--ease-smooth` 200ms。`--ease-spring` / `--ease-glide`、按下 80ms、toast 550ms、landing hero/章节揭示 400ms、Hub/Viewer `ThinkingLogo` canvas、Hub/Viewer `liquid-gooey` Move 是已记录的例外。其它曲线、时长或运动库先改本文件。
 9. 图标三用途:产品品牌用 owl 系列(`owl-flat.tsx` / `OwlIcon`);功能用 lucide;plugin/agent 实体标默认 GitHub 头像(`uploaded_by`),可改闭包彩色标或另一个 GitHub login。闭包 SVG/PNG 在 `apps/hub/src/lib/brand-marks/assets/`,彩色,不把第三方 logo 组件库当运行时依赖。文件树仍用 `material-icon-theme`(既有例外)。
-10. 深度感不用硬投影;blur 分档封顶,不为单个组件发明新档。
+10. 深度感只用 `--viewer-shadow-pop`;blur 分档封顶,不为单个组件发明新档或第二套阴影令牌。
 
 ## 品牌资产入口
 

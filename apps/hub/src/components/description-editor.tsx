@@ -115,7 +115,7 @@ export function DescriptionEditor({
         <HoverTip content="Edit description">
           <button
             type="button"
-            className="inline-flex shrink-0 rounded-[6px] p-1 text-mute hover:text-body hover:bg-canvas-soft"
+            className="inline-flex shrink-0 rounded-[8px] p-1 text-mute hover:text-body hover:bg-liquid-hover"
             aria-label="Edit description"
             onClick={() => setEditing(true)}
           >

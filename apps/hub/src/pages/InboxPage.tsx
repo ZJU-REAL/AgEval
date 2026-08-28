@@ -205,7 +205,7 @@ export function InboxPage() {
           className={history.length > 0 ? "min-h-0 flex-none py-10" : undefined}
         />
       ) : (
-        <div className="overflow-hidden rounded-[8px] border border-hairline">
+        <div className="blob-panel overflow-hidden">
           <Table>
             <TableHeader>
               <TableRow>
@@ -265,7 +265,7 @@ export function InboxPage() {
       {history.length > 0 ? (
         <div className="space-y-2">
           <h2 className="text-sm font-medium text-ink">History</h2>
-          <div className="overflow-hidden rounded-[8px] border border-hairline">
+          <div className="blob-panel overflow-hidden">
             <Table>
               <TableHeader>
                 <TableRow>

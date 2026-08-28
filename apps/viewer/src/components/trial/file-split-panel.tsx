@@ -9,6 +9,7 @@ import {
 } from "react";
 
 import { FileTypeIcon } from "@/components/file-type-icon";
+import { TruncateTip } from "@/components/hover-tip";
 import { Markdown } from "@/components/markdown";
 import { Input } from "@/components/ui/input";
 import type { TreeEntry } from "@/lib/api";
@@ -286,7 +287,7 @@ export function FileSplitPanel({
     <div
       className={cn(
         "grid grid-cols-1 md:grid-cols-[280px_1fr] gap-0",
-        "rounded-[8px] border border-hairline overflow-hidden",
+        "blob-panel overflow-hidden",
         "min-h-[360px] md:h-[70vh] md:min-h-[70vh] md:max-h-[70vh]",
       )}
     >
@@ -343,7 +344,7 @@ export function FileSplitPanel({
                           onClick={() => toggleDir(node.path)}
                           className={cn(
                             "w-full flex items-center gap-1 text-left h-7 pr-2 text-[12.5px]",
-                            "text-body hover:bg-row-hover transition-colors rounded-[4px]",
+                            "text-body hover:bg-liquid-hover transition-colors rounded-[8px]",
                           )}
                           style={{ paddingLeft: 8 + depth * 12 }}
                         >
@@ -357,9 +358,10 @@ export function FileSplitPanel({
                             kind="dir"
                             expanded={open}
                           />
-                          <span className="truncate font-medium">
-                            {node.name}
-                          </span>
+                          <TruncateTip
+                            text={node.name}
+                            className="font-medium"
+                          />
                           {node.children && node.children.length > 0 ? (
                             <span className="ml-auto pl-1 text-[10px] tabular-nums text-mute shrink-0">
                               {node.children.length}
@@ -376,15 +378,15 @@ export function FileSplitPanel({
                         type="button"
                         onClick={() => onSelect(node.path)}
                         className={cn(
-                          "w-full flex items-center gap-1.5 text-left h-7 pr-2 text-[12.5px] truncate transition-colors rounded-[4px]",
+                          "w-full flex items-center gap-1.5 text-left h-7 pr-2 text-[12.5px] transition-colors rounded-[8px]",
                           selected
-                            ? "bg-canvas-soft text-ink font-medium"
-                            : "text-body hover:bg-row-hover",
+                            ? "bg-canvas-soft-2 text-ink font-medium"
+                            : "text-body hover:bg-liquid-hover hover:text-ink",
                         )}
                         style={{ paddingLeft: 8 + depth * 12 + 18 }}
                       >
                         <FileTypeIcon name={node.name} kind="file" />
-                        <span className="truncate">{node.name}</span>
+                        <TruncateTip text={node.name} />
                       </button>
                     </li>
                   );
@@ -404,7 +406,7 @@ export function FileSplitPanel({
         {selectedPath ? (
           <div className="px-3 py-2 border-b border-hairline text-[12px] text-mute shrink-0 bg-canvas flex items-center gap-2">
             <FileTypeIcon name={selectedName || selectedPath} kind="file" />
-            <span className="truncate text-ink">{selectedPath}</span>
+            <TruncateTip text={selectedPath} className="text-ink" />
           </div>
         ) : null}
         <div className="p-0 flex-1 min-h-0 overflow-auto">

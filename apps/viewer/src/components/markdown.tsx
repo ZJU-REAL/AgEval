@@ -22,7 +22,9 @@ const components: Components = {
     </h3>
   ),
   p: ({ children }) => (
-    <p className="text-sm text-body leading-6 mb-3 last:mb-0">{children}</p>
+    <p className="min-w-0 text-sm text-body leading-6 mb-3 last:mb-0 break-words">
+      {children}
+    </p>
   ),
   ul: ({ children }) => (
     <ul className="list-disc pl-5 mb-3 space-y-1 text-sm text-body">{children}</ul>
@@ -56,7 +58,7 @@ const components: Components = {
     const text = String(children).replace(/\n$/, "");
     if (!isBlock) {
       return (
-        <code className="font-mono text-[12px] bg-canvas-soft-2 text-ink px-1 py-0.5 rounded-[4px]">
+        <code className="max-w-full whitespace-pre-wrap break-all font-mono text-[12px] bg-canvas-soft-2 text-ink px-1 py-0.5 rounded-[4px]">
           {text}
         </code>
       );
@@ -64,7 +66,7 @@ const components: Components = {
     return (
       <pre
         className={cn(
-          "my-3 overflow-x-auto rounded-[8px] border border-hairline",
+          "my-3 overflow-x-auto blob-panel",
           "bg-code-bg p-3 font-mono text-[12px] leading-5",
         )}
       >
@@ -74,7 +76,7 @@ const components: Components = {
   },
   pre: ({ children }) => <>{children}</>,
   table: ({ children }) => (
-    <div className="my-3 overflow-x-auto rounded-[8px] border border-hairline">
+    <div className="my-3 overflow-x-auto blob-panel">
       <table className="w-full text-sm border-collapse">{children}</table>
     </div>
   ),
@@ -96,7 +98,7 @@ const components: Components = {
 function FrontmatterTable({ fields }: { fields: { key: string; value: string }[] }) {
   if (!fields.length) return null;
   return (
-    <dl className="mb-4 rounded-[8px] border border-hairline bg-canvas-soft overflow-hidden">
+    <dl className="mb-4 blob-panel overflow-hidden">
       {fields.map((field) => (
         <div
           key={field.key}
@@ -123,7 +125,7 @@ export function Markdown({
   return (
     <div
       className={cn(
-        "rounded-[8px] border border-hairline bg-canvas p-5 max-w-none",
+        "blob-panel min-w-0 p-5 max-w-none",
         className,
       )}
     >
