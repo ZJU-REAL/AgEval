@@ -13,6 +13,7 @@ from ageval.config.constants import (
     COMPOSE_DEFAULT,
     DOCKERFILE_DEFAULT,
     EVALUATE_DOCKERFILE_DEFAULT,
+    EVALUATE_ENVIRONMENT_NAME_PATTERN,
     EVALUATION_DIR,
     EVALUATOR_ENTRYPOINT_DEFAULT,
     EVALUATOR_MODULE_FILE,
@@ -56,7 +57,9 @@ ALLOWED_TASK_KEYS = frozenset(
 ALLOWED_LIMIT_KEYS = frozenset({"wall_time_seconds", "agent_invocations"})
 PUBLISHABLE_KEYS = frozenset({"id", "path", "kind", "exclude"})
 PUBLISHABLE_KINDS = frozenset({"file", "tree"})
-EVALUATION_KEYS = frozenset({"entrypoint", "inputs", "docker_image"})
+EVALUATION_KEYS = frozenset({"entrypoint", "inputs", "docker_image", "environments"})
+EVALUATION_ENVIRONMENT_KEYS = frozenset({"dockerfile", "docker_image"})
+_EVALUATE_ENVIRONMENT_NAME = re.compile(EVALUATE_ENVIRONMENT_NAME_PATTERN)
 
 
 def validate_top_level_layout(reader: PackageReader, root: Path) -> None:
@@ -152,7 +155,12 @@ def validate_document(
     _validate_requires(doc.get("requires"))
     _validate_limits(doc.get("limits"))
     artifact_ids = _validate_artifacts(doc.get("artifacts"))
-    _validate_evaluation(doc.get("evaluation"), artifact_ids=artifact_ids)
+    _validate_evaluation(
+        doc.get("evaluation"),
+        artifact_ids=artifact_ids,
+        reader=reader,
+        root=root,
+    )
 
 
 def _reject_retired_keys(doc: dict[str, Any]) -> None:
@@ -411,7 +419,13 @@ def _validate_artifacts(artifacts: Any) -> set[str]:
     return artifact_ids
 
 
-def _validate_evaluation(evaluation: Any, *, artifact_ids: set[str]) -> None:
+def _validate_evaluation(
+    evaluation: Any,
+    *,
+    artifact_ids: set[str],
+    reader: PackageReader,
+    root: Path,
+) -> None:
     if not isinstance(evaluation, dict):
         raise ConfigError(
             ERROR_INVALID_SCHEMA, "evaluation must be a mapping", location="/evaluation"
@@ -474,6 +488,90 @@ def _validate_evaluation(evaluation: Any, *, artifact_ids: set[str]) -> None:
                 raise ConfigError(
                     ERROR_PATH_OUTSIDE_PACKAGE, f"path escapes package: {pp}", location=loc
                 )
+    if "environments" in evaluation:
+        _validate_evaluation_environments(
+            evaluation.get("environments"),
+            reader=reader,
+            root=root,
+        )
+
+
+def _validate_evaluation_environments(
+    environments: Any,
+    *,
+    reader: PackageReader,
+    root: Path,
+) -> None:
+    if not isinstance(environments, dict):
+        raise ConfigError(
+            ERROR_INVALID_SCHEMA,
+            "evaluation.environments must be a mapping",
+            location="/evaluation/environments",
+        )
+    if not environments:
+        raise ConfigError(
+            ERROR_INVALID_SCHEMA,
+            "evaluation.environments must not be empty",
+            location="/evaluation/environments",
+        )
+    for name, recipe in environments.items():
+        loc = f"/evaluation/environments/{name}"
+        if not isinstance(name, str) or not _EVALUATE_ENVIRONMENT_NAME.fullmatch(name):
+            raise ConfigError(
+                ERROR_INVALID_SCHEMA,
+                "evaluation environment name must match [a-z][a-z0-9_-]*",
+                location=loc,
+            )
+        if not isinstance(recipe, dict):
+            raise ConfigError(
+                ERROR_INVALID_SCHEMA,
+                "evaluation environment recipe must be a mapping",
+                location=loc,
+            )
+        unknown = sorted(set(recipe) - EVALUATION_ENVIRONMENT_KEYS)
+        if unknown:
+            raise ConfigError(
+                ERROR_INVALID_SCHEMA,
+                f"unknown evaluation environment keys: {unknown}",
+                location=loc,
+            )
+        dockerfile = recipe.get("dockerfile")
+        docker_image = recipe.get("docker_image")
+        if dockerfile is None and docker_image is None:
+            raise ConfigError(
+                ERROR_INVALID_SCHEMA,
+                "evaluation environment requires dockerfile or docker_image",
+                location=loc,
+            )
+        if docker_image is not None and (
+            not isinstance(docker_image, str) or not docker_image.strip()
+        ):
+            raise ConfigError(
+                ERROR_INVALID_SCHEMA,
+                "evaluation environment docker_image must be a non-empty image tag",
+                location=f"{loc}/docker_image",
+            )
+        if dockerfile is None:
+            continue
+        if not isinstance(dockerfile, str) or not dockerfile.strip():
+            raise ConfigError(
+                ERROR_INVALID_SCHEMA,
+                "evaluation environment dockerfile must be a non-empty path",
+                location=f"{loc}/dockerfile",
+            )
+        rel = normalize_package_relpath(dockerfile)
+        if Path(rel).parts[:1] == ("evaluation",):
+            raise ConfigError(
+                ERROR_INVALID_SCHEMA,
+                "evaluation environment dockerfile must not live under evaluation/",
+                location=f"{loc}/dockerfile",
+            )
+        if not reader.exists(root, rel):
+            raise ConfigError(
+                ERROR_MISSING_REFERENCE,
+                f"evaluation environment dockerfile missing: {rel}",
+                location=f"{loc}/dockerfile",
+            )
 
 
 def collect_resolved_references(
@@ -506,6 +604,9 @@ def collect_resolved_references(
     eval_image = evaluation.get("docker_image")
     if isinstance(eval_image, str) and eval_image.strip():
         refs["evaluation_docker_image"] = eval_image.strip()
+    named = evaluation.get("environments")
+    if isinstance(named, dict) and named:
+        refs["evaluation_environments"] = _collect_evaluation_environments(named)
     for item in (doc.get("artifacts") or {}).get("publishable") or []:
         if isinstance(item, dict):
             row: dict[str, Any] = {
@@ -531,6 +632,23 @@ def collect_resolved_references(
             entry["target"] = str(inp["target"])
         refs["evaluation_inputs"].append(entry)
     return refs
+
+
+def _collect_evaluation_environments(named: dict[str, Any]) -> dict[str, dict[str, str]]:
+    out: dict[str, dict[str, str]] = {}
+    for name, recipe in named.items():
+        if not isinstance(name, str) or not isinstance(recipe, dict):
+            continue
+        entry: dict[str, str] = {}
+        dockerfile = recipe.get("dockerfile")
+        if isinstance(dockerfile, str) and dockerfile.strip():
+            entry["dockerfile"] = normalize_package_relpath(dockerfile)
+        docker_image = recipe.get("docker_image")
+        if isinstance(docker_image, str) and docker_image.strip():
+            entry["docker_image"] = docker_image.strip()
+        if entry:
+            out[name] = entry
+    return out
 
 
 def assert_json_compatible(value: Any, location: str) -> None:

@@ -223,6 +223,200 @@ def test_egress_llm_on_local_fails_closed(tmp_path: Path) -> None:
     assert "egress" in caught.value.message
 
 
+NAMED_YAML = """format: ageval.task/1
+task_id: isolated
+agent_profiles:
+  - id: solver
+artifacts:
+  publishable:
+    - id: repo
+      path: workspace
+      kind: tree
+      exclude: [target]
+evaluation:
+  inputs:
+    - artifact: repo
+      target: workspace
+  environments:
+    audit:
+      dockerfile: environment/evaluate/audit/Dockerfile
+    verification:
+      dockerfile: environment/evaluate/verification/Dockerfile
+"""
+
+
+def test_named_environments_lock_and_ignore_singular_recipe(tmp_path: Path) -> None:
+    root = _standalone(
+        tmp_path / "pkg",
+        task_yaml=NAMED_YAML,
+        files=(
+            "run.py",
+            "evaluator.py",
+            "environment/evaluate.Dockerfile",
+            "environment/evaluate/audit/Dockerfile",
+            "environment/evaluate/verification/Dockerfile",
+        ),
+    )
+    locked = _lock(
+        root,
+        job=job_document(
+            {"solver": dict(DOCKER_SOLVER)},
+            environment="docker",
+            evaluate_host={"isolated": True},
+        ),
+    )
+    refs = thaw(locked.resolved_references)
+    assert "environment_evaluate_dockerfile" not in refs
+    assert "evaluation_docker_image" not in refs
+    assert refs["evaluation_environments"] == {
+        "audit": {"dockerfile": "environment/evaluate/audit/Dockerfile"},
+        "verification": {"dockerfile": "environment/evaluate/verification/Dockerfile"},
+    }
+
+
+def test_named_environments_without_isolated_fails_closed(tmp_path: Path) -> None:
+    root = _standalone(
+        tmp_path / "pkg",
+        task_yaml=NAMED_YAML,
+        files=(
+            "run.py",
+            "evaluator.py",
+            "environment/evaluate/audit/Dockerfile",
+            "environment/evaluate/verification/Dockerfile",
+        ),
+    )
+    with pytest.raises(ConfigError) as caught:
+        _lock(
+            root,
+            job=job_document({"solver": dict(DOCKER_SOLVER)}, environment="docker"),
+        )
+    assert caught.value.error_code == "invalid_schema"
+    assert "evaluate_host.isolated" in caught.value.message
+
+
+def test_named_environments_on_local_fails_closed(tmp_path: Path) -> None:
+    root = _standalone(
+        tmp_path / "pkg",
+        task_yaml=NAMED_YAML,
+        files=(
+            "run.py",
+            "evaluator.py",
+            "environment/evaluate/audit/Dockerfile",
+            "environment/evaluate/verification/Dockerfile",
+        ),
+    )
+    with pytest.raises(ConfigError) as caught:
+        _lock(
+            root,
+            job=job_document(
+                {"solver": dict(SOLVER)},
+                evaluate_host={"isolated": True},
+            ),
+        )
+    assert caught.value.error_code == "invalid_schema"
+    assert "docker" in caught.value.message
+
+
+def test_named_environment_missing_dockerfile_fails_closed(tmp_path: Path) -> None:
+    root = _standalone(
+        tmp_path / "pkg",
+        task_yaml=NAMED_YAML,
+        files=("run.py", "evaluator.py", "environment/evaluate/audit/Dockerfile"),
+    )
+    with pytest.raises(ConfigError) as caught:
+        _lock(
+            root,
+            job=job_document(
+                {"solver": dict(DOCKER_SOLVER)},
+                environment="docker",
+                evaluate_host={"isolated": True},
+            ),
+        )
+    assert caught.value.error_code == "missing_reference"
+    assert "verification" in caught.value.message
+
+
+def test_named_environment_unknown_key_fails_closed(tmp_path: Path) -> None:
+    yaml = NAMED_YAML.replace(
+        "dockerfile: environment/evaluate/audit/Dockerfile",
+        "dockerfile: environment/evaluate/audit/Dockerfile\n      sidecar: true",
+    )
+    root = _standalone(
+        tmp_path / "pkg",
+        task_yaml=yaml,
+        files=(
+            "run.py",
+            "evaluator.py",
+            "environment/evaluate/audit/Dockerfile",
+            "environment/evaluate/verification/Dockerfile",
+        ),
+    )
+    with pytest.raises(ConfigError) as caught:
+        _lock(
+            root,
+            job=job_document(
+                {"solver": dict(DOCKER_SOLVER)},
+                environment="docker",
+                evaluate_host={"isolated": True},
+            ),
+        )
+    assert caught.value.error_code == "invalid_schema"
+    assert "unknown evaluation environment keys" in caught.value.message
+
+
+def test_named_environment_invalid_name_fails_closed(tmp_path: Path) -> None:
+    yaml = NAMED_YAML.replace("    audit:", "    Audit:")
+    root = _standalone(
+        tmp_path / "pkg",
+        task_yaml=yaml,
+        files=(
+            "run.py",
+            "evaluator.py",
+            "environment/evaluate/audit/Dockerfile",
+            "environment/evaluate/verification/Dockerfile",
+        ),
+    )
+    with pytest.raises(ConfigError) as caught:
+        _lock(
+            root,
+            job=job_document(
+                {"solver": dict(DOCKER_SOLVER)},
+                environment="docker",
+                evaluate_host={"isolated": True},
+            ),
+        )
+    assert caught.value.error_code == "invalid_schema"
+    assert "environment name" in caught.value.message
+
+
+def test_named_environment_dockerfile_under_gold_fails_closed(tmp_path: Path) -> None:
+    yaml = NAMED_YAML.replace(
+        "dockerfile: environment/evaluate/audit/Dockerfile",
+        "dockerfile: evaluation/audit/Dockerfile",
+    )
+    root = _standalone(
+        tmp_path / "pkg",
+        task_yaml=yaml,
+        files=(
+            "run.py",
+            "evaluator.py",
+            "evaluation/audit/Dockerfile",
+            "environment/evaluate/verification/Dockerfile",
+        ),
+    )
+    with pytest.raises(ConfigError) as caught:
+        _lock(
+            root,
+            job=job_document(
+                {"solver": dict(DOCKER_SOLVER)},
+                environment="docker",
+                evaluate_host={"isolated": True},
+            ),
+        )
+    assert caught.value.error_code == "invalid_schema"
+    assert "evaluation/" in caught.value.message
+
+
 def test_unknown_egress_value_fails_closed() -> None:
     with pytest.raises(ConfigError) as caught:
         parse_job_mapping(
