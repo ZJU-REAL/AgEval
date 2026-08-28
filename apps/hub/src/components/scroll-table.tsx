@@ -32,7 +32,7 @@ export function ScrollTable({
       )}
     >
       <table className="w-full caption-bottom text-sm">
-        <TableHeader className="sticky top-0 z-10 bg-canvas">
+        <TableHeader className="sticky top-0 z-10 bg-canvas-soft">
           <TableRow className="hover:bg-transparent">
             {headers.map((h) => (
               <TableHead key={h}>{h}</TableHead>

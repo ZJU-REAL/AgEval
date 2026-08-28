@@ -20,7 +20,15 @@ export function TableHeader({
   className,
   ...props
 }: React.HTMLAttributes<HTMLTableSectionElement>) {
-  return <thead className={cn("[&_tr]:border-b", className)} {...props} />;
+  return (
+    <thead
+      className={cn(
+        "bg-canvas-soft [&_tr]:border-b [&_tr]:bg-canvas-soft [&_tr]:hover:bg-canvas-soft",
+        className,
+      )}
+      {...props}
+    />
+  );
 }
 
 export function TableBody({
@@ -54,7 +62,7 @@ export function TableHead({
   return (
     <th
       className={cn(
-        "h-10 px-4 text-left align-middle text-sm font-medium text-mute whitespace-nowrap overflow-hidden text-ellipsis",
+        "h-10 bg-canvas-soft px-4 text-left align-middle text-sm font-medium text-mute whitespace-nowrap overflow-hidden text-ellipsis",
         className,
       )}
       {...props}
