@@ -94,7 +94,7 @@ Agent Service **跨 evaluate 保持**（或 reopen）：`evaluator.py` 才能 `A
 
 - `evaluator.py` 与 `run.py` 一样是 **parent 子进程**。`AGEVAL_AGENT_SERVICE_SOCK` 是本机 unix 路径，不 bind-mount 进容器。
 - evaluate 相位的 `Agent.session`（judge 等 **未** 在 run 用过的 profile）走同一 Parent Agent Service。ACP `attach_stdio` 打 **打分 Host**（environment 服务 rebound 到当时的打分实例），不是 Agent Host。solver 仍密封。
-- 有 `evaluation.environments` 时，`session(profile_id, environment=<name>)` 在 open 时把 environment 服务绑到那只命名 Host（懒 start + 对该 profile 跑 `after_environment_ready`）。未知名一次失败。省略 `environment=` = 无名表时的那只打分 Host。HTTP executor 忽略 `environment=`。
+- 有 `evaluation.environments` 时，`session(profile_id, environment=<name>)` 只在 evaluate 相位（`seal_run` 之后）把 environment 服务绑到那只命名 Host（懒 start + **对该 profile** 跑 `after_environment_ready`）。未知名、run 相位点名、或 ACP 省略名字一次失败，不 start。省略 `environment=` = 无名表时的那只打分 Host。`openai-http` / `anthropic-http` 忽略 `environment=`。
 - isolated 打分环境 start 之后，对上述 ACP profile 再跑 `after_environment_ready`（probe / 按 entry `install_command`）。不要把 solver 的 ACP 配方装进打分镜像。
 - Agent 容器 **没有** docker daemon socket。ACP / `attempt` / `run.py` 仍然不见 `container_id`。
 

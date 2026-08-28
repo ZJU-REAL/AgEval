@@ -319,6 +319,7 @@ evaluate phase
   [isolated, no named map] after_environment_ready for evaluate-phase ACP profiles
   evaluation_runtime.evaluate  # exclusive-slot winner; default parent evaluator.py worker
                                # named map: lazy start on scoring.exec / session(environment=)
+                               #            ACP must name the host; omit / run-phase target fails
                                # optional Agent.session(<judge>).invoke via parent socket
                                # isolated: ACP attach_stdio hits the (named) scoring host
   bind_evaluation              # PASS enters Result only here

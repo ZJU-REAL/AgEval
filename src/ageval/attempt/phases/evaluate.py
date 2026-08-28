@@ -85,13 +85,17 @@ async def ensure_named_host(ctx: AttemptCtx, name: str) -> EnvironmentProvider:
     return host
 
 
-async def bind_named_environment(ctx: AttemptCtx, name: str) -> EnvironmentProvider:
+async def bind_named_environment(
+    ctx: AttemptCtx,
+    name: str,
+    profile_id: str | None = None,
+) -> EnvironmentProvider:
     """Point the environment service at a named host for ACP attach_stdio."""
     host = await ensure_named_host(ctx, name)
     winner = ctx.bindings.winners.get(ENVIRONMENT)
     plugin_id = winner.plugin_id if winner is not None else getattr(host, "kind", "environment")
     ctx.services.register(ENVIRONMENT, host, plugin_id=plugin_id)
-    await _prepare_named_runtime(ctx, name)
+    await _prepare_named_runtime(ctx, name, profile_id=profile_id)
     return host
 
 
@@ -114,11 +118,17 @@ async def _prepare_evaluate_runtime(ctx: AttemptCtx) -> None:
     await _prepare_acp_profiles(ctx)
 
 
-async def _prepare_named_runtime(ctx: AttemptCtx, name: str) -> None:
-    await _prepare_acp_profiles(ctx, name=name)
+async def _prepare_named_runtime(ctx: AttemptCtx, name: str, profile_id: str | None = None) -> None:
+    if not profile_id:
+        return
+    await _prepare_acp_profiles(ctx, name=name, profile_id=profile_id)
 
 
-async def _prepare_acp_profiles(ctx: AttemptCtx, name: str | None = None) -> None:
+async def _prepare_acp_profiles(
+    ctx: AttemptCtx,
+    name: str | None = None,
+    profile_id: str | None = None,
+) -> None:
     parent = getattr(ctx.agent_service, "service", None) or ctx.agent_service
     binder = getattr(parent, "binder", None)
     if binder is None:
@@ -127,19 +137,29 @@ async def _prepare_acp_profiles(ctx: AttemptCtx, name: str | None = None) -> Non
     from ageval.attempt.emit import run_chain
     from ageval.plugins.slots import AFTER_ENVIRONMENT_READY
 
+    already = {
+        (str(fact.detail.get("name") or ""), str(fact.detail.get("profile_id") or ""))
+        for fact in ctx.phase_facts
+        if fact.name == "evaluate_runtime_prepared"
+    }
     for row in thaw(getattr(ctx.lock, "agent_profiles", None) or ()):
         if not isinstance(row, dict):
             continue
-        profile_id = str(row.get("id") or "")
-        if not profile_id or profile_id in sealed:
+        pid = str(row.get("id") or "")
+        if not pid or pid in sealed:
+            continue
+        if profile_id is not None and pid != profile_id:
             continue
         if str(row.get("executor") or "") != "acp":
             continue
-        await run_chain(binder.graph(profile_id), AFTER_ENVIRONMENT_READY, None, ctx=ctx)
-        detail: dict[str, str] = {"profile_id": profile_id}
+        if (name or "", pid) in already:
+            continue
+        await run_chain(binder.graph(pid), AFTER_ENVIRONMENT_READY, None, ctx=ctx)
+        detail: dict[str, str] = {"profile_id": pid}
         if name:
             detail["name"] = name
         ctx.record_fact("evaluate_runtime_prepared", detail)
+        already.add((name or "", pid))
 
 
 async def _materialize_on_host(

@@ -44,6 +44,9 @@ _THREAD_LOOPS = threading.local()
 
 # Per-invoke ceiling when the task declares none.
 DEFAULT_INVOKE_TIMEOUT_SECONDS = 300.0
+# Parent-egress judges: environment= does not attach. In-box exec (oneshot / dsh)
+# still targets the named scoring host.
+_PARENT_EGRESS_EXECUTORS = frozenset({"openai-http", "anthropic-http"})
 
 
 def resolve_invoke_timeout_seconds(
@@ -230,9 +233,21 @@ class ParentAgentService:
     ) -> dict[str, Any] | None:
         """Bind ACP attach to a named scoring host. HTTP judges ignore the name."""
         name = str(environment).strip() if environment else ""
-        if not name:
-            return None
         names = self.evaluate_environment_names
+        if not name:
+            if not names or not self._run_sealed:
+                return None
+            try:
+                omitted = self.binder.profile(profile_id)
+            except UnknownProfileError:
+                return {"ok": False, "error": "unknown_profile", "profile_id": profile_id}
+            if str(omitted.get("executor") or "") in _PARENT_EGRESS_EXECUTORS:
+                return None
+            return {
+                "ok": False,
+                "error": "unknown_evaluate_environment",
+                "profile_id": profile_id,
+            }
         if names is None or name not in names:
             return {
                 "ok": False,
@@ -243,10 +258,14 @@ class ParentAgentService:
             row = self.binder.profile(profile_id)
         except UnknownProfileError:
             return {"ok": False, "error": "unknown_profile", "profile_id": profile_id}
-        from ageval.plugins.http_loopback import HTTP_EXECUTORS
-
-        if str(row.get("executor") or "") in HTTP_EXECUTORS:
+        if str(row.get("executor") or "") in _PARENT_EGRESS_EXECUTORS:
             return None
+        if not self._run_sealed:
+            return {
+                "ok": False,
+                "error": "unknown_evaluate_environment",
+                "profile_id": profile_id,
+            }
         binder = self.evaluate_environment_binder
         if binder is None:
             return {
@@ -255,7 +274,7 @@ class ParentAgentService:
                 "profile_id": profile_id,
             }
         try:
-            _drive(binder(name))
+            _drive(binder(name, profile_id))
         except Exception as exc:  # noqa: BLE001 — open fails closed, once
             message = str(exc)
             error = (

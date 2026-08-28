@@ -161,25 +161,53 @@ def test_open_session_unknown_evaluate_environment_fails_closed(tmp_path: Path) 
     service, _ = _service(tmp_path)
     service.evaluate_environment_names = frozenset({"audit"})
     called: list[str] = []
-    service.evaluate_environment_binder = lambda name: called.append(name)
+    service.evaluate_environment_binder = lambda name, profile_id=None: called.append(name)
     refused = service.open_session(profile_id="solver", environment="nope")
     assert refused["error"] == "unknown_evaluate_environment"
     assert called == []
 
 
-def test_open_session_named_environment_runs_binder_before_bind(tmp_path: Path) -> None:
-    service, _ = _service(tmp_path)
+def test_open_session_named_environment_refuses_before_evaluate(tmp_path: Path) -> None:
+    service, _ = _service(tmp_path, extra_profiles=("judge",))
     service.evaluate_environment_names = frozenset({"audit"})
     called: list[str] = []
 
-    async def _bind(name: str) -> str:
+    async def _bind(name: str, profile_id: str | None = None) -> str:
         called.append(name)
+        del profile_id
         return name
 
     service.evaluate_environment_binder = _bind
-    opened = service.open_session(profile_id="solver", environment="audit")
+    refused = service.open_session(profile_id="judge", environment="audit")
+    assert refused["error"] == "unknown_evaluate_environment"
+    assert called == []
+
+
+def test_open_session_named_environment_runs_binder_before_bind(tmp_path: Path) -> None:
+    service, _ = _service(tmp_path, extra_profiles=("judge",))
+    service.seal_run()
+    service.evaluate_environment_names = frozenset({"audit"})
+    called: list[tuple[str, str | None]] = []
+
+    async def _bind(name: str, profile_id: str | None = None) -> str:
+        called.append((name, profile_id))
+        return name
+
+    service.evaluate_environment_binder = _bind
+    opened = service.open_session(profile_id="judge", environment="audit")
     assert opened["ok"] is True
-    assert called == ["audit"]
+    assert called == [("audit", "judge")]
+
+
+def test_open_session_named_map_requires_environment_for_non_http(tmp_path: Path) -> None:
+    service, _ = _service(tmp_path, extra_profiles=("judge",))
+    service.seal_run()
+    service.evaluate_environment_names = frozenset({"audit"})
+    called: list[str] = []
+    service.evaluate_environment_binder = lambda name, profile_id=None: called.append(name)
+    refused = service.open_session(profile_id="judge")
+    assert refused["error"] == "unknown_evaluate_environment"
+    assert called == []
 
 
 def test_open_session_http_judge_ignores_environment_attach(tmp_path: Path) -> None:
@@ -192,17 +220,49 @@ def test_open_session_http_judge_ignores_environment_attach(tmp_path: Path) -> N
     backend = ScriptedExecutor()
     service = ParentAgentService(
         attempt_id=ATTEMPT,
-        binder=HttpBinder(backend),
+        binder=HttpBinder(backend, extra_profiles=("judge",)),
         agent_invocation_limit=2,
         evidence_store=AttemptEvidenceStore(root=tmp_path / "run", attempt_id=ATTEMPT, run_id="r"),
         offline_env="",
     )
+    service.seal_run()
     service.evaluate_environment_names = frozenset({"audit"})
     called: list[str] = []
-    service.evaluate_environment_binder = lambda name: called.append(name)
-    opened = service.open_session(profile_id="solver", environment="audit")
-    assert opened["ok"] is True
+    service.evaluate_environment_binder = lambda name, profile_id=None: called.append(name)
+    named = service.open_session(profile_id="judge", environment="audit")
+    omitted = service.open_session(profile_id="judge")
+    assert named["ok"] is True
+    assert omitted["ok"] is True
     assert called == []
+
+
+def test_open_session_inbox_exec_targets_named_host(tmp_path: Path) -> None:
+    class InboxBinder(ScriptedBinder):
+        def profile(self, profile_id: str) -> dict[str, object]:
+            row = dict(super().profile(profile_id))
+            row["executor"] = "dsh"
+            return row
+
+    backend = ScriptedExecutor()
+    service = ParentAgentService(
+        attempt_id=ATTEMPT,
+        binder=InboxBinder(backend, extra_profiles=("judge",)),
+        agent_invocation_limit=2,
+        evidence_store=AttemptEvidenceStore(root=tmp_path / "run", attempt_id=ATTEMPT, run_id="r"),
+        offline_env="",
+    )
+    service.seal_run()
+    service.evaluate_environment_names = frozenset({"audit"})
+    called: list[tuple[str, str | None]] = []
+
+    async def _bind(name: str, profile_id: str | None = None) -> str:
+        called.append((name, profile_id))
+        return name
+
+    service.evaluate_environment_binder = _bind
+    opened = service.open_session(profile_id="judge", environment="audit")
+    assert opened["ok"] is True
+    assert called == [("audit", "judge")]
 
 
 def test_unknown_profile_never_opens(tmp_path: Path) -> None:

@@ -496,7 +496,9 @@ def _bind_evaluate_session_target(ctx: AttemptCtx, agent_service: AgentServiceSe
         return
     from ageval.attempt.phases.evaluate import bind_named_environment
 
-    parent.evaluate_environment_binder = lambda name: bind_named_environment(ctx, name)
+    parent.evaluate_environment_binder = lambda name, profile_id=None: bind_named_environment(
+        ctx, name, profile_id=profile_id
+    )
 
 
 def _bind_named_evaluate_hosts(
