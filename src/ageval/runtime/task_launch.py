@@ -230,6 +230,26 @@ async def _read_frame(stream: asyncio.StreamReader) -> dict[str, Any]:
     return parsed
 
 
+def _remaining_seconds(ctx: Any) -> float | None:
+    fn = getattr(ctx, "remaining_seconds", None)
+    if not callable(fn):
+        return None
+    raw = fn()
+    if isinstance(raw, bool) or not isinstance(raw, int | float):
+        return None
+    return float(raw)
+
+
+def _clamp_timeout_sec(requested: float | None, remaining: float | None) -> float | None:
+    if remaining is None:
+        return requested
+    if remaining <= 0:
+        return 0.0
+    if requested is None:
+        return remaining
+    return min(float(requested), remaining)
+
+
 async def _handle_eval_exec(ctx: Any, frame: dict[str, Any]) -> dict[str, Any]:
     from ageval.attempt.phases.evaluate import UNKNOWN_EVALUATE_ENVIRONMENT, ensure_named_host
 
@@ -239,10 +259,22 @@ async def _handle_eval_exec(ctx: Any, frame: dict[str, Any]) -> dict[str, Any]:
     if not isinstance(argv, list) or not all(isinstance(part, str) for part in argv):
         return {"op": "exec_result", "id": req_id, "error": "invalid_exec_argv"}
     timeout = frame.get("timeout_sec")
-    timeout_sec = float(timeout) if isinstance(timeout, int | float) else None
+    requested = float(timeout) if isinstance(timeout, int | float) else None
+    remaining = _remaining_seconds(ctx)
+    if remaining is not None and remaining <= 0:
+        return {"op": "exec_result", "id": req_id, "error": "task_run_timeout"}
     try:
-        host = await ensure_named_host(ctx, name)
+        if remaining is not None:
+            host = await asyncio.wait_for(ensure_named_host(ctx, name), timeout=max(0.1, remaining))
+        else:
+            host = await ensure_named_host(ctx, name)
+        leftover = _remaining_seconds(ctx)
+        if leftover is not None and leftover <= 0:
+            return {"op": "exec_result", "id": req_id, "error": "task_run_timeout"}
+        timeout_sec = _clamp_timeout_sec(requested, leftover if leftover is not None else remaining)
         result = await host.exec(argv, timeout_sec=timeout_sec)
+    except TimeoutError:
+        return {"op": "exec_result", "id": req_id, "error": "task_run_timeout"}
     except Exception as exc:  # noqa: BLE001 — worker gets one error, no retry
         message = str(exc)
         if message == UNKNOWN_EVALUATE_ENVIRONMENT or UNKNOWN_EVALUATE_ENVIRONMENT in message:
