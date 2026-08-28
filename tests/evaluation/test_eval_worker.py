@@ -301,3 +301,66 @@ async def test_evaluate_in_box_unknown_exec_name_fails_closed(tmp_path: Path) ->
     with pytest.raises(RuntimeError, match="unknown_evaluate_environment"):
         await evaluate_in_box(ctx)
     assert audit.started is False
+
+
+@pytest.mark.asyncio
+async def test_evaluate_in_box_exec_without_named_map_fails_closed(tmp_path: Path) -> None:
+    from ageval.attempt.ctx import AttemptCtx
+    from ageval.plugins.defaults import register_defaults
+    from ageval.plugins.protocol import BindingIntent, ExplicitBinding
+    from ageval.plugins.registry import ExtensionRegistry
+    from ageval.plugins.resolve import resolve
+    from ageval.plugins.services import ServiceTable
+    from ageval.plugins.slots import EVALUATION_RUNTIME
+    from ageval.runtime.cancellation import CancellationSignal
+
+    task = tmp_path / "task"
+    task.mkdir()
+    (task / "evaluator.py").write_text(
+        "async def evaluate(inputs):\n"
+        "    await inputs['scoring'].exec('audit', ['echo', 'ok'])\n"
+        "    return {'status': 'PASS', 'score': 1.0}\n",
+        encoding="utf-8",
+    )
+    evidence = AttemptEvidenceStore(root=tmp_path / "run", attempt_id="a", run_id="r")
+    singular = _ExecHost()
+    registry = ExtensionRegistry()
+    register_defaults(registry)
+    graph = resolve(
+        BindingIntent(
+            profile_id="solver",
+            extensions=[ExplicitBinding(slot=EVALUATION_RUNTIME, plugin="default")],
+        ),
+        registry,
+    )
+    lock = SimpleNamespace(
+        force_build=False,
+        resolved_references={
+            "evaluation_entrypoint": "evaluator:evaluate",
+            "evaluation_inputs": [],
+        },
+        parameters={},
+        limits={"wall_time_seconds": 30},
+    )
+    ctx = AttemptCtx(
+        run_id="r",
+        trial_id="t",
+        attempt_id="a",
+        lock=lock,  # type: ignore[arg-type]
+        profile_id="solver",
+        bindings=graph,
+        registry=registry,
+        services=ServiceTable(),
+        host=_ExecHost(),  # type: ignore[arg-type]
+        evidence=evidence,
+        cancellation=CancellationSignal(),
+        task_root=task,
+        dataset_root=tmp_path,
+        evaluate_host=singular,  # type: ignore[arg-type]
+    )
+    ctx.mark_writers_stopped()
+    ctx.phase = "evaluate"
+    with pytest.raises(RuntimeError, match="unknown_evaluate_environment"):
+        await evaluate_in_box(ctx)
+    assert singular.started is False
+    assert singular.execs == []

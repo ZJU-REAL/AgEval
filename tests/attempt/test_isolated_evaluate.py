@@ -344,6 +344,27 @@ async def test_bind_named_environment_prepares_only_the_opened_profile(tmp_path:
 
 
 @pytest.mark.asyncio
+async def test_named_exec_then_session_starts_host_once(tmp_path: Path) -> None:
+    agent = RecordingHost(root=tmp_path / "agent")
+    audit = RecordingHost(root=tmp_path / "audit")
+    ctx = _ctx(
+        tmp_path,
+        agent=agent,
+        evaluate_host=None,
+        evaluate_hosts={"audit": audit},
+        lock=_named_lock(),
+    )
+    ctx.phase = "evaluate"
+    first = await evaluate.ensure_named_host(ctx, "audit")
+    second = await evaluate.bind_named_environment(ctx, "audit", profile_id="judge")
+    assert first is audit
+    assert second is audit
+    assert audit.started is True
+    facts = [f for f in ctx.phase_facts if f.name == "evaluate_host_started"]
+    assert len(facts) == 1
+
+
+@pytest.mark.asyncio
 async def test_cleanup_stops_only_started_named_hosts(tmp_path: Path) -> None:
     agent = RecordingHost(root=tmp_path / "agent")
     audit = RecordingHost(root=tmp_path / "audit")
