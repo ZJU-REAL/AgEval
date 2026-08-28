@@ -57,9 +57,9 @@ dataset root (ageval.yaml / ageval.dataset/1)
   → run_attempt
        environment  host.start → upload data/ → after_environment_ready → environment_setup
        run          subprocess run.py ← Agent Service socket ← attach_stdio
-       evaluate     solver writers stopped → [opt-in 2nd host] → gold/snapshot on scoring host → parent evaluator.py (Agent Service) → bind
+       evaluate     solver writers stopped → [opt-in scoring host(s)] → gold/snapshot on started host(s) → parent evaluator.py (Agent Service; optional scoring.exec) → bind
        record       trajectory_collect → trajectory_seal → summary_enrich
-       finally      cleanup → evaluate_host.stop + host.stop
+       finally      cleanup → each started evaluate_host.stop + host.stop
   → .ageval/runs/<attempt_id>/
 ```
 
@@ -314,13 +314,13 @@ run phase
 
 evaluate phase
   before_evaluate
-  [evaluate_host.isolated] start second EnvironmentProvider (docker; distinct work root)
-  upload artifacts / tree snapshot onto the scoring host
-  upload evaluation/           # gold enters the scoring host only now (engine code, not a slot)
-  [isolated] after_environment_ready for evaluate-phase ACP profiles on scoring host
+  [evaluate_host.isolated, no named map] start second EnvironmentProvider (docker; distinct work root)
+  [no named map] upload artifacts / tree snapshot / evaluation/ onto that scoring host
+  [isolated, no named map] after_environment_ready for evaluate-phase ACP profiles
   evaluation_runtime.evaluate  # exclusive-slot winner; default parent evaluator.py worker
+                               # named map: lazy start on scoring.exec / session(environment=)
                                # optional Agent.session(<judge>).invoke via parent socket
-                               # isolated: ACP attach_stdio hits the scoring host
+                               # isolated: ACP attach_stdio hits the (named) scoring host
   bind_evaluation              # PASS enters Result only here
   after_evaluate               # must not change status
 
@@ -332,7 +332,7 @@ record phase
 
 cleanup (finally)
   cleanup_report
-  evaluate_host.stop           # when isolated and distinct
+  evaluate_host.stop           # each started isolated scoring host
   host.stop
 ```
 

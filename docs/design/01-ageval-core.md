@@ -81,9 +81,9 @@ PASS 仍只经 `AttemptCtx.bind_evaluation` 进入 Result。`evaluation_runtime`
 | --- | --- |
 | `environment` | `host.start` + upload seed + 槽（见下） |
 | `run` | 调 task `run.py`；内含 agent open/invoke/close **子槽**。结束时停 solver writer，**保持** Agent Service |
-| `evaluate` | 选打分 Host（缺省 = run 环境；job `evaluate_host.isolated` 则另起同 kind 第二实例）、materialize gold **只进该 Host**、调 `evaluation_runtime` 赢家（可选 SDK `Agent.session`）、`bind_evaluation` |
+| `evaluate` | 选打分 Host（缺省 = run 环境；job `evaluate_host.isolated` 则另起同 kind 实例：一份配方 = 一只；`evaluation.environments` = 按名懒启动多只）、materialize gold **只进打分 Host**、调 `evaluation_runtime` 赢家（可选 SDK `Agent.session` / `scoring.exec`）、`bind_evaluation` |
 | `record` | collect/enrich → `trajectory_seal` 写 run 相位 `trajectory.jsonl`；evaluate 相位 invoke 另封 `evaluation/observation.jsonl`（省略 user） |
-| `cleanup` | `host.stop`；isolated 时 **两个** Host 都停。实现可加报告，不能选择跳过 |
+| `cleanup` | `host.stop`；isolated 时停 **每一只** 已启动的打分 Host 再停 Agent Host。实现可加报告，不能选择跳过 |
 
 **没有 `provision` phase。**
 
@@ -124,12 +124,15 @@ async def run(ctx) -> None:
     await emit(ctx, "after_evaluate")            # 不得改 status
 ```
 
-**opt-in**（job `evaluate_host.isolated: true`）：harvest 之后、evaluate 开头，Runtime 用题包 `environment/evaluate.Dockerfile`（或 `evaluation.docker_image`）`start` 第二实例。gold 与 harvest 快照只进这个 Host。`evaluator.py` 仍在 parent 跑；evaluate 相位的 ACP `attach_stdio` 打第二实例。Agent 环境永不 mount / upload `evaluation/`。cleanup 停两个。Current 要求 kind 是 `docker`；不能再起一份环境的 kind + `isolated: true` → lock 一次失败（不要报假 cap）。
+**opt-in**（job `evaluate_host.isolated: true`）：harvest 之后、evaluate 开头，Runtime 用题包 `environment/evaluate.Dockerfile`（或 `evaluation.docker_image`）`start` **一只**第二实例。gold 与 harvest 快照只进这个 Host。`evaluator.py` 仍在 parent 跑；evaluate 相位的 ACP `attach_stdio` 打第二实例。Agent 环境永不 mount / upload `evaluation/`。cleanup 停两个。Current 要求 kind 是 `docker`；不能再起一份环境的 kind + `isolated: true` → lock 一次失败（不要报假 cap）。
+
+**再 opt-in**（成员 `evaluation.environments`）：同一 `environment` 赢家、多只实例，按 yaml 名键。不是新槽、不是第二套 resolve、不是 compose 侧车。evaluate **开头不 start**；`evaluator.py` 第一次 `scoring.exec(<name>, argv)` 或 `Agent.session(..., environment=<name>)` 才 `preflight` + `start` + upload 快照与 gold。未点到的名字不 build。省略 `evaluation.environments` = 上面那只（或同一环境）。写了该键则必须 `evaluate_host.isolated: true` 且 kind docker，否则 lock 一次失败。`ctx.evaluate_host`（单数）在有名表时不用；权威是 `ctx.evaluate_hosts`。
 
 - Agent / `run.py` / `environment_setup` **禁止**看到 `evaluation/`（不 upload、不 mount、不 COPY 进 Agent 用镜像层）。isolated 时这条红线变成 **空间切开 + 时间切开**：gold 根本不进 Agent 环境。
-- 这不是 `path_views`。evidence 记 `gold_materialized`（at evaluate）；isolated 另记第二 Host 的 start/stop，那些事实 **不是** PASS。
-- gold 进打分环境之后 solver 不得再 invoke。evaluate 相位可以按 **另一** profile（例 `judge`）走同一 Parent Agent Service；isolated 时 attach 目标是打分 Host。
+- 这不是 `path_views`。evidence 记 `gold_materialized`（at evaluate）；isolated 另记打分 Host 的 start/stop（含 `name`），那些事实 **不是** PASS。`exec` 退出码也不是。
+- gold 进打分环境之后 solver 不得再 invoke。evaluate 相位可以按 **另一** profile（例 `judge`）走同一 Parent Agent Service；isolated 时 attach 目标是当时的打分 Host；有名表时 `environment=` 选那一只。
 - 省略开关 = 今日 Attempt。judge 观察不是 PASS。`observation.jsonl` 缺席 = 今日脚本评测路径。
+- 阶梯（顺序、短路、分数混合）在 `evaluator.py`，不在 Core。
 
 ### 其他 slot
 

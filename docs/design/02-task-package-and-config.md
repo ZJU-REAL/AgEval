@@ -52,7 +52,12 @@ evaluation:
   inputs:
     - artifact: reply
       target: artifacts/reply.json
-  # docker_image: ageval-eval:grader   # 仅 isolated 时认；与 environment/evaluate.Dockerfile 二选一即可
+  # docker_image: ageval-eval:grader   # 仅 isolated 且未写 environments 时认
+  # environments:                      # 多只打分 Host；写出则忽略 evaluate.Dockerfile / docker_image
+  #   audit:
+  #     dockerfile: environment/evaluate/audit/Dockerfile
+  #   verification:
+  #     docker_image: ageval-eval:verify
 ```
 
 ## 薄 task 目录
@@ -64,7 +69,8 @@ tasks/<id>/
   evaluator.py              # 仅 evaluate
   environment/
     Dockerfile              # Agent 环境配方；有则用；docker 与 e2b 同一份
-    evaluate.Dockerfile     # 打分环境配方；仅 job evaluate_host.isolated 时认
+    evaluate.Dockerfile     # 单只打分配方；仅 isolated 且未写 evaluation.environments 时认
+    evaluate/               # 按名打分配方（audit/Dockerfile 等）；gold 不放这里
     setup.sh                # 有则 environment_setup 去 exec（只跑在 Agent 环境）
   data/                     # Agent 可见 seed；environment 相位 upload 到 /attempt/workspace
   evaluation/               # gold；agent 不可见；evaluate 开头才 upload 到打分 Host
@@ -78,7 +84,7 @@ tasks/<id>/
 | run 入口 | 存在 `run.py` → `run:run` |
 | evaluator 入口 | 存在 `evaluator.py` → `evaluator:evaluate` |
 | 镜像配方 | 存在 `environment/Dockerfile` → 用之；或 job `environment_options.image` / `docker_image` |
-| 打分镜像 | 存在 `environment/evaluate.Dockerfile` → isolated 时用之；或成员 `evaluation.docker_image`。省略 `evaluate_host` 则忽略这两项 |
+| 打分镜像 | 存在 `environment/evaluate.Dockerfile` → isolated 且未写 `evaluation.environments` 时用之；或成员 `evaluation.docker_image`。写出 `evaluation.environments` 则按名认 `dockerfile` / `docker_image`，忽略上面两份单只配方。省略 `evaluate_host` 则忽略全部打分配方 |
 | setup | 存在 `environment/setup.sh` → `environment_setup` exec；没有则跳过 |
 | `requires.environment` | 空 = 不额外要 cap |
 | seed | 存在 `data/` → environment 相位 upload |
@@ -116,7 +122,13 @@ agent_profiles:
 
 `environment_options` 给 **run** 环境；locator 在 preflight 解析，密钥不进 digest。`evaluate_host.isolated: true` 要求成员题有打分配方，且 kind 能再起一份环境（Current：docker）；否则 lock 失败。未知顶键一次拒绝。
 
-`artifacts.publishable[]` 允许键：`id`、`path`、`kind`（`file` \| `tree`，省略 = `file`）、`exclude`（仅 `tree`，字符串列表）。其它键一次错误，不映射。`evaluation.inputs[].target: workspace` 把对应 tree 铺到打分 Host `/attempt/workspace`；省略则 file 产物仍上 `/attempt/artifacts`。
+`evaluation.environments` 是成员题上的名 → 配方表。名字 `[a-z][a-z0-9_-]*`。每个名字只允许 `dockerfile`（题相对路径）或 `docker_image`（OCI tag），或两者（与今日单只配方同一识别规则）。未知键一次错误。`dockerfile` 必须存在且不得落在 `evaluation/`（那是 gold）。写出该表则：
+
+- job 必须 `evaluate_host.isolated: true` 且 `environment: docker`，否则 lock 失败。
+- 每个名字必须落到已有 Dockerfile 或非空 tag；缺文件 → lock 失败，不 start。
+- 忽略 `environment/evaluate.Dockerfile` 与 `evaluation.docker_image`。
+
+`artifacts.publishable[]` 允许键：`id`、`path`、`kind`（`file` \| `tree`，省略 = `file`）、`exclude`（仅 `tree`，字符串列表）。其它键一次错误，不映射。`evaluation.inputs[].target: workspace` 把对应 tree 铺到打分 Host `/attempt/workspace`；省略则 file 产物仍上 `/attempt/artifacts`。有名表时，**每只被 start 的** 打分 Host 各收一份快照拷贝。
 
 ## 所有权
 
@@ -124,8 +136,8 @@ agent_profiles:
 | --- | --- |
 | `parameters` | `ctx.params` |
 | `limits.*` | Runtime 硬顶 |
-| `evaluation/` | evaluate 相位（gold；可含 `docker_image` 供 isolated） |
-| `environment/` | Agent 环境配方；`evaluate.Dockerfile` 仅 isolated 打分环境 |
+| `evaluation/` | evaluate 相位（gold；可含 `docker_image` 供单只 isolated；禁止放 Dockerfile） |
+| `environment/` | Agent 环境配方；`evaluate.Dockerfile` 或 `evaluate/<name>/` 仅 isolated 打分环境 |
 | `data/` | Agent 可见 seed |
 | `profiles.yaml` | 选环境 / executor / entry；可选 `evaluate_host` / `egress` |
 
