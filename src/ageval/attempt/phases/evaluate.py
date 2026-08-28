@@ -14,25 +14,31 @@ from pathlib import Path
 from ageval.attempt.ctx import AttemptCtx
 from ageval.attempt.emit import emit
 from ageval.config.model import thaw
-from ageval.environments.protocol import ARTIFACTS_PATH, EVALUATION_PATH, WORKSPACE_PATH
+from ageval.environments.protocol import (
+    ARTIFACTS_PATH,
+    EVALUATION_PATH,
+    WORKSPACE_PATH,
+    EnvironmentProvider,
+)
 from ageval.evidence.store import TASK_ARTIFACTS_REL
 from ageval.plugins.binding import bind_winner
 from ageval.plugins.slots import AFTER_EVALUATE, BEFORE_EVALUATE, ENVIRONMENT, EVALUATION_RUNTIME
 
 PHASE = "evaluate"
+UNKNOWN_EVALUATE_ENVIRONMENT = "unknown_evaluate_environment"
 
 
 async def run(ctx: AttemptCtx) -> None:
     ctx.phase = PHASE
     ctx.assert_writers_stopped()  # solver writers; Agent Service may still be up
     await emit(ctx, BEFORE_EVALUATE)
-    await _ensure_evaluate_host(ctx)
-    await _prepare_evaluate_runtime(ctx)
-    await _upload_task_artifacts(ctx)
-    host = ctx.scoring_host
-    if ctx.evaluation_src is not None and ctx.evaluation_src.is_dir():
-        await host.upload(ctx.evaluation_src, EVALUATION_PATH)
-        ctx.record_fact("gold_materialized", {"at": PHASE})
+    if named_evaluate_environments(ctx):
+        # Named hosts start on first exec / session(environment=), not here.
+        pass
+    else:
+        await _ensure_evaluate_host(ctx)
+        await _prepare_evaluate_runtime(ctx)
+        await _materialize_on_host(ctx, ctx.scoring_host)
     impl = bind_winner(ctx.registry, ctx.bindings, EVALUATION_RUNTIME)
     plugin_id = ctx.bindings.winners[EVALUATION_RUNTIME].plugin_id
     ctx.services.register(EVALUATION_RUNTIME, impl, plugin_id=plugin_id)
@@ -43,6 +49,49 @@ async def run(ctx: AttemptCtx) -> None:
     after = await emit(ctx, AFTER_EVALUATE, result)
     if isinstance(after, dict) and str(after.get("status") or "") != status_before:
         raise RuntimeError("after_evaluate must not change the evaluation status")
+
+
+def named_evaluate_environments(ctx: AttemptCtx) -> dict[str, dict[str, str]]:
+    refs = thaw(getattr(ctx.lock, "resolved_references", None) or {})
+    raw = refs.get("evaluation_environments") or {}
+    if not isinstance(raw, dict):
+        return {}
+    out: dict[str, dict[str, str]] = {}
+    for name, recipe in raw.items():
+        if isinstance(name, str) and isinstance(recipe, dict):
+            out[name] = {str(key): str(value) for key, value in recipe.items()}
+    return out
+
+
+async def ensure_named_host(ctx: AttemptCtx, name: str) -> EnvironmentProvider:
+    """Start one named scoring host on first use. Unknown names do not start."""
+    recipes = named_evaluate_environments(ctx)
+    if name not in recipes:
+        raise RuntimeError(UNKNOWN_EVALUATE_ENVIRONMENT)
+    host = ctx.evaluate_hosts.get(name)
+    if host is None:
+        raise RuntimeError(UNKNOWN_EVALUATE_ENVIRONMENT)
+    if name in ctx.started_evaluate_names:
+        return host
+    await host.preflight()
+    await host.start(force_build=ctx.lock.force_build)
+    ctx.started_evaluate_names.add(name)
+    ctx.record_fact(
+        "evaluate_host_started",
+        {"name": name, "kind": getattr(host, "kind", "")},
+    )
+    await _materialize_on_host(ctx, host, name=name)
+    return host
+
+
+async def bind_named_environment(ctx: AttemptCtx, name: str) -> EnvironmentProvider:
+    """Point the environment service at a named host for ACP attach_stdio."""
+    host = await ensure_named_host(ctx, name)
+    winner = ctx.bindings.winners.get(ENVIRONMENT)
+    plugin_id = winner.plugin_id if winner is not None else getattr(host, "kind", "environment")
+    ctx.services.register(ENVIRONMENT, host, plugin_id=plugin_id)
+    await _prepare_named_runtime(ctx, name)
+    return host
 
 
 async def _ensure_evaluate_host(ctx: AttemptCtx) -> None:
@@ -61,6 +110,14 @@ async def _prepare_evaluate_runtime(ctx: AttemptCtx) -> None:
     """Probe/install ACP on the scoring host for profiles not used during run."""
     if ctx.evaluate_host is None or ctx.evaluate_host is ctx.host:
         return
+    await _prepare_acp_profiles(ctx)
+
+
+async def _prepare_named_runtime(ctx: AttemptCtx, name: str) -> None:
+    await _prepare_acp_profiles(ctx, name=name)
+
+
+async def _prepare_acp_profiles(ctx: AttemptCtx, name: str | None = None) -> None:
     parent = getattr(ctx.agent_service, "service", None) or ctx.agent_service
     binder = getattr(parent, "binder", None)
     if binder is None:
@@ -78,22 +135,33 @@ async def _prepare_evaluate_runtime(ctx: AttemptCtx) -> None:
         if str(row.get("executor") or "") != "acp":
             continue
         await run_chain(binder.graph(profile_id), AFTER_ENVIRONMENT_READY, None, ctx=ctx)
-        ctx.record_fact("evaluate_runtime_prepared", {"profile_id": profile_id})
+        detail: dict[str, str] = {"profile_id": profile_id}
+        if name:
+            detail["name"] = name
+        ctx.record_fact("evaluate_runtime_prepared", detail)
 
 
-async def _upload_task_artifacts(ctx: AttemptCtx) -> None:
-    """The task published on this side; the evaluator judges inside the scoring box."""
+async def _materialize_on_host(
+    ctx: AttemptCtx,
+    host: EnvironmentProvider,
+    *,
+    name: str | None = None,
+) -> None:
+    """Copy harvested artifacts, workspace trees, and gold onto one scoring host."""
     staged = ctx.evidence.path(TASK_ARTIFACTS_REL)
-    host = ctx.scoring_host
+    extra = {"name": name} if name else {}
     if staged.is_dir() and any(staged.iterdir()):
         await host.upload(staged, ARTIFACTS_PATH)
-        ctx.record_fact("artifacts_materialized", {"at": PHASE})
+        ctx.record_fact("artifacts_materialized", {"at": PHASE, **extra})
     for snapshot in _workspace_tree_snapshots(ctx, staged):
         await host.upload(snapshot, WORKSPACE_PATH)
         ctx.record_fact(
             "workspace_materialized",
-            {"at": PHASE, "artifact": snapshot.name},
+            {"at": PHASE, "artifact": snapshot.name, **extra},
         )
+    if ctx.evaluation_src is not None and ctx.evaluation_src.is_dir():
+        await host.upload(ctx.evaluation_src, EVALUATION_PATH)
+        ctx.record_fact("gold_materialized", {"at": PHASE, **extra})
 
 
 def _workspace_tree_snapshots(ctx: AttemptCtx, staged: Path) -> list[Path]:

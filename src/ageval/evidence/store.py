@@ -39,6 +39,13 @@ EVALUATE_BOX_REL = "eval-box"
 TASK_ARTIFACTS_REL = "task-artifacts"
 
 
+def evaluate_box_rel(name: str | None = None) -> str:
+    """Work-root relative path for the isolated scoring box, optionally named."""
+    if name:
+        return f"{EVALUATE_BOX_REL}/{name}"
+    return EVALUATE_BOX_REL
+
+
 def _utc_now() -> str:
     return datetime.now(UTC).replace(microsecond=0).isoformat().replace("+00:00", "Z")
 
