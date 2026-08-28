@@ -230,6 +230,7 @@ async def run_attempt(
         keep_workspace=keep_workspace,
         keep_vendor_raw=keep_vendor_raw,
     )
+    _bind_evaluate_session_target(ctx, agent_service)
 
     try:
         await run_attempt_pipeline(ctx)
@@ -482,6 +483,20 @@ def _named_evaluate_box_spec(
         dockerfile=dockerfile if isinstance(dockerfile, str) and dockerfile.strip() else None,
         compose_file=None,
     )
+
+
+def _bind_evaluate_session_target(ctx: AttemptCtx, agent_service: AgentServiceServer) -> None:
+    """Let evaluate-phase session(environment=) rebind ACP onto a named host."""
+    parent = getattr(agent_service, "service", None)
+    if parent is None:
+        return
+    names = frozenset(ctx.evaluate_hosts)
+    parent.evaluate_environment_names = names if names else None
+    if not names:
+        return
+    from ageval.attempt.phases.evaluate import bind_named_environment
+
+    parent.evaluate_environment_binder = lambda name: bind_named_environment(ctx, name)
 
 
 def _bind_named_evaluate_hosts(

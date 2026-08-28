@@ -56,6 +56,7 @@ class AgentSession:
     _turns: int = 0
     _closed: bool = False
     provider_session_handle: None = None  # always null/unsupported for Codex
+    environment: str | None = None
     _session_id: str | None = field(default=None, repr=False)
     _last_invocation_id: str | None = field(default=None, repr=False)
 
@@ -69,6 +70,8 @@ class AgentSession:
         }
         if self.actor_id is not None:
             payload["actor_id"] = self.actor_id
+        if self.environment:
+            payload["environment"] = self.environment
         resp = _parent_call(payload)
         if not resp.get("ok"):
             return resp
@@ -199,14 +202,18 @@ class Agent:
         *,
         max_turns: int = 8,
         actor_id: str | None = None,
+        environment: str | None = None,
     ) -> AgentSession:
         """Open a logical session.
 
         L1 packages must pass ``actor_id`` (isolation principal). L0 may omit it.
+        ``environment`` names an evaluate-phase scoring host; omit it for the
+        singular scoring host. HTTP judges ignore it.
         """
         return AgentSession(
             attempt_id=self.attempt_id,
             profile_id=profile_id,
             max_turns=max_turns,
             actor_id=actor_id,
+            environment=environment,
         )

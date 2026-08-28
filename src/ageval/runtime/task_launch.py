@@ -13,11 +13,13 @@ message in, one result envelope out.
 from __future__ import annotations
 
 import asyncio
+import contextlib
 import json
 import os
 import shutil
 import struct
 import sys
+import time
 from pathlib import Path
 from typing import Any
 
@@ -82,8 +84,7 @@ async def launch_eval_worker(ctx: Any) -> dict[str, Any]:
     assert process.stdin is not None
     process.stdin.write(_frame(_eval_launch_message(ctx)))
     await process.stdin.drain()
-    process.stdin.close()
-    return await _collect(process, timeout=ctx.remaining_seconds())
+    return await _serve_eval_worker(process, ctx, timeout=ctx.remaining_seconds())
 
 
 def _launch_message(ctx: AttemptCtx) -> dict[str, Any]:
@@ -131,6 +132,17 @@ def _copy_seed(source: Path, dest: Path) -> None:
 
 def _eval_workspace(ctx: Any) -> Path:
     """Scoring-host workspace when the parent can see the bind-mount."""
+    from ageval.attempt.phases.evaluate import named_evaluate_environments
+
+    if named_evaluate_environments(ctx):
+        staged = ctx.evidence.path(TASK_ARTIFACTS_REL)
+        from ageval.attempt.phases.evaluate import _workspace_tree_snapshots
+
+        snapshots = _workspace_tree_snapshots(ctx, staged)
+        if snapshots:
+            return snapshots[0]
+        staged.mkdir(parents=True, exist_ok=True)
+        return staged
     host = getattr(ctx, "scoring_host", None) or ctx.host
     host_path = getattr(host, "host_path", None)
     if callable(host_path):
@@ -198,6 +210,117 @@ def _worker_env(ctx: AttemptCtx, *, workspace: Path, artifacts: Path) -> dict[st
     if is_offline_agent():
         env[DEFAULT_OFFLINE_ENV] = "1"
     return env
+
+
+async def _read_frame(stream: asyncio.StreamReader) -> dict[str, Any]:
+    header = await stream.readexactly(4)
+    (size,) = struct.unpack("!I", header)
+    if size > 8_000_000:
+        raise ValueError("eval worker frame too large")
+    body = await stream.readexactly(size)
+    parsed = json.loads(body.decode("utf-8"))
+    if not isinstance(parsed, dict):
+        raise ValueError("eval worker frame is not an object")
+    return parsed
+
+
+async def _handle_eval_exec(ctx: Any, frame: dict[str, Any]) -> dict[str, Any]:
+    from ageval.attempt.phases.evaluate import UNKNOWN_EVALUATE_ENVIRONMENT, ensure_named_host
+
+    req_id = frame.get("id")
+    name = str(frame.get("environment") or "")
+    argv = frame.get("argv")
+    if not isinstance(argv, list) or not all(isinstance(part, str) for part in argv):
+        return {"op": "exec_result", "id": req_id, "error": "invalid_exec_argv"}
+    timeout = frame.get("timeout_sec")
+    timeout_sec = float(timeout) if isinstance(timeout, int | float) else None
+    try:
+        host = await ensure_named_host(ctx, name)
+        result = await host.exec(argv, timeout_sec=timeout_sec)
+    except Exception as exc:  # noqa: BLE001 — worker gets one error, no retry
+        error = str(getattr(exc, "args", [exc])[0] if getattr(exc, "args", None) else exc)
+        message = str(exc)
+        if message == UNKNOWN_EVALUATE_ENVIRONMENT or UNKNOWN_EVALUATE_ENVIRONMENT in message:
+            error = UNKNOWN_EVALUATE_ENVIRONMENT
+        else:
+            error = message or type(exc).__name__
+        return {"op": "exec_result", "id": req_id, "error": error}
+    record = getattr(ctx, "record_fact", None)
+    if callable(record):
+        record("evaluate_exec", {"name": name, "exit_code": int(result.exit_code)})
+    return {
+        "op": "exec_result",
+        "id": req_id,
+        "exit_code": int(result.exit_code),
+        "stdout": str(result.stdout or ""),
+        "stderr": str(result.stderr or ""),
+        "truncated": bool(getattr(result, "truncated", False)),
+    }
+
+
+def _attach_stderr(envelope: dict[str, Any], stderr: bytes) -> None:
+    tail = stderr.decode("utf-8", errors="replace")[-_STDERR_TAIL_BYTES:]
+    if not tail:
+        return
+    existing = str(envelope.get("stderr") or "")
+    envelope["stderr"] = (existing + tail)[-_STDERR_TAIL_BYTES:] if existing else tail
+
+
+async def _serve_eval_worker(
+    process: asyncio.subprocess.Process,
+    ctx: Any,
+    *,
+    timeout: float | None,
+) -> dict[str, Any]:
+    """Launch stays open: worker may exec, then send the verdict envelope."""
+    assert process.stdin is not None
+    assert process.stdout is not None
+    started = time.monotonic()
+    try:
+        while True:
+            remaining = (
+                None if timeout is None else max(0.1, timeout - (time.monotonic() - started))
+            )
+            try:
+                frame = await asyncio.wait_for(_read_frame(process.stdout), timeout=remaining)
+            except TimeoutError:
+                process.kill()
+                await process.wait()
+                return {"ok": False, "error": "task_run_timeout", "exit_code": process.returncode}
+            except asyncio.IncompleteReadError:
+                stderr = await process.stderr.read() if process.stderr is not None else b""
+                await process.wait()
+                envelope: dict[str, Any] = {
+                    "ok": False,
+                    "error": "task_worker_no_result",
+                    "exit_code": process.returncode,
+                }
+                _attach_stderr(envelope, stderr)
+                return envelope
+            except (UnicodeDecodeError, json.JSONDecodeError, ValueError):
+                process.kill()
+                await process.wait()
+                return {
+                    "ok": False,
+                    "error": "task_worker_unreadable_result",
+                    "exit_code": process.returncode,
+                }
+            if frame.get("op") == "exec":
+                reply = await _handle_eval_exec(ctx, frame)
+                process.stdin.write(_frame(reply))
+                await process.stdin.drain()
+                continue
+            process.stdin.close()
+            stderr = await process.stderr.read() if process.stderr is not None else b""
+            await process.wait()
+            frame["exit_code"] = process.returncode
+            _attach_stderr(frame, stderr)
+            return frame
+    except Exception:
+        with contextlib.suppress(ProcessLookupError):
+            process.kill()
+        await process.wait()
+        raise
 
 
 async def _collect(

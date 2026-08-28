@@ -52,6 +52,28 @@ def test_session_forwards_tools_without_treating_them_as_overrides(
     assert invoke["messages"] == history
 
 
+def test_session_open_forwards_environment(monkeypatch: pytest.MonkeyPatch) -> None:
+    captured: list[dict[str, object]] = []
+
+    def _fake_call(payload: dict[str, object]) -> dict[str, object]:
+        captured.append(payload)
+        if payload.get("op") == "open":
+            return {"ok": True, "session_id": "sess_env"}
+        return {"ok": True, "text": "ok", "tool_calls": []}
+
+    monkeypatch.delenv("AGEVAL_OFFLINE_AGENT", raising=False)
+    monkeypatch.setattr("ageval_sdk.agent._parent_call", _fake_call)
+    session = AgentSession(
+        attempt_id="attempt_x",
+        profile_id="judge",
+        max_turns=1,
+        environment="verification",
+    )
+    asyncio.run(session.invoke("score this"))
+    opened = next(item for item in captured if item.get("op") == "open")
+    assert opened["environment"] == "verification"
+
+
 def test_record_observation_forwards_to_parent(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:

@@ -80,3 +80,173 @@ async def test_evaluate_in_box_runs_parent_worker(tmp_path: Path) -> None:
     verdict = await evaluate_in_box(ctx)
     assert verdict["status"] == "PASS"
     assert verdict["metrics"]["via"] == "parent"
+
+
+class _ExecHost:
+    def __init__(self, stdout: str = "ok-from-box\n") -> None:
+        self.kind = "docker"
+        self.started = False
+        self.uploads: list[tuple[Path, str]] = []
+        self.execs: list[list[str]] = []
+        self._stdout = stdout
+
+    async def preflight(self) -> None:
+        return None
+
+    async def start(self, *, force_build: bool = False) -> None:
+        del force_build
+        self.started = True
+
+    async def upload(self, source: Path, dest: str) -> None:
+        self.uploads.append((Path(source), dest))
+
+    async def exec(self, command, **kwargs):
+        del kwargs
+        self.execs.append([str(part) for part in command])
+        from ageval.environments.protocol import ExecResult
+
+        return ExecResult(exit_code=0, stdout=self._stdout)
+
+
+@pytest.mark.asyncio
+async def test_evaluate_in_box_execs_named_host(tmp_path: Path) -> None:
+    from ageval.attempt.ctx import AttemptCtx
+    from ageval.plugins.defaults import register_defaults
+    from ageval.plugins.protocol import BindingIntent, ExplicitBinding
+    from ageval.plugins.registry import ExtensionRegistry
+    from ageval.plugins.resolve import resolve
+    from ageval.plugins.services import ServiceTable
+    from ageval.plugins.slots import EVALUATION_RUNTIME
+    from ageval.runtime.cancellation import CancellationSignal
+
+    task = tmp_path / "task"
+    task.mkdir()
+    (task / "evaluator.py").write_text(
+        "async def evaluate(inputs):\n"
+        "    scoring = inputs['scoring']\n"
+        "    result = await scoring.exec('audit', ['echo', 'ok'])\n"
+        "    return {\n"
+        "        'status': 'PASS' if result.exit_code == 0 else 'FAIL',\n"
+        "        'score': 1.0 if result.ok else 0.0,\n"
+        "        'metrics': {'stdout': result.stdout.strip()},\n"
+        "    }\n",
+        encoding="utf-8",
+    )
+    gold = tmp_path / "evaluation"
+    gold.mkdir()
+    (gold / "hidden.txt").write_text("secret\n", encoding="utf-8")
+    evidence = AttemptEvidenceStore(root=tmp_path / "run", attempt_id="a", run_id="r")
+    audit = _ExecHost()
+    unused = _ExecHost(stdout="should-not-run\n")
+    registry = ExtensionRegistry()
+    register_defaults(registry)
+    graph = resolve(
+        BindingIntent(
+            profile_id="solver",
+            extensions=[ExplicitBinding(slot=EVALUATION_RUNTIME, plugin="default")],
+        ),
+        registry,
+    )
+    lock = SimpleNamespace(
+        force_build=False,
+        resolved_references={
+            "evaluation_entrypoint": "evaluator:evaluate",
+            "evaluation_inputs": [],
+            "evaluation_environments": {
+                "audit": {"dockerfile": "environment/evaluate/audit/Dockerfile"},
+                "unused": {"dockerfile": "environment/evaluate/unused/Dockerfile"},
+            },
+        },
+        parameters={},
+        limits={"wall_time_seconds": 30},
+    )
+    ctx = AttemptCtx(
+        run_id="r",
+        trial_id="t",
+        attempt_id="a",
+        lock=lock,  # type: ignore[arg-type]
+        profile_id="solver",
+        bindings=graph,
+        registry=registry,
+        services=ServiceTable(),
+        host=_ExecHost(),  # type: ignore[arg-type]
+        evidence=evidence,
+        cancellation=CancellationSignal(),
+        task_root=task,
+        dataset_root=tmp_path,
+        evaluate_hosts={"audit": audit, "unused": unused},  # type: ignore[arg-type]
+        evaluation_src=gold,
+    )
+    ctx.mark_writers_stopped()
+    ctx.phase = "evaluate"
+    verdict = await evaluate_in_box(ctx)
+    assert verdict["status"] == "PASS"
+    assert verdict["metrics"]["stdout"] == "ok-from-box"
+    assert audit.started is True
+    assert unused.started is False
+    assert audit.execs == [["echo", "ok"]]
+
+
+@pytest.mark.asyncio
+async def test_evaluate_in_box_unknown_exec_name_fails_closed(tmp_path: Path) -> None:
+    from ageval.attempt.ctx import AttemptCtx
+    from ageval.plugins.defaults import register_defaults
+    from ageval.plugins.protocol import BindingIntent, ExplicitBinding
+    from ageval.plugins.registry import ExtensionRegistry
+    from ageval.plugins.resolve import resolve
+    from ageval.plugins.services import ServiceTable
+    from ageval.plugins.slots import EVALUATION_RUNTIME
+    from ageval.runtime.cancellation import CancellationSignal
+
+    task = tmp_path / "task"
+    task.mkdir()
+    (task / "evaluator.py").write_text(
+        "async def evaluate(inputs):\n"
+        "    await inputs['scoring'].exec('nope', ['echo', 'ok'])\n"
+        "    return {'status': 'PASS', 'score': 1.0}\n",
+        encoding="utf-8",
+    )
+    evidence = AttemptEvidenceStore(root=tmp_path / "run", attempt_id="a", run_id="r")
+    audit = _ExecHost()
+    registry = ExtensionRegistry()
+    register_defaults(registry)
+    graph = resolve(
+        BindingIntent(
+            profile_id="solver",
+            extensions=[ExplicitBinding(slot=EVALUATION_RUNTIME, plugin="default")],
+        ),
+        registry,
+    )
+    lock = SimpleNamespace(
+        force_build=False,
+        resolved_references={
+            "evaluation_entrypoint": "evaluator:evaluate",
+            "evaluation_inputs": [],
+            "evaluation_environments": {
+                "audit": {"dockerfile": "environment/evaluate/audit/Dockerfile"},
+            },
+        },
+        parameters={},
+        limits={"wall_time_seconds": 30},
+    )
+    ctx = AttemptCtx(
+        run_id="r",
+        trial_id="t",
+        attempt_id="a",
+        lock=lock,  # type: ignore[arg-type]
+        profile_id="solver",
+        bindings=graph,
+        registry=registry,
+        services=ServiceTable(),
+        host=_ExecHost(),  # type: ignore[arg-type]
+        evidence=evidence,
+        cancellation=CancellationSignal(),
+        task_root=task,
+        dataset_root=tmp_path,
+        evaluate_hosts={"audit": audit},  # type: ignore[arg-type]
+    )
+    ctx.mark_writers_stopped()
+    ctx.phase = "evaluate"
+    with pytest.raises(RuntimeError, match="unknown_evaluate_environment"):
+        await evaluate_in_box(ctx)
+    assert audit.started is False
