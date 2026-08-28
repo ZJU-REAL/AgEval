@@ -1,0 +1,16 @@
+format: ageval.task/1
+task_id: publish-tree
+description: Publish a workspace tree; isolated evaluate rematerializes it without gold.
+limits:
+  wall_time_seconds: 120
+  agent_invocations: 0
+artifacts:
+  publishable:
+    - id: repo
+      path: workspace
+      kind: tree
+      exclude: [target, "*.so", .git]
+evaluation:
+  inputs:
+    - artifact: repo
+      target: workspace

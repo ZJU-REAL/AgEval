@@ -111,3 +111,11 @@ class RunContext:
         dest.write_bytes(source.read_bytes())
         self._published[artifact_id] = dest
         return dest
+
+    def publish_tree(self, artifact_id: str, source: Path) -> Path:
+        """Register a workspace tree. Copy and exclude stay on Runtime harvest."""
+        if self._closed:
+            raise RuntimeError("context closed")
+        path = Path(source)
+        self._published[artifact_id] = path
+        return path

@@ -43,6 +43,8 @@ def bind_winner(
     registry: ExtensionRegistry,
     graph: ExtensionGraph,
     slot: str,
+    *,
+    options: dict[str, Any] | None = None,
     **context: Any,
 ) -> Any:
     """Construct the winner of *slot* with engine-owned *context*."""
@@ -65,10 +67,9 @@ def bind_winner(
             f"factory for plugin {winner.plugin_id!r} slot {slot!r} is not callable",
             kind="extension_materialize_failed",
         )
+    bound_options = dict(winner.options or {}) if options is None else dict(options)
     try:
-        return registration.impl(
-            options=dict(winner.options or {}), **_accepted(registration.impl, context)
-        )
+        return registration.impl(options=bound_options, **_accepted(registration.impl, context))
     except ExtensionMaterializeError:
         raise
     except Exception as exc:  # noqa: BLE001 — one bind failure, no retry

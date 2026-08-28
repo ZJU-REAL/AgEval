@@ -12,6 +12,7 @@ from ageval.config.constants import (
     ALLOWED_TOP_LEVEL_FILES,
     COMPOSE_DEFAULT,
     DOCKERFILE_DEFAULT,
+    EVALUATE_DOCKERFILE_DEFAULT,
     EVALUATION_DIR,
     EVALUATOR_ENTRYPOINT_DEFAULT,
     EVALUATOR_MODULE_FILE,
@@ -53,6 +54,9 @@ ALLOWED_TASK_KEYS = frozenset(
 )
 
 ALLOWED_LIMIT_KEYS = frozenset({"wall_time_seconds", "agent_invocations"})
+PUBLISHABLE_KEYS = frozenset({"id", "path", "kind", "exclude"})
+PUBLISHABLE_KINDS = frozenset({"file", "tree"})
+EVALUATION_KEYS = frozenset({"entrypoint", "inputs", "docker_image"})
 
 
 def validate_top_level_layout(reader: PackageReader, root: Path) -> None:
@@ -361,6 +365,13 @@ def _validate_artifacts(artifacts: Any) -> set[str]:
             raise ConfigError(
                 ERROR_INVALID_SCHEMA, "artifact entry must be a mapping", location=loc
             )
+        unknown = sorted(set(item) - PUBLISHABLE_KEYS)
+        if unknown:
+            raise ConfigError(
+                ERROR_INVALID_SCHEMA,
+                f"unknown artifacts.publishable keys: {unknown}",
+                location=loc,
+            )
         aid = item.get("id")
         if not isinstance(aid, str) or not aid:
             raise ConfigError(ERROR_INVALID_SCHEMA, "artifact.id required", location=f"{loc}/id")
@@ -371,6 +382,32 @@ def _validate_artifacts(artifacts: Any) -> set[str]:
                 ERROR_INVALID_SCHEMA, "artifact.path required", location=f"{loc}/path"
             )
         normalize_package_relpath(path)
+        kind = item.get("kind")
+        if kind is None:
+            kind = "file"
+        elif not isinstance(kind, str) or kind not in PUBLISHABLE_KINDS:
+            raise ConfigError(
+                ERROR_INVALID_SCHEMA,
+                "artifact.kind must be file or tree",
+                location=f"{loc}/kind",
+            )
+        exclude = item.get("exclude")
+        if exclude is None:
+            continue
+        if kind != "tree":
+            raise ConfigError(
+                ERROR_INVALID_SCHEMA,
+                "artifact.exclude is only valid with kind: tree",
+                location=f"{loc}/exclude",
+            )
+        if not isinstance(exclude, list) or not all(
+            isinstance(part, str) and part.strip() for part in exclude
+        ):
+            raise ConfigError(
+                ERROR_INVALID_SCHEMA,
+                "artifact.exclude must be a list of non-empty strings",
+                location=f"{loc}/exclude",
+            )
     return artifact_ids
 
 
@@ -379,12 +416,19 @@ def _validate_evaluation(evaluation: Any, *, artifact_ids: set[str]) -> None:
         raise ConfigError(
             ERROR_INVALID_SCHEMA, "evaluation must be a mapping", location="/evaluation"
         )
-    unknown = sorted(set(evaluation) - {"entrypoint", "inputs"})
+    unknown = sorted(set(evaluation) - EVALUATION_KEYS)
     if unknown:
         raise ConfigError(
             ERROR_INVALID_SCHEMA,
             f"unknown evaluation keys: {unknown}",
             location="/evaluation",
+        )
+    docker_image = evaluation.get("docker_image")
+    if docker_image is not None and (not isinstance(docker_image, str) or not docker_image.strip()):
+        raise ConfigError(
+            ERROR_INVALID_SCHEMA,
+            "evaluation.docker_image must be a non-empty image tag",
+            location="/evaluation/docker_image",
         )
     entrypoint = evaluation.get("entrypoint")
     if entrypoint is not None and (not isinstance(entrypoint, str) or ":" not in entrypoint):
@@ -449,6 +493,8 @@ def collect_resolved_references(
     }
     if reader.exists(root, DOCKERFILE_DEFAULT):
         refs["environment_dockerfile"] = DOCKERFILE_DEFAULT
+    if reader.exists(root, EVALUATE_DOCKERFILE_DEFAULT):
+        refs["environment_evaluate_dockerfile"] = EVALUATE_DOCKERFILE_DEFAULT
     if reader.exists(root, COMPOSE_DEFAULT):
         refs["environment_compose"] = COMPOSE_DEFAULT
     if reader.exists(root, SETUP_SCRIPT_DEFAULT):
@@ -457,14 +503,22 @@ def collect_resolved_references(
         refs["seed_dir"] = SEED_DIR
     if reader.exists(root, EVALUATION_DIR):
         refs["evaluation_dir"] = EVALUATION_DIR
+    eval_image = evaluation.get("docker_image")
+    if isinstance(eval_image, str) and eval_image.strip():
+        refs["evaluation_docker_image"] = eval_image.strip()
     for item in (doc.get("artifacts") or {}).get("publishable") or []:
         if isinstance(item, dict):
-            refs["artifacts"].append(
-                {
-                    "id": item.get("id"),
-                    "path": normalize_package_relpath(str(item.get("path", ""))),
-                }
-            )
+            row: dict[str, Any] = {
+                "id": item.get("id"),
+                "path": normalize_package_relpath(str(item.get("path", ""))),
+            }
+            kind = item.get("kind")
+            if isinstance(kind, str) and kind.strip() and kind != "file":
+                row["kind"] = kind.strip()
+            exclude = item.get("exclude")
+            if isinstance(exclude, list) and exclude:
+                row["exclude"] = [str(part) for part in exclude]
+            refs["artifacts"].append(row)
     for inp in evaluation.get("inputs") or []:
         if not isinstance(inp, dict):
             continue

@@ -16,13 +16,23 @@ PHASE = "cleanup"
 async def run(ctx: AttemptCtx) -> None:
     previous = ctx.phase
     ctx.phase = PHASE
+    delete = not ctx.keep_workspace
+    errors: list[str] = []
+    scoring = ctx.evaluate_host
+    if scoring is not None and scoring is not ctx.host:
+        try:
+            await scoring.stop(delete=delete)
+            ctx.record_fact("evaluate_host_stopped", {"deleted": delete})
+        except Exception as exc:  # noqa: BLE001 — cleanup failure is a warning, not a verdict
+            errors.append(f"{type(exc).__name__}: {exc}")
     try:
-        await ctx.host.stop(delete=not ctx.keep_workspace)
-        ctx.record_fact("environment_stopped", {"deleted": not ctx.keep_workspace})
+        await ctx.host.stop(delete=delete)
+        ctx.record_fact("environment_stopped", {"deleted": delete})
     except Exception as exc:  # noqa: BLE001 — cleanup failure is a warning, not a verdict
+        errors.append(f"{type(exc).__name__}: {exc}")
+    if errors:
         ctx.record_fact(
             "cleanup_warning",
-            {"error": f"{type(exc).__name__}: {exc}", "failed_phase": previous},
+            {"error": "; ".join(errors), "failed_phase": previous},
         )
-    finally:
-        await emit(ctx, CLEANUP_REPORT, ctx.facts_as_list())
+    await emit(ctx, CLEANUP_REPORT, ctx.facts_as_list())

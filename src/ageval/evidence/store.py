@@ -34,6 +34,9 @@ AGENT_INVOCATIONS_REL = "agent/invocations"
 EVALUATION_INVOCATIONS_REL = "evaluation/invocations"
 AGENT_EVENTS_REL = "agent/events.jsonl"
 EVALUATION_EVENTS_REL = "evaluation/events.jsonl"
+AGENT_BOX_REL = "box"
+EVALUATE_BOX_REL = "eval-box"
+TASK_ARTIFACTS_REL = "task-artifacts"
 
 
 def _utc_now() -> str:

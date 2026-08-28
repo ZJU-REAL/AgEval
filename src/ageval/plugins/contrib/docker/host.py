@@ -112,6 +112,14 @@ class DockerHost:
         # The Agent runs inside the box and has to reach its provider.
         self._network = _text(opts.get("network")) or "bridge"
         self._user = _box_user(opts.get("user"))
+        self._egress = _text(opts.get("egress"))
+        raw_allow = opts.get("egress_allowlist") or ()
+        if isinstance(raw_allow, (list, tuple)):
+            self._egress_allowlist = tuple(str(item) for item in raw_allow if str(item).strip())
+        else:
+            self._egress_allowlist = ()
+        self._proxy: object | None = None
+        self._proxy_url: str | None = None
         self._container: str | None = None
         self._compose_project: str | None = None
         self._image: str | None = None
@@ -150,6 +158,7 @@ class DockerHost:
             self._compose_up()
             network = f"{self._compose_project}_default"
         name = f"ageval-{uuid.uuid4().hex[:12]}"
+        extra_run = self._start_egress_proxy()
         started = docker(
             "run",
             "-d",
@@ -161,8 +170,8 @@ class DockerHost:
             "no-new-privileges",
             "--network",
             network,
-            "-v",
-            f"{self._root}:{BOX_ROOT}",
+            *extra_run,
+            *self._volume_flags(),
             "-w",
             WORKSPACE_PATH,
             "--entrypoint",
@@ -172,6 +181,7 @@ class DockerHost:
             "while :; do sleep 3600; done",
         )
         if started.returncode != 0:
+            self._stop_egress_proxy()
             raise EnvironmentFailure(
                 "environment_start_failed",
                 f"docker run failed: {(started.stderr or started.stdout).strip()[-500:]}",
@@ -186,6 +196,7 @@ class DockerHost:
         for pipe in self._attached:
             pipe.terminate()
         self._attached.clear()
+        self._stop_egress_proxy()
         if self._compose_project is not None:
             self._compose("down", "-v")
         if self._container is not None:
@@ -319,6 +330,32 @@ class DockerHost:
     def root(self) -> Path:
         return self._root
 
+    def _volume_flags(self) -> list[str]:
+        """Bind mounts. Never the docker daemon socket."""
+        return ["-v", f"{self._root}:{BOX_ROOT}"]
+
+    def _start_egress_proxy(self) -> list[str]:
+        if self._egress != "llm":
+            return []
+        from ageval.plugins.contrib.docker.egress import AllowlistProxy
+
+        proxy = AllowlistProxy(self._egress_allowlist)
+        try:
+            proxy.start()
+        except RuntimeError as exc:
+            raise EnvironmentFailure("environment_options_invalid", str(exc)) from exc
+        self._proxy = proxy
+        self._proxy_url = f"http://host.docker.internal:{proxy.port}"
+        return ["--add-host", "host.docker.internal:host-gateway"]
+
+    def _stop_egress_proxy(self) -> None:
+        proxy = self._proxy
+        self._proxy = None
+        self._proxy_url = None
+        stop = getattr(proxy, "stop", None)
+        if callable(stop):
+            stop()
+
     def host_path(self, box_path: str) -> Path:
         """Where an in-box path lands on this machine (the bind mount source)."""
         text = str(box_path or "").strip()
@@ -354,6 +391,13 @@ class DockerHost:
             "AGEVAL_EVALUATION": EVALUATION_PATH,
             **{k: v for k, v in (env or {}).items() if k not in _DAEMON_ENV_KEYS and v},
         }
+        if self._proxy_url:
+            projected["HTTP_PROXY"] = self._proxy_url
+            projected["HTTPS_PROXY"] = self._proxy_url
+            projected["http_proxy"] = self._proxy_url
+            projected["https_proxy"] = self._proxy_url
+            projected["NO_PROXY"] = ""
+            projected["no_proxy"] = ""
         flags: list[str] = []
         for key, value in projected.items():
             flags.extend(["-e", f"{key}={value}"])

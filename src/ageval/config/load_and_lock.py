@@ -136,6 +136,7 @@ class ConfigCore:
             capabilities=capabilities,
         )
         resolved_refs = collect_resolved_references(self._reader, merged, root)
+        _apply_evaluate_job(job_doc, resolved_refs)
         resolution.append(
             ResolutionEntry(
                 source="package-files",
@@ -151,6 +152,7 @@ class ConfigCore:
             {rid: row for rid, row in ((str(r.get("id")), r) for r in profiles_rows)},
             environment=job_doc.environment,
             environment_options=job_doc.environment_options,
+            evaluate_host=job_doc.evaluate_host,
             role_ids=role_ids,
         )
         extension_bindings = self._resolve_extension_bindings(
@@ -390,6 +392,44 @@ class ConfigCore:
                 ) from exc
             out[pid] = extension_graph_to_lock(graph)
         return out or None
+
+
+_ISOLATED_EVALUATE_KINDS = frozenset({"docker"})
+_EGRESS_KINDS = frozenset({"docker"})
+
+
+def _apply_evaluate_job(job: JobDocument, resolved_refs: dict[str, Any]) -> None:
+    """Fail closed on isolated / egress; ignore evaluate recipes when omitted."""
+    isolated = bool(job.evaluate_host.get("isolated"))
+    if not isolated:
+        resolved_refs.pop("environment_evaluate_dockerfile", None)
+        resolved_refs.pop("evaluation_docker_image", None)
+    else:
+        if job.environment not in _ISOLATED_EVALUATE_KINDS:
+            raise ConfigError(
+                ERROR_INVALID_SCHEMA,
+                "evaluate_host.isolated requires environment: docker",
+                location="/evaluate_host",
+            )
+        has_recipe = bool(resolved_refs.get("environment_evaluate_dockerfile")) or bool(
+            resolved_refs.get("evaluation_docker_image")
+        )
+        if not has_recipe:
+            raise ConfigError(
+                ERROR_INVALID_SCHEMA,
+                "evaluate_host.isolated requires environment/evaluate.Dockerfile "
+                "or evaluation.docker_image",
+                location="/evaluate_host",
+            )
+    egress = job.environment_options.get("egress")
+    if egress is None:
+        return
+    if job.environment not in _EGRESS_KINDS:
+        raise ConfigError(
+            ERROR_INVALID_SCHEMA,
+            "environment_options.egress requires environment: docker",
+            location="/environment_options/egress",
+        )
 
 
 def _required_capabilities(

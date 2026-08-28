@@ -93,9 +93,11 @@ lock.json
 result.json
 trajectory.jsonl
 summary.json
-task-artifacts/**
+task-artifacts/**              # file：<id><suffix>；tree：<id>/ 不可变快照（已 exclude）
 evaluation/observation.jsonl   # 仅当 evaluate 相位有 SDK invoke
 ```
+
+`task-artifacts/` 是 harvest 在 writer 停后写下的 **快照**。evaluate 从这里拷进打分 Host，不从 Agent 活 workspace 再读。tree 目录缺席、exclude 是否去掉 `target/`，都不是 PASS。
 
 `summary.json` 是相位墙钟，不是 vendor raw。Verifier 看 `result.json`；有 `observation.jsonl` 时再叠层 C 步。默认不留 `evaluation/evaluator_raw.json`。`slim_sealed_attempt` 与 Hub Attempt archive 同一套 keep/drop：留下 `observation.jsonl`，丢掉 `evaluator_raw.json`。
 

@@ -21,15 +21,20 @@ def job_document(
     profiles: dict[str, dict[str, Any]],
     *,
     environment: str = "local",
+    environment_options: dict[str, Any] | None = None,
+    evaluate_host: dict[str, Any] | None = None,
 ) -> JobDocument:
     """A job document from an inline profile mapping."""
-    return parse_job_mapping(
-        {
-            "format": "ageval.profiles/1",
-            "environment": environment,
-            "agent_profiles": profiles,
-        }
-    )
+    raw: dict[str, Any] = {
+        "format": "ageval.profiles/1",
+        "environment": environment,
+        "agent_profiles": profiles,
+    }
+    if environment_options:
+        raw["environment_options"] = environment_options
+    if evaluate_host:
+        raw["evaluate_host"] = evaluate_host
+    return parse_job_mapping(raw)
 
 
 def lock_task(

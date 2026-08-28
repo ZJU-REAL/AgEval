@@ -57,9 +57,9 @@ dataset root (ageval.yaml / ageval.dataset/1)
   → run_attempt
        environment  host.start → upload data/ → after_environment_ready → environment_setup
        run          subprocess run.py ← Agent Service socket ← attach_stdio
-       evaluate     solver writers stopped → upload evaluation/ → evaluation_runtime → bind
+       evaluate     solver writers stopped → [opt-in 2nd host] → gold/snapshot on scoring host → parent evaluator.py (Agent Service) → bind
        record       trajectory_collect → trajectory_seal → summary_enrich
-       finally      cleanup → host.stop
+       finally      cleanup → evaluate_host.stop + host.stop
   → .ageval/runs/<attempt_id>/
 ```
 
@@ -201,7 +201,7 @@ src/ageval/
   plugins/contrib/{acp,docker,local,e2b,daytona,ssh,openai_http}
   plugins/defaults/                 # or move to contrib/defaults — pick one, not both
   runtime/{identity,parent_agent,task_launch,task_worker}
-  evaluation/{bind,package_evaluator,box_runner}
+  evaluation/{bind,package_evaluator} + runtime/eval_worker.py
   evidence/{locators,store,trajectory}
 ```
 
@@ -313,9 +313,13 @@ run phase
 
 evaluate phase
   before_evaluate
-  upload evaluation/           # gold enters the box only now (engine code, not a slot)
-  evaluation_runtime.evaluate  # exclusive-slot winner; default in-box evaluator.py
+  [evaluate_host.isolated] start second EnvironmentProvider (docker; distinct work root)
+  upload artifacts / tree snapshot onto the scoring host
+  upload evaluation/           # gold enters the scoring host only now (engine code, not a slot)
+  [isolated] after_environment_ready for evaluate-phase ACP profiles on scoring host
+  evaluation_runtime.evaluate  # exclusive-slot winner; default parent evaluator.py worker
                                # optional Agent.session(<judge>).invoke via parent socket
+                               # isolated: ACP attach_stdio hits the scoring host
   bind_evaluation              # PASS enters Result only here
   after_evaluate               # must not change status
 
@@ -327,6 +331,7 @@ record phase
 
 cleanup (finally)
   cleanup_report
+  evaluate_host.stop           # when isolated and distinct
   host.stop
 ```
 
