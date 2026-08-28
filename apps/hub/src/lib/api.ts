@@ -277,6 +277,7 @@ export type AgentPerformance = {
   suite_run_id: string;
   role: string;
   model: string;
+  canonical_model?: string;
   pass_rate?: number | null;
   mean_score?: number | null;
   metrics?: Record<string, unknown>;
@@ -1187,13 +1188,19 @@ export type ResourceRequest = {
   applicant: string;
   owner_org_id: string;
   agent_ref?: string;
+  canonical_model?: string;
   created_at?: number;
   decided_at?: number;
   decided_by?: string;
 };
 
 export async function applyRequest(
-  body: { kind: string; suite_run_id: string; agent?: string },
+  body: {
+    kind: string;
+    suite_run_id: string;
+    agent?: string;
+    canonical_model?: string;
+  },
   token: string | null,
 ): Promise<ResourceRequest & { direct_attach?: boolean; attached?: boolean }> {
   return requestJson("/v1/requests", { token, method: "POST", body });
@@ -1224,11 +1231,16 @@ export async function decideRequests(
   ids: string[],
   action: "approve" | "reject",
   token: string | null,
+  opts?: { canonical_model?: string },
 ): Promise<{ items?: ResourceRequest[]; action?: string }> {
   return requestJson("/v1/requests/decide", {
     token,
     method: "POST",
-    body: { ids, action },
+    body: {
+      ids,
+      action,
+      ...(opts?.canonical_model ? { canonical_model: opts.canonical_model } : {}),
+    },
   });
 }
 

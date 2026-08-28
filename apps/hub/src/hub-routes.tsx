@@ -11,6 +11,8 @@ import { LoginCallbackPage } from "@/pages/LoginCallbackPage";
 import { LoginPage } from "@/pages/LoginPage";
 import { OrganizationDetailPage } from "@/pages/OrganizationDetailPage";
 import { OrganizationsPage } from "@/pages/OrganizationsPage";
+import { ModelDetailPage } from "@/pages/ModelDetailPage";
+import { ModelsPage } from "@/pages/ModelsPage";
 import { PluginDetailPage } from "@/pages/PluginDetailPage";
 import { PluginsPage } from "@/pages/PluginsPage";
 import { TaskDetailPage } from "@/pages/TaskDetailPage";
@@ -39,6 +41,8 @@ export function HubRoutes({
       <Route path="/agents" element={<AgentsPage />} />
       <Route path="/agents/:agentId" element={<AgentDetailPage />} />
       {/* Model focus is ?model= on the package page, not a nested route. */}
+      <Route path="/models" element={<ModelsPage />} />
+      <Route path="/models/:modelId" element={<ModelDetailPage />} />
       <Route path="/organizations" element={<OrganizationsPage />} />
       <Route path="/organizations/:orgId" element={<OrganizationDetailPage />} />
       <Route path="/users/:login" element={<UserPage />} />

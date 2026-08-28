@@ -36,12 +36,15 @@ import {
   type SuiteRow,
   RegistryHttpError,
 } from "@/lib/api";
+import { CanonicalSelect } from "@/components/canonical-select";
 import {
   ATTACH_ROLE_ALL,
   composeAttachSpec,
   defaultAttachChoice,
+  overlayModelsForAttach,
   overlayRoles,
 } from "@/lib/agent-attach";
+import { joinOverlay, loadModelPin } from "@/lib/model-pin";
 import { overlayHarnessIds } from "@/lib/utils";
 
 /** Compare Hub Performance specs: optional `role=`, ignore `+digest`. */
@@ -102,6 +105,7 @@ export function ResultOwnerOps({
   const [withAttempts, setWithAttempts] = useState(false);
   const [agentRef, setAgentRef] = useState("");
   const [attachRole, setAttachRole] = useState(ATTACH_ROLE_ALL);
+  const [attachCanonical, setAttachCanonical] = useState("");
   const [harnessAgents, setHarnessAgents] = useState<Record<string, string>>(
     {},
   );
@@ -117,6 +121,7 @@ export function ResultOwnerOps({
     setRequests([]);
     setAgentRef("");
     setAttachRole(ATTACH_ROLE_ALL);
+    setAttachCanonical("");
     setHarnessAgents({});
     const roles = kind === "suite" ? overlayRoles(jobOverlay) : [];
     const ids = kind === "suite" ? overlayHarnessIds(jobOverlay) : [];
@@ -197,6 +202,21 @@ export function ResultOwnerOps({
     () => (kind === "suite" ? overlayRoles(jobOverlay) : []),
     [kind, jobOverlay],
   );
+  const attachModelHits = useMemo(() => {
+    const pin = loadModelPin();
+    const hits = new Set<string>();
+    for (const overlay of overlayModelsForAttach(jobOverlay, attachRole)) {
+      const joined = joinOverlay(overlay, pin).canonical;
+      if (joined) hits.add(joined);
+    }
+    return [...hits];
+  }, [jobOverlay, attachRole]);
+
+  useEffect(() => {
+    if (attachModelHits.length === 1 && attachModelHits[0]) {
+      setAttachCanonical(attachModelHits[0]);
+    }
+  }, [attachModelHits]);
 
   if ((!canManage && !canDetachPerformance) || !token) return null;
   const authToken = token;
@@ -321,7 +341,12 @@ export function ResultOwnerOps({
     setBusy(true);
     try {
       const row = await applyRequest(
-        { kind: "agent_performance", suite_run_id: resultId, agent: spec },
+        {
+          kind: "agent_performance",
+          suite_run_id: resultId,
+          agent: spec,
+          ...(attachCanonical ? { canonical_model: attachCanonical } : {}),
+        },
         authToken,
       );
       if (row.direct_attach || row.attached) {
@@ -424,8 +449,35 @@ export function ResultOwnerOps({
                   className="h-3.5 w-3.5 shrink-0 text-mute"
                   aria-hidden
                 />
+                <CanonicalSelect
+                  value={attachCanonical}
+                  onChange={setAttachCanonical}
+                  hits={attachModelHits}
+                  allowEmpty={attachModelHits.length !== 1}
+                  includePin
+                  disabled={busy}
+                />
+                <ArrowRight
+                  className="h-3.5 w-3.5 shrink-0 text-mute"
+                  aria-hidden
+                />
               </>
-            ) : null}
+            ) : (
+              <>
+                <CanonicalSelect
+                  value={attachCanonical}
+                  onChange={setAttachCanonical}
+                  hits={attachModelHits}
+                  allowEmpty={attachModelHits.length !== 1}
+                  includePin
+                  disabled={busy}
+                />
+                <ArrowRight
+                  className="h-3.5 w-3.5 shrink-0 text-mute"
+                  aria-hidden
+                />
+              </>
+            )}
             <Input
               value={agentRef}
               onChange={(e) => setAgentRef(e.target.value)}

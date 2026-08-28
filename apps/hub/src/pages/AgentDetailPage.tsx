@@ -20,6 +20,7 @@ import { PackageOwnerOps } from "@/components/package-owner-ops";
 import { SuiteInspector } from "@/components/suite-inspector";
 import { InlineMarkdown } from "@/components/markdown";
 import { Chip } from "@/components/ui/chip";
+import { ModelDirectory } from "@/components/model-directory";
 import { Button } from "@/components/ui/button";
 import { Modal } from "@/components/ui/confirm-dialog";
 import { UnderlineTabs } from "@/components/underline-tabs";
@@ -81,6 +82,8 @@ import {
   formatAgentRunCommand,
   registeredModels,
 } from "@/lib/agent-models";
+import { performanceCanonical } from "@/lib/model-appearances";
+import { joinOverlay, loadModelPin } from "@/lib/model-pin";
 import { getGithubUser, getToken } from "@/lib/auth";
 import { buildNestedTree, type TreeNode } from "@/lib/file-tree";
 import { ScoreRing } from "@/components/score-ring";
@@ -661,26 +664,35 @@ export function AgentDetailPage() {
                 No models match “{modelQuery.trim()}”.
               </p>
             ) : (
-              <ul className="m-0 flex flex-wrap gap-1.5 p-0 list-none">
-                {shownModels.map((model) => {
-                  const selected = model === selectedModel;
-                  return (
-                    <li key={model}>
-                      <Chip asChild selected={selected}>
-                        <Link
-                          to={agentHref({
-                            model: selected ? null : model,
-                          })}
-                          replace
-                          aria-current={selected ? "page" : undefined}
-                        >
-                          {model}
-                        </Link>
-                      </Chip>
-                    </li>
+              <ModelDirectory
+                linkCanonical
+                rows={shownModels.map((model) => {
+                  const related = performances.filter(
+                    (row) => (row.model || "").trim() === model,
                   );
+                  const rates = related
+                    .map((row) => row.pass_rate)
+                    .filter((n): n is number => n != null);
+                  const pin = loadModelPin();
+                  const stored = related
+                    .map((row) => performanceCanonical(row))
+                    .find(Boolean);
+                  return {
+                    overlay: model,
+                    canonical: stored || joinOverlay(model, pin).canonical,
+                    selected: model === selectedModel,
+                    isDefault: model === defaultModel,
+                    suiteCount: new Set(related.map((row) => row.suite_run_id)).size,
+                    passRate:
+                      rates.length > 0
+                        ? rates.reduce((a, b) => a + b, 0) / rates.length
+                        : null,
+                    href: agentHref({
+                      model: model === selectedModel ? null : model,
+                    }),
+                  };
                 })}
-              </ul>
+              />
             )}
           </section>
 

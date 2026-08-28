@@ -60,3 +60,23 @@ export function composeAttachSpec(role: string, spec: string): string {
   if (!role || role === ATTACH_ROLE_ALL) return body;
   return `${role}=${body}`;
 }
+
+/** Overlay invoke ids for the roles Share will stamp. */
+export function overlayModelsForAttach(
+  overlay: JobOverlay | null | undefined,
+  role: string,
+): string[] {
+  const profiles = overlay?.agent_profiles;
+  if (!profiles || typeof profiles !== "object") return [];
+  const want = role.trim();
+  const out: string[] = [];
+  const seen = new Set<string>();
+  for (const [id, raw] of Object.entries(profiles)) {
+    if (want && want !== ATTACH_ROLE_ALL && id.trim() !== want) continue;
+    const model = typeof raw?.model === "string" ? raw.model.trim() : "";
+    if (!model || seen.has(model)) continue;
+    seen.add(model);
+    out.push(model);
+  }
+  return out;
+}

@@ -1,4 +1,5 @@
 import type { AgentPerformance } from "./api";
+import { performanceCanonical } from "./model-appearances";
 
 export type PerformanceGroup = {
   key: string;
@@ -28,7 +29,8 @@ export function groupAgentPerformances(
     }
     const map = new Map<string, AgentPerformance[]>();
     for (const row of rows) {
-      push(map, (row.model || "").trim(), row);
+      const overlay = (row.model || "").trim();
+      push(map, performanceCanonical(row) || overlay, row);
     }
     const keys = [...map.keys()].sort((a, b) => {
       if (!a && !b) return 0;

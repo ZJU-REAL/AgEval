@@ -25,6 +25,7 @@
   --color-nav-datasets: var(--viewer-nav-datasets);
   --color-nav-plugins: var(--viewer-nav-plugins);
   --color-nav-agents: var(--viewer-nav-agents);
+  --color-nav-models: var(--viewer-nav-models);
   --color-nav-inbox: var(--viewer-nav-inbox);
   --color-nav-orgs: var(--viewer-nav-orgs);
   --color-row-hover: var(--viewer-row-hover);
@@ -71,6 +72,7 @@
   --viewer-nav-datasets: #187a8c;
   --viewer-nav-plugins: #9a5c16;
   --viewer-nav-agents: #5a4aa8;
+  --viewer-nav-models: #5a6b38;
   --viewer-nav-inbox: #b34a3c;
   --viewer-nav-orgs: #3e5f7a;
   --viewer-row-hover: #eeeff4;
@@ -107,6 +109,7 @@
   --viewer-nav-datasets: #5ec4d4;
   --viewer-nav-plugins: #d4924a;
   --viewer-nav-agents: #a898e8;
+  --viewer-nav-models: #b4c47a;
   --viewer-nav-inbox: #e08a7a;
   --viewer-nav-orgs: #8aa8c0;
   --viewer-row-hover: #161a24;
@@ -143,6 +146,7 @@
   --viewer-nav-datasets: #5ec4d4;
   --viewer-nav-plugins: #d4924a;
   --viewer-nav-agents: #a898e8;
+  --viewer-nav-models: #b4c47a;
   --viewer-nav-inbox: #e08a7a;
   --viewer-nav-orgs: #8aa8c0;
     --viewer-row-hover: #161a24;
@@ -180,6 +184,7 @@
   --viewer-nav-datasets: #187a8c;
   --viewer-nav-plugins: #9a5c16;
   --viewer-nav-agents: #5a4aa8;
+  --viewer-nav-models: #5a6b38;
   --viewer-nav-inbox: #b34a3c;
   --viewer-nav-orgs: #3e5f7a;
     --viewer-row-hover: #eeeff4;

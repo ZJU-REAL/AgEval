@@ -77,6 +77,7 @@ VAR_MAP: list[tuple[str, str, str, bool]] = [
             ("nav-datasets", "nav-datasets"),
             ("nav-plugins", "nav-plugins"),
             ("nav-agents", "nav-agents"),
+            ("nav-models", "nav-models"),
             ("nav-inbox", "nav-inbox"),
             ("nav-orgs", "nav-orgs"),
             ("code-bg", "code-bg"),

@@ -34,6 +34,7 @@ import { getToken } from "@/lib/auth";
 import { rememberReturnPath } from "@/lib/return-path";
 import { sortRows, useTableSort } from "@/components/sortable-head";
 import { formatDate } from "@/lib/utils";
+import { CanonicalSelect } from "@/components/canonical-select";
 import { PeekHost, type PeekTarget } from "@/peek-host";
 
 function matchesQuery(row: ResourceRequest, query: string): boolean {
@@ -114,6 +115,7 @@ export function InboxPage() {
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
   const [confirmHide, setConfirmHide] = useState(false);
+  const [approveCanonical, setApproveCanonical] = useState("");
   const pendingSort = useTableSort();
   const historySort = useTableSort("decided", "desc");
 
@@ -182,6 +184,21 @@ export function InboxPage() {
     const set = new Set(rows.map((row) => row.dataset_id).filter(Boolean));
     return [...set].sort();
   }, [rows]);
+  const selectedProposed = useMemo(() => {
+    const hits = new Set<string>();
+    for (const row of rows) {
+      if (!selected.has(row.request_id) || row.kind !== "agent_performance") continue;
+      const canonical = (row.canonical_model || "").trim();
+      if (canonical) hits.add(canonical);
+    }
+    return [...hits];
+  }, [rows, selected]);
+
+  useEffect(() => {
+    if (selectedProposed.length === 1 && selectedProposed[0]) {
+      setApproveCanonical(selectedProposed[0]);
+    }
+  }, [selectedProposed]);
 
   if (!token) {
     rememberReturnPath("/inbox");
@@ -218,7 +235,14 @@ export function InboxPage() {
     if (!ids.length) return;
     setBusy(true);
     try {
-      const payload = await decideRequests(ids, action, token);
+      const payload = await decideRequests(
+        ids,
+        action,
+        token,
+        action === "approve" && approveCanonical
+          ? { canonical_model: approveCanonical }
+          : undefined,
+      );
       const returned = payload.items || [];
       setRows((prev) => {
         const byId = new Map(returned.map((item) => [item.request_id, item]));
@@ -295,6 +319,15 @@ export function InboxPage() {
           </SelectContent>
         </Select>
         <div className="ml-auto flex items-center gap-2">
+          <CanonicalSelect
+            value={approveCanonical}
+            onChange={setApproveCanonical}
+            hits={selectedProposed}
+            allowEmpty
+            includePin
+            disabled={busy || pendingIds.every((id) => !selected.has(id))}
+            label="Canonical model"
+          />
           <Button
             type="button"
             size="sm"
@@ -352,6 +385,7 @@ export function InboxPage() {
                   {pendingSort.head("applicant", "Applicant")}
                 </TableHead>
                 <TableHead>{pendingSort.head("agent", "Agent")}</TableHead>
+                <TableHead>Model</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -377,6 +411,9 @@ export function InboxPage() {
                   </TableCell>
                   <TableCell>
                     {row.agent_ref || "—"}
+                  </TableCell>
+                  <TableCell className="text-body">
+                    {row.canonical_model || "—"}
                   </TableCell>
                 </TableRow>
               ))}

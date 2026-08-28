@@ -13,6 +13,7 @@ export type NavGlyph =
   | "datasets"
   | "plugins"
   | "agents"
+  | "models"
   | "inbox"
   | "orgs";
 
@@ -23,6 +24,7 @@ const GLYPH_TEXT: Record<NavGlyph, string> = {
   datasets: "text-nav-datasets",
   plugins: "text-nav-plugins",
   agents: "text-nav-agents",
+  models: "text-nav-models",
   inbox: "text-nav-inbox",
   orgs: "text-nav-orgs",
 };

@@ -11,6 +11,7 @@ import {
   ArrowUpRight,
   BookOpen,
   Bot,
+  Boxes,
   Building2,
   Database,
   House,
@@ -293,6 +294,14 @@ function SidebarNav({
             icon={Bot}
             glyph="agents"
             label="Agents"
+            onNavigate={onNavigate}
+            collapsed={collapsed}
+          />
+          <SidebarLink
+            to="/models"
+            icon={Boxes}
+            glyph="models"
+            label="Models"
             onNavigate={onNavigate}
             collapsed={collapsed}
           />
