@@ -286,6 +286,64 @@ async def test_named_unknown_environment_does_not_start(tmp_path: Path) -> None:
 
 
 @pytest.mark.asyncio
+async def test_bind_named_environment_rebinds_environment_service(tmp_path: Path) -> None:
+    agent = RecordingHost(root=tmp_path / "agent")
+    audit = RecordingHost(root=tmp_path / "audit")
+    unused = RecordingHost(root=tmp_path / "unused")
+    ctx = _ctx(
+        tmp_path,
+        agent=agent,
+        evaluate_host=None,
+        evaluate_hosts={"audit": audit, "unused": unused},
+        lock=_named_lock(),
+    )
+    ctx.services.register(ENVIRONMENT, agent, plugin_id="docker")
+    ctx.phase = "evaluate"
+    host = await evaluate.bind_named_environment(ctx, "audit", profile_id="judge")
+    assert host is audit
+    assert ctx.services.require(ENVIRONMENT) is audit
+    assert unused.started is False
+
+
+@pytest.mark.asyncio
+async def test_bind_named_environment_prepares_only_the_opened_profile(tmp_path: Path) -> None:
+    agent = RecordingHost(root=tmp_path / "agent")
+    audit = RecordingHost(root=tmp_path / "audit")
+    lock = _named_lock()
+    lock.agent_profiles = (
+        {"id": "judge", "executor": "acp"},
+        {"id": "other", "executor": "acp"},
+    )
+    ctx = _ctx(
+        tmp_path,
+        agent=agent,
+        evaluate_host=None,
+        evaluate_hosts={"audit": audit},
+        lock=lock,
+    )
+    ctx.phase = "evaluate"
+    prepared: list[str] = []
+
+    class _Graph:
+        def chain(self, slot: str) -> list[object]:
+            del slot
+            return []
+
+    class _Binder:
+        def graph(self, profile_id: str) -> _Graph:
+            prepared.append(profile_id)
+            return _Graph()
+
+    ctx.agent_service = SimpleNamespace(binder=_Binder(), _run_profile_ids=set())
+    await evaluate.bind_named_environment(ctx, "audit", profile_id="judge")
+    assert prepared == ["judge"]
+    facts = [f for f in ctx.phase_facts if f.name == "evaluate_runtime_prepared"]
+    assert [f.detail.get("profile_id") for f in facts] == ["judge"]
+    await evaluate.bind_named_environment(ctx, "audit", profile_id="judge")
+    assert prepared == ["judge"]
+
+
+@pytest.mark.asyncio
 async def test_cleanup_stops_only_started_named_hosts(tmp_path: Path) -> None:
     agent = RecordingHost(root=tmp_path / "agent")
     audit = RecordingHost(root=tmp_path / "audit")

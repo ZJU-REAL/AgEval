@@ -157,6 +157,12 @@ def _eval_gold_dir(ctx: Any) -> Path:
     src = getattr(ctx, "evaluation_src", None)
     if src is not None and Path(src).is_dir():
         return Path(src)
+    from ageval.attempt.phases.evaluate import named_evaluate_environments
+
+    if named_evaluate_environments(ctx):
+        empty = ctx.evidence.path("evaluation")
+        empty.mkdir(parents=True, exist_ok=True)
+        return empty
     host = getattr(ctx, "scoring_host", None) or ctx.host
     host_path = getattr(host, "host_path", None)
     if callable(host_path):
@@ -238,7 +244,6 @@ async def _handle_eval_exec(ctx: Any, frame: dict[str, Any]) -> dict[str, Any]:
         host = await ensure_named_host(ctx, name)
         result = await host.exec(argv, timeout_sec=timeout_sec)
     except Exception as exc:  # noqa: BLE001 — worker gets one error, no retry
-        error = str(getattr(exc, "args", [exc])[0] if getattr(exc, "args", None) else exc)
         message = str(exc)
         if message == UNKNOWN_EVALUATE_ENVIRONMENT or UNKNOWN_EVALUATE_ENVIRONMENT in message:
             error = UNKNOWN_EVALUATE_ENVIRONMENT

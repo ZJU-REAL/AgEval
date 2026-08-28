@@ -36,7 +36,7 @@ PASS 只经 `bind_evaluation` 进入 Result。`RunTerminal.completed`、轨迹�
 
 同一份 job `profiles.yaml` 多一行 `agent_profiles.<id>`（例：`judge`），task 角色表列入同一 id。gold **已经** upload 之后，`evaluator.py` 可以 `Agent.session("judge").invoke(...)`（可多次）。提示词归题包。`invoke` kwargs 仍不得改 `profile_id` / executor。
 
-这些 invoke 走 **同一** Parent Agent Service 与该 profile 自己的 executor 赢家（ACP、openai-http、anthropic-http、…）。同一 Attempt 上 solver 与 judge **可以** 选不同机制（solver `acp`、judge `openai-http`）。`environment` 仍是 Attempt 级一份赢家；isolated 时 evaluate 相位把该服务绑到打分 Host，所以 ACP `attach_stdio` 进打分环境，HTTP judge 仍在 parent 出站。有名表时 `session(..., environment=<name>)` 把 ACP 绑到那一只；HTTP 忽略该参数。不要把 Agent Service unix socket bind-mount 进容器。
+这些 invoke 走 **同一** Parent Agent Service 与该 profile 自己的 executor 赢家（ACP、openai-http、anthropic-http、…）。同一 Attempt 上 solver 与 judge **可以** 选不同机制（solver `acp`、judge `openai-http`）。`environment` 仍是 Attempt 级一份赢家；isolated 时 evaluate 相位把该服务绑到打分 Host，所以 ACP `attach_stdio` 进打分环境，HTTP judge 仍在 parent 出站。有名表时 ACP 必须 `session(..., environment=<name>)` 才绑到那一只（run 相位点名或省略名字失败）；`openai-http` / `anthropic-http` 忽略该参数。不要把 Agent Service unix socket bind-mount 进容器。
 
 约束：
 
@@ -121,7 +121,7 @@ cleanup                           → 停已 start 的每一只 + Agent Host
 - 名表非空 ⇒ lock 要求 `evaluate_host.isolated: true` + `environment: docker`。缺配方文件一次失败。
 - evaluate 相位 **懒启动**：未 `exec` / 未 `session(environment=)` 的名字不 build、不 start。
 - `scoring.exec` 走 eval worker 管道 `{"op":"exec","environment":…,"argv":[…]}`，parent 答 `exit_code` / stdout / stderr。不要把 docker socket 挂进 worker。
-- 未知名：`unknown_evaluate_environment`，不 start。
+- 未知名、run 相位 `session(environment=)`、或有名表时 ACP 省略名字：`unknown_evaluate_environment`，不 start。
 - evidence 可记 `evaluate_host_started`（含 `name`）与 `evaluate_exec`（name + exit_code）。都不是 PASS。
 - 阶梯与短路在 `evaluator.py` / `shared/lib`。
 

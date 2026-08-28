@@ -41,6 +41,57 @@ def test_eval_gold_dir_reads_parent_evaluation_src(tmp_path: Path) -> None:
     assert _eval_gold_dir(ctx) == gold
 
 
+def test_eval_gold_dir_named_map_does_not_mkdir_on_agent(tmp_path: Path) -> None:
+    agent_eval = tmp_path / "agent" / "evaluation"
+    host = SimpleNamespace(
+        host_path=lambda dest: agent_eval if str(dest).endswith("evaluation") else tmp_path
+    )
+    evidence = SimpleNamespace(path=lambda rel: tmp_path / "run" / rel)
+    ctx = SimpleNamespace(
+        evaluation_src=None,
+        scoring_host=host,
+        host=host,
+        evidence=evidence,
+        lock=SimpleNamespace(
+            resolved_references={
+                "evaluation_environments": {
+                    "audit": {"dockerfile": "environment/evaluate/audit/Dockerfile"}
+                }
+            }
+        ),
+    )
+    gold = _eval_gold_dir(ctx)
+    assert gold == tmp_path / "run" / "evaluation"
+    assert gold.is_dir()
+    assert not agent_eval.exists()
+
+
+def test_eval_workspace_named_map_does_not_use_agent_bind_mount(tmp_path: Path) -> None:
+    agent_ws = tmp_path / "agent" / "workspace"
+    agent_ws.mkdir(parents=True)
+    staged = tmp_path / "run" / "task-artifacts"
+    snap = staged / "repo"
+    snap.mkdir(parents=True)
+    (snap / "src.py").write_text("from snapshot\n", encoding="utf-8")
+    host = SimpleNamespace(host_path=lambda dest: agent_ws)
+    evidence = SimpleNamespace(path=lambda rel: tmp_path / "run" / rel)
+    ctx = SimpleNamespace(
+        scoring_host=host,
+        host=host,
+        evidence=evidence,
+        lock=SimpleNamespace(
+            resolved_references={
+                "evaluation_environments": {
+                    "audit": {"dockerfile": "environment/evaluate/audit/Dockerfile"}
+                },
+                "artifacts": [{"id": "repo", "path": "workspace", "kind": "tree"}],
+                "evaluation_inputs": [{"artifact": "repo", "target": "workspace"}],
+            }
+        ),
+    )
+    assert _eval_workspace(ctx) == snap
+
+
 @pytest.mark.asyncio
 async def test_evaluate_in_box_runs_parent_worker(tmp_path: Path) -> None:
     task = tmp_path / "task"
