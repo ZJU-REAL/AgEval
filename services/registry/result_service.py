@@ -683,10 +683,11 @@ class ResultService:
     ) -> dict[str, Any]:
         """Write published ``agent_ref`` onto the stored suite overlay.
 
-        Compare/write is this method only. Callers (CLI, Hub, appearance
-        approve) must not reimplement appearance alignment. Lock bytes and
+        Compare/write is this method only. Callers (CLI, Hub, Performance
+        approve) must not reimplement Performance alignment. Lock bytes and
         ``config_fingerprint`` stay as uploaded. Agent-org owners also grant
-        appearance consent; other uploaders only stamp provenance.
+        Performance consent; other uploaders only stamp provenance. Builtin
+        short ids require a platform maintainer (or an approved request).
         """
         from services.registry.package_service import _agent_preview_from_archive
         from services.registry.store import package_kind_for_media_type
@@ -722,7 +723,17 @@ class ResultService:
             raise RegistryAppError(exc.error_code, exc.message, http_status=400) from exc
         release_org_id: str | None = None
         if builtin is not None:
+            from services.registry.maintainers import auth_is_maintainer
+
+            if not skip_owner_check and not auth_is_maintainer(auth):
+                raise RegistryAppError(
+                    "forbidden",
+                    "builtin agent attach requires a maintainer or an approved request",
+                    http_status=403,
+                )
             binding, package_id, agent_ref = builtin
+            if grant_consent is None:
+                grant_consent = True
         else:
             release = self.meta.get_by_version(package_id, version)
             if release is None or not self.access.visible_package(release, auth):
@@ -776,9 +787,7 @@ class ResultService:
             release_org_id
             and self.access.org_owner_status(org_id=release_org_id, auth=auth) == "ok"
         )
-        if builtin is None and (
-            grant_consent is True or (grant_consent is None and agent_org_owner)
-        ):
+        if grant_consent is True or (grant_consent is None and agent_org_owner):
             self.meta.grant_agent_consent(
                 suite_run_id=suite_run_id,
                 package_id=package_id,
@@ -799,6 +808,65 @@ class ResultService:
         payload["attached_roles"] = list(result.roles)
         payload["agent_ref"] = result.agent_ref
         return payload
+
+    def detach_agent_role(
+        self,
+        *,
+        suite_run_id: str,
+        package_id: str,
+        role: str,
+    ) -> dict[str, Any]:
+        """Strip ``agent_ref`` on one overlay role. Fingerprint stays as uploaded."""
+        from ageval.agents.reserved import canonical_harness_id
+        from ageval.application.suite.attach_agent_ref import (
+            AttachAgentRefError,
+            hub_agent_ref_parts,
+            strip_published_agent_ref,
+        )
+
+        row = self.meta.get_suite(suite_run_id)
+        if row is None:
+            raise RegistryAppError("not_found", "suite not found", http_status=404)
+        try:
+            cfg = json.loads(row.config_json or "{}")
+        except (json.JSONDecodeError, TypeError):
+            cfg = {}
+        if not isinstance(cfg, dict):
+            cfg = {}
+        overlay = cfg.get("job_overlay")
+        fingerprint_before = cfg.get("config_fingerprint")
+        try:
+            result = strip_published_agent_ref(
+                overlay if isinstance(overlay, Mapping) else None,
+                package_id=package_id,
+                role=role,
+            )
+        except AttachAgentRefError as exc:
+            raise RegistryAppError(exc.error_code, exc.message, http_status=400) from exc
+        if result.changed:
+            cfg["job_overlay"] = result.overlay
+            if fingerprint_before is not None:
+                cfg["config_fingerprint"] = fingerprint_before
+            self.meta.update_suite_config_json(suite_run_id, json.dumps(cfg, sort_keys=True))
+        remaining = False
+        profiles = (
+            result.overlay.get("agent_profiles") if isinstance(result.overlay, Mapping) else None
+        )
+        if isinstance(profiles, Mapping):
+            for raw in profiles.values():
+                if not isinstance(raw, Mapping):
+                    continue
+                parts = hub_agent_ref_parts(raw.get("agent_ref"))
+                if parts is None:
+                    continue
+                named = parts[0]
+                hit = canonical_harness_id(named)
+                if named == package_id or (hit is not None and hit == package_id):
+                    remaining = True
+                    break
+        if not remaining:
+            self.meta.revoke_agent_consent(suite_run_id=suite_run_id, package_id=package_id)
+        return {"ok": True, "changed": result.changed, "remaining": remaining}
 
     def serve_suite_content(
         self, *, suite_run_id: str, auth: TokenInfo

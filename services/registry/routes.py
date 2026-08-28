@@ -54,7 +54,12 @@ def _package_id_list_ok(path: str) -> bool:
         return False
     if rest.endswith("/files") or "/files/" in rest:
         return False
-    return not rest.endswith("/favorite") and not rest.endswith("/release")
+    return (
+        not rest.endswith("/favorite")
+        and not rest.endswith("/release")
+        and not rest.endswith("/performance-collect")
+        and not rest.endswith("/performance-detach")
+    )
 
 
 def _package_root_files_ok(path: str) -> bool:
@@ -327,6 +332,14 @@ ROUTES: tuple[Route, ...] = (
     Route("POST", "upload_suite", access="results_upload", exact="/v1/results/suites"),
     Route("POST", "apply_request", access="bearer", exact="/v1/requests"),
     Route("POST", "decide_requests", access="bearer", exact="/v1/requests/decide"),
+    Route("POST", "hide_requests", access="bearer", exact="/v1/requests/hide"),
+    Route(
+        "POST",
+        "detach_performance",
+        access="bearer",
+        pattern=r"/v1/packages/(.+)/performance-detach",
+        groups=("dataset_id",),
+    ),
     Route(
         "POST",
         "append_suite_slot",
@@ -418,6 +431,13 @@ ROUTES: tuple[Route, ...] = (
         groups=("dataset_id",),
     ),
     # PATCH
+    Route(
+        "PATCH",
+        "patch_performance_collect",
+        access="bearer",
+        pattern=r"/v1/packages/(.+)/performance-collect",
+        groups=("dataset_id",),
+    ),
     Route(
         "PATCH",
         "patch_org_member",

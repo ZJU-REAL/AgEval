@@ -76,6 +76,22 @@ def test_profile_without_membership_is_not_official(tmp_path: Path) -> None:
     assert payload["official"] is False
     assert payload["official_orgs"] == []
     assert payload["display_name"] == "Solo"
+    assert payload["maintainer"] is False
+
+
+def test_maintainer_flag_is_independent_of_official(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setenv("AGEVAL_REGISTRY_MAINTAINERS", "solo")
+    svc = _users(tmp_path)
+    svc.meta.upsert_user_profile(user_id="solo", display_name="Solo")
+    payload = svc.get_public("solo")
+    assert payload["official"] is False
+    assert payload["maintainer"] is True
+    svc.meta.create_org(name="official", owner_user_id="alice", display_name="Official")
+    official = svc.get_public("alice")
+    assert official["official"] is True
+    assert official["maintainer"] is False
 
 
 def test_unknown_login_is_not_found(tmp_path: Path) -> None:

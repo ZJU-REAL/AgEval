@@ -28,9 +28,9 @@ format `ageval.agent/1`。不要 `ageval.harness/1`，不要第二套 `package_k
 
 `/agents` Explore：机制卡在前，再是 upload。选中后二级 = 已登记 model：
 
-- 机制卡：plaza overlay 上 `resolve_agent_id` 等于该短 id 的 `model`。**不**经 Agent org 同意。
-- 定制卡：同意出场的 `agent_ref` 行（owner attach 或批准 `agent_appearance`）。
+- 机制卡：plaza overlay 上 `resolve_agent_id` 等于该短 id 的 `model`，受该卡 Performance 采集设置约束（默认 `official`）。Maintainer 可改采集；非 Maintainer 把 suite 挂到内置卡必须走 `agent_performance` 申请。
+- 定制卡：同意出场的 `agent_ref` 行（owner attach 或批准 `agent_performance`）。
 
-落地 `/agents/{id}?model=` 是同一详情页 query，不是新路由、不是 combo 包。Appearances：机制卡按 overlay `model` 分组，不按 agent package version；没有 `agent_ref` 不渲染 version（不要 `unknown`）。定制卡按所 attach 的 `org/name@version` 的 version 分组。
+落地 `/agents/{id}?model=` 是同一详情页 query，不是新路由、不是 combo 包。Performance：机制卡按 overlay `model` 分组，不按 agent package version；没有 `agent_ref` 不渲染 version（不要 `unknown`）。定制卡按所 attach 的 `org/name@version` 的 version 分组。
 
 产品禁止 mock-default Agent。

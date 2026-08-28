@@ -389,7 +389,12 @@ class RegistryHttpApi:
             if any(
                 isinstance(item, dict) and item.get("package_kind") == "agent" for item in items
             ):
-                payload["appearances"] = self.state.runtimes.appearances_for_agent(dataset_id, auth)
+                payload["performances"] = self.state.runtimes.performances_for_agent(
+                    dataset_id, auth
+                )
+                collect = self.state.runtimes.collect_payload(dataset_id, auth)
+                if collect is not None:
+                    payload["performance_collect"] = collect
         except RegistryAppError as exc:
             return _caught(exc)
         return json_result(200, payload)
@@ -667,6 +672,52 @@ class RegistryHttpApi:
             return _caught(exc)
         return json_result(200, payload)
 
+    def _hide_requests(self, *, auth: TokenInfo) -> HttpResult:
+        body = self._read_json_body()
+        if isinstance(body, HttpResult):
+            return body
+        extra = set(body) - {"ids"}
+        if extra:
+            return json_result(
+                400,
+                {
+                    "error": "invalid_request",
+                    "message": "unknown keys: " + ", ".join(sorted(extra)),
+                },
+            )
+        ids = body.get("ids")
+        if not isinstance(ids, list):
+            return json_result(400, {"error": "invalid_request", "message": "ids required"})
+        try:
+            payload = self.state.requests.hide(request_ids=[str(i) for i in ids], auth=auth)
+        except RegistryAppError as exc:
+            return _caught(exc)
+        return json_result(200, payload)
+
+    def _detach_performance(self, *, dataset_id: str, auth: TokenInfo) -> HttpResult:
+        body = self._read_json_body()
+        if isinstance(body, HttpResult):
+            return body
+        extra = set(body) - {"suite_run_id", "role"}
+        if extra:
+            return json_result(
+                400,
+                {
+                    "error": "invalid_request",
+                    "message": "unknown keys: " + ", ".join(sorted(extra)),
+                },
+            )
+        try:
+            payload = self.state.runtimes.detach_performance(
+                package_id=dataset_id,
+                suite_run_id=str(body.get("suite_run_id") or ""),
+                role=str(body.get("role") or ""),
+                auth=auth,
+            )
+        except RegistryAppError as exc:
+            return _caught(exc)
+        return json_result(200, payload)
+
     def _list_suites(self, *, auth: TokenInfo, qs: dict[str, list[str]]) -> HttpResult:
         try:
             board_raw = (qs.get("board") or [""])[0]
@@ -783,6 +834,28 @@ class RegistryHttpApi:
                 user_id=user_id,
                 description=body["description"],
                 auth=auth,
+            )
+        except RegistryAppError as exc:
+            return _caught(exc)
+        return json_result(200, payload)
+
+    def _patch_performance_collect(self, *, dataset_id: str, auth: TokenInfo) -> HttpResult:
+        body = self._read_json_body()
+        if isinstance(body, HttpResult):
+            return body
+        extra = set(body) - {"mode"}
+        if extra:
+            return json_result(
+                400,
+                {
+                    "error": "invalid_request",
+                    "message": "unknown keys: " + ", ".join(sorted(extra)),
+                },
+            )
+        mode = str(body.get("mode") or "").strip()
+        try:
+            payload = self.state.runtimes.set_collect_mode(
+                package_id=dataset_id, mode=mode, auth=auth
             )
         except RegistryAppError as exc:
             return _caught(exc)

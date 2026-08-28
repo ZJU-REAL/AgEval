@@ -1,4 +1,4 @@
-"""Inbox requests for Public board listing and Agent appearances."""
+"""Inbox requests for Public board listing and Agent Performance."""
 
 from __future__ import annotations
 
@@ -205,7 +205,7 @@ def test_listing_reject_and_incomplete_fail_closed(tmp_path: Path) -> None:
     assert meta["config_fingerprint"] == "sha256:aaaaaaaa"
 
 
-def test_apply_appearance_builtin_is_direct(tmp_path: Path) -> None:
+def test_apply_builtin_performance_is_request(tmp_path: Path) -> None:
     packages, results, requests, runtimes = _svcs(tmp_path)
     _publish_dataset(
         packages, tmp_path, dataset_id="official/gaia", org_id="official", owner="alice"
@@ -221,21 +221,89 @@ def test_apply_appearance_builtin_is_direct(tmp_path: Path) -> None:
         agent_profiles={"solver": dict(PI)},
     )
     applied = requests.apply(
-        kind="agent_appearance",
+        kind="agent_performance",
         suite_run_id="s_builtin",
         auth=bob,
         agent="pi",
     )
-    assert applied["direct_attach"] is True
-    assert applied.get("request") is None
-    assert str(applied["job_overlay"]["agent_profiles"]["solver"]["agent_ref"]).startswith(
-        "pi@0.1.0+"
-    )
-    rows = runtimes.appearances_for_agent("pi", alice)
+    assert applied["status"] == "pending"
+    assert applied["owner_org_id"] == "_maintainers"
+    assert applied.get("direct_attach") is not True
+    meta = results.serve_suite_meta(suite_run_id="s_builtin", auth=bob)
+    assert "agent_ref" not in meta["job_overlay"]["agent_profiles"]["solver"]
+    assert requests.inbox(auth=alice)["items"] == []
+    rows = runtimes.performances_for_agent("pi", alice)
     assert [r["suite_run_id"] for r in rows] == ["s_builtin"]
+    http = {
+        "executor": "openai-http",
+        "extensions": [{"plugin": "openai-http"}, {"plugin": "local"}],
+        "model": "m",
+    }
+    _upload(
+        results,
+        tmp_path,
+        suite_run_id="s_roles",
+        dataset_id="official/gaia",
+        user_id="bob",
+        agent_profiles={"user": dict(http), "service": dict(http)},
+    )
+    pending_role = requests.apply(
+        kind="agent_performance",
+        suite_run_id="s_roles",
+        auth=bob,
+        agent="service=openai-http",
+    )
+    assert pending_role["status"] == "pending"
+    assert pending_role["agent_ref"].startswith("service=")
 
 
-def test_appearance_request_approve_uses_attach(tmp_path: Path) -> None:
+def test_maintainer_direct_attaches_builtin(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setenv("AGEVAL_REGISTRY_MAINTAINERS", "alice")
+    packages, results, requests, runtimes = _svcs(tmp_path)
+    _publish_dataset(
+        packages, tmp_path, dataset_id="official/gaia", org_id="official", owner="alice"
+    )
+    alice = TokenInfo(scopes=frozenset({"results:upload"}), user_id="alice")
+    bob = TokenInfo(scopes=frozenset({"results:upload"}), user_id="bob")
+    _upload(
+        results,
+        tmp_path,
+        suite_run_id="s_builtin",
+        dataset_id="official/gaia",
+        user_id="bob",
+        agent_profiles={"solver": dict(PI)},
+    )
+    pending = requests.apply(
+        kind="agent_performance",
+        suite_run_id="s_builtin",
+        auth=bob,
+        agent="pi",
+    )
+    assert pending["status"] == "pending"
+    assert [i["request_id"] for i in requests.inbox(auth=alice)["items"]] == [pending["request_id"]]
+    requests.decide(request_ids=[pending["request_id"]], action="approve", auth=alice)
+    meta = results.serve_suite_meta(suite_run_id="s_builtin", auth=bob)
+    assert str(meta["job_overlay"]["agent_profiles"]["solver"]["agent_ref"]).startswith("pi@0.1.0+")
+    _upload(
+        results,
+        tmp_path,
+        suite_run_id="s_alice",
+        dataset_id="official/gaia",
+        user_id="alice",
+        agent_profiles={"solver": dict(PI)},
+    )
+    attached = requests.apply(
+        kind="agent_performance",
+        suite_run_id="s_alice",
+        auth=alice,
+        agent="pi",
+    )
+    assert attached.get("direct_attach") is True
+
+
+def test_performance_request_approve_uses_attach(tmp_path: Path) -> None:
     packages, results, requests, runtimes = _svcs(tmp_path)
     _publish_dataset(
         packages, tmp_path, dataset_id="official/gaia", org_id="official", owner="alice"
@@ -255,16 +323,16 @@ def test_appearance_request_approve_uses_attach(tmp_path: Path) -> None:
     )
     fingerprint = uploaded["config_fingerprint"]
     applied = requests.apply(
-        kind="agent_appearance",
+        kind="agent_performance",
         suite_run_id="s_bob",
         auth=bob,
         agent="official/pi-default@0.1.0",
     )
     assert applied["status"] == "pending"
     assert applied["owner_org_id"] == "official"
-    assert runtimes.appearances_for_agent("official/pi-default", alice) == []
+    assert runtimes.performances_for_agent("official/pi-default", alice) == []
     requests.decide(request_ids=[applied["request_id"]], action="approve", auth=alice)
-    rows = runtimes.appearances_for_agent("official/pi-default", alice)
+    rows = runtimes.performances_for_agent("official/pi-default", alice)
     assert [r["suite_run_id"] for r in rows] == ["s_bob"]
     meta = results.serve_suite_meta(suite_run_id="s_bob", auth=bob)
     assert meta["config_fingerprint"] == fingerprint
@@ -291,7 +359,7 @@ def test_agent_org_owner_attaches_without_request(tmp_path: Path) -> None:
         agent_profiles={"solver": dict(PI)},
     )
     out = requests.apply(
-        kind="agent_appearance",
+        kind="agent_performance",
         suite_run_id="s_alice",
         auth=alice,
         agent="official/pi-default@0.1.0",
@@ -300,7 +368,7 @@ def test_agent_org_owner_attaches_without_request(tmp_path: Path) -> None:
     assert out.get("request") is None
     assert requests.inbox(auth=alice)["items"] == []
     assert [
-        r["suite_run_id"] for r in runtimes.appearances_for_agent("official/pi-default", alice)
+        r["suite_run_id"] for r in runtimes.performances_for_agent("official/pi-default", alice)
     ] == ["s_alice"]
 
 
@@ -322,7 +390,7 @@ def test_batch_decide_and_unknown_kind(tmp_path: Path) -> None:
         requests.apply(kind="org_join", suite_run_id="s1", auth=bob)
 
 
-def test_appearance_approve_private_suite_and_mismatch(tmp_path: Path) -> None:
+def test_performance_approve_private_suite_and_mismatch(tmp_path: Path) -> None:
     packages, results, requests, runtimes = _svcs(tmp_path)
     _publish_dataset(
         packages, tmp_path, dataset_id="official/gaia", org_id="official", owner="alice"
@@ -342,7 +410,7 @@ def test_appearance_approve_private_suite_and_mismatch(tmp_path: Path) -> None:
         visibility="private",
     )
     applied = requests.apply(
-        kind="agent_appearance",
+        kind="agent_performance",
         suite_run_id="s_priv",
         auth=bob,
         agent="official/pi-default@0.1.0",
@@ -353,7 +421,7 @@ def test_appearance_approve_private_suite_and_mismatch(tmp_path: Path) -> None:
     assert str(meta["job_overlay"]["agent_profiles"]["solver"]["agent_ref"]).startswith(
         "official/pi-default@0.1.0+"
     )
-    assert runtimes.appearances_for_agent("official/pi-default", alice) == []
+    assert runtimes.performances_for_agent("official/pi-default", alice) == []
 
     _upload(
         results,
@@ -369,7 +437,7 @@ def test_appearance_approve_private_suite_and_mismatch(tmp_path: Path) -> None:
         },
     )
     bad = requests.apply(
-        kind="agent_appearance",
+        kind="agent_performance",
         suite_run_id="s_mis",
         auth=bob,
         agent="official/pi-default@0.1.0",
@@ -412,13 +480,13 @@ def test_delete_and_replace_drop_requests_and_consent(tmp_path: Path) -> None:
         agent_profiles={"solver": dict(PI)},
     )
     requests.apply(
-        kind="agent_appearance",
+        kind="agent_performance",
         suite_run_id="s_keep",
         auth=alice,
         agent="official/pi-default@0.1.0",
     )
     assert [
-        r["suite_run_id"] for r in runtimes.appearances_for_agent("official/pi-default", alice)
+        r["suite_run_id"] for r in runtimes.performances_for_agent("official/pi-default", alice)
     ] == ["s_keep"]
     _upload(
         results,
@@ -432,4 +500,36 @@ def test_delete_and_replace_drop_requests_and_consent(tmp_path: Path) -> None:
         replace=True,
     )
     assert results.meta.list_agent_consents("s_keep") == []
-    assert runtimes.appearances_for_agent("official/pi-default", alice) == []
+    assert runtimes.performances_for_agent("official/pi-default", alice) == []
+
+
+def test_hide_processed_inbox_is_per_user(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("AGEVAL_REGISTRY_MAINTAINERS", "alice,carol")
+    packages, results, requests, _rt = _svcs(tmp_path)
+    _publish_dataset(
+        packages, tmp_path, dataset_id="official/gaia", org_id="official", owner="alice"
+    )
+    alice = TokenInfo(scopes=frozenset({"results:upload"}), user_id="alice")
+    bob = TokenInfo(scopes=frozenset({"results:upload"}), user_id="bob")
+    carol = TokenInfo(scopes=frozenset({"results:upload"}), user_id="carol")
+    _upload(results, tmp_path, suite_run_id="s_hide", dataset_id="official/gaia", user_id="bob")
+    listing = requests.apply(kind="leaderboard_list", suite_run_id="s_hide", auth=bob)
+    requests.decide(request_ids=[listing["request_id"]], action="reject", auth=alice)
+    assert listing["request_id"] in {i["request_id"] for i in requests.inbox(auth=alice)["items"]}
+    hidden = requests.hide(request_ids=[listing["request_id"]], auth=alice)
+    assert hidden["ok"] is True
+    assert requests.inbox(auth=alice)["items"] == []
+    _upload(
+        results,
+        tmp_path,
+        suite_run_id="s_pi",
+        dataset_id="official/gaia",
+        user_id="bob",
+        agent_profiles={"solver": dict(PI)},
+    )
+    perf = requests.apply(kind="agent_performance", suite_run_id="s_pi", auth=bob, agent="pi")
+    requests.decide(request_ids=[perf["request_id"]], action="reject", auth=alice)
+    requests.hide(request_ids=[perf["request_id"]], auth=alice)
+    assert perf["request_id"] in {i["request_id"] for i in requests.inbox(auth=carol)["items"]}
+    requests.hide(request_ids=[perf["request_id"]], auth=carol)
+    assert requests.inbox(auth=carol)["items"] == []

@@ -365,6 +365,22 @@ SCHEMA_STATEMENTS: tuple[str, ...] = (
         created_at REAL NOT NULL
     )
     """,
+    """
+    CREATE TABLE IF NOT EXISTS agent_performance_collect (
+        package_id TEXT PRIMARY KEY,
+        mode TEXT NOT NULL,
+        updated_by TEXT NOT NULL,
+        updated_at REAL NOT NULL
+    )
+    """,
+    """
+    CREATE TABLE IF NOT EXISTS inbox_hidden (
+        user_id TEXT NOT NULL,
+        request_id TEXT NOT NULL,
+        hidden_at REAL NOT NULL,
+        PRIMARY KEY (user_id, request_id)
+    )
+    """,
 )
 
 # ---- dataset draft / ACL ---------------------------------------------------
@@ -508,6 +524,25 @@ UPDATE_RESOURCE_REQUEST_STATUS = """
 UPDATE resource_requests SET status=?, decided_at=?, decided_by=?
 WHERE request_id=? AND status='pending'
 """
+SELECT_PERFORMANCE_COLLECT = "SELECT mode FROM agent_performance_collect WHERE package_id=?"
+UPSERT_PERFORMANCE_COLLECT = """
+INSERT INTO agent_performance_collect(package_id, mode, updated_by, updated_at)
+VALUES (?, ?, ?, ?)
+ON CONFLICT(package_id) DO UPDATE SET
+    mode=excluded.mode,
+    updated_by=excluded.updated_by,
+    updated_at=excluded.updated_at
+"""
+UPSERT_INBOX_HIDDEN = """
+INSERT INTO inbox_hidden(user_id, request_id, hidden_at)
+VALUES (?, ?, ?)
+ON CONFLICT(user_id, request_id) DO UPDATE SET
+    hidden_at=excluded.hidden_at
+"""
+LIST_INBOX_HIDDEN_FOR_USER = "SELECT request_id FROM inbox_hidden WHERE user_id=?"
+DELETE_SUITE_PACKAGE_CONSENT = (
+    "DELETE FROM suite_agent_consents WHERE suite_run_id=? AND package_id=?"
+)
 SELECT_ATTEMPTS_FOR_SUITE = (
     "SELECT * FROM attempt_results WHERE suite_run_id=? ORDER BY created_at DESC"
 )

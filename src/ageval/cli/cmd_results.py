@@ -611,7 +611,7 @@ def register(app: typer.Typer) -> None:
     def results_request_command(
         kind: Annotated[
             str,
-            typer.Option("--kind", help="leaderboard_list | agent_appearance"),
+            typer.Option("--kind", help="leaderboard_list | agent_performance"),
         ],
         suite_run: Annotated[
             str,
@@ -619,14 +619,14 @@ def register(app: typer.Typer) -> None:
         ],
         agent: Annotated[
             str | None,
-            typer.Option("--agent", help="Published org/name@version (appearance kind)."),
+            typer.Option("--agent", help="Published org/name@version (performance kind)."),
         ] = None,
         registry_url: Annotated[
             str | None,
             typer.Option("--registry-url", help="Override registry / results URL."),
         ] = None,
     ) -> None:
-        """Apply for Public board listing or Agent appearance consent."""
+        """Apply for Public board listing or Agent Performance consent."""
         from ageval.application.composition import build_results_commands
 
         apply_request = build_results_commands().apply_request
@@ -651,7 +651,7 @@ def register(app: typer.Typer) -> None:
             typer.Option("--registry-url", help="Override registry / results URL."),
         ] = None,
     ) -> None:
-        """List pending listing and appearance requests this caller can decide."""
+        """List pending listing and Performance requests this caller can decide."""
         from ageval.application.composition import build_results_commands
 
         list_inbox = build_results_commands().list_inbox

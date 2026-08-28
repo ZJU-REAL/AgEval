@@ -1014,6 +1014,50 @@ class MetadataStore(MetadataStoreProtocol):
                 out.setdefault(sid, set()).add(str(r["package_id"]))
         return out
 
+    def get_performance_collect_mode(self, package_id: str) -> str | None:
+        pid = (package_id or "").strip()
+        if not pid:
+            return None
+        with self._connect() as conn:
+            cur = self._exec(conn, Q.SELECT_PERFORMANCE_COLLECT, (pid,))
+            row = cur.fetchone()
+        if row is None:
+            return None
+        return str(row["mode"] or "").strip() or None
+
+    def set_performance_collect_mode(self, *, package_id: str, mode: str, updated_by: str) -> None:
+        with self._connect() as conn:
+            self._exec(
+                conn,
+                Q.UPSERT_PERFORMANCE_COLLECT,
+                (package_id, mode, updated_by, now()),
+            )
+            conn.commit()
+
+    def list_hidden_inbox_ids(self, user_id: str) -> set[str]:
+        uid = _normalize_user_id(user_id) or ""
+        if not uid:
+            return set()
+        with self._connect() as conn:
+            cur = self._exec(conn, Q.LIST_INBOX_HIDDEN_FOR_USER, (uid,))
+            return {str(r["request_id"]) for r in cur.fetchall()}
+
+    def hide_inbox_requests(self, *, user_id: str, request_ids: list[str]) -> None:
+        uid = _normalize_user_id(user_id) or ""
+        ids = [i for i in request_ids if i]
+        if not uid or not ids:
+            return
+        stamp = now()
+        with self._connect() as conn:
+            for rid in ids:
+                self._exec(conn, Q.UPSERT_INBOX_HIDDEN, (uid, rid, stamp))
+            conn.commit()
+
+    def revoke_agent_consent(self, *, suite_run_id: str, package_id: str) -> None:
+        with self._connect() as conn:
+            self._exec(conn, Q.DELETE_SUITE_PACKAGE_CONSENT, (suite_run_id, package_id))
+            conn.commit()
+
     def set_suite_visibility(self, suite_run_id: str, visibility: str) -> SuiteResultRow:
         if visibility not in {"public", "private"}:
             raise ValueError("bad visibility")
@@ -1112,9 +1156,7 @@ class MetadataStore(MetadataStoreProtocol):
                 continue
             if not isinstance(tasks, list):
                 continue
-            out[str(row["package_digest"])] = sum(
-                1 for item in tasks if isinstance(item, dict)
-            )
+            out[str(row["package_digest"])] = sum(1 for item in tasks if isinstance(item, dict))
         return out
 
     def get_package_task_summary(

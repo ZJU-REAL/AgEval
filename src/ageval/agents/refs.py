@@ -27,7 +27,7 @@ def published_agent_ref_parts(ref: object) -> tuple[str, str] | None:
     """Hub-publishable ``(org/name, version)`` from an ``agent_ref``.
 
     ``file:`` and ``local/`` refs return ``None`` — they must not create
-    Hub appearances (design/12, design/14).
+    Hub Performance (design/12, design/14).
     """
     if not isinstance(ref, str):
         return None

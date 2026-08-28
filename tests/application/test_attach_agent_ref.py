@@ -9,6 +9,7 @@ from ageval.application.suite.attach_agent_ref import (
     format_published_agent_ref,
     inject_published_agent_ref,
     parse_published_agent_spec,
+    strip_published_agent_ref,
 )
 from ageval.application.suite.suite_config_fingerprint import fingerprint_for_job_overlay
 
@@ -40,6 +41,7 @@ def test_parse_published_spec_and_reject_local_file() -> None:
     assert parse_published_agent_spec("pi") == (None, "pi", "0.1.0")
     assert parse_published_agent_spec("solver=opencode")[1:] == ("opencode", "0.1.0")
     assert parse_published_agent_spec("pi@0.1.0") == (None, "pi", "0.1.0")
+    assert parse_published_agent_spec("service=openai-http")[0] == "service"
 
 
 def test_inject_matches_all_roles_and_keeps_fingerprint() -> None:
@@ -145,6 +147,15 @@ def test_inject_openai_http_ignores_model_and_effort() -> None:
         agent_ref="openai-http@0.1.0",
     )
     assert result.roles == ("user", "service")
+    named = inject_published_agent_ref(
+        overlay,
+        published_binding=published,
+        agent_ref="openai-http@0.1.0",
+        role="service",
+    )
+    assert named.roles == ("service",)
+    assert "agent_ref" not in named.overlay["agent_profiles"]["user"]
+    assert named.overlay["agent_profiles"]["service"]["agent_ref"] == "openai-http@0.1.0"
 
 
 def test_inject_ignores_locators_environment_overlays() -> None:
@@ -167,3 +178,16 @@ def test_inject_ignores_locators_environment_overlays() -> None:
     assert result.roles == ("solver",)
     assert result.overlay["environment"] == "docker"
     assert result.overlay["agent_profiles"]["solver"]["overlays"] == ["overlays/skills/demo"]
+
+
+def test_strip_named_role_leaves_teammate() -> None:
+    overlay = {
+        "agent_profiles": {
+            "user": {**GROK, "agent_ref": "openai-http@0.1.0"},
+            "service": {**GROK, "agent_ref": "openai-http@0.1.0"},
+        }
+    }
+    result = strip_published_agent_ref(overlay, package_id="openai-http", role="service")
+    assert result.changed is True
+    assert "agent_ref" not in result.overlay["agent_profiles"]["service"]
+    assert result.overlay["agent_profiles"]["user"]["agent_ref"] == "openai-http@0.1.0"

@@ -277,27 +277,34 @@ files (no `..`, 2 MiB cap, **413** when larger):
 | PATCH | `/v1/results/suites/{suite_run_id}/agent-ref` | uploader (or `admin`); `{ "agent", "role?" }` after harness match (executor + ACP entry; not model or remaining plugin options) |
 | GET | `/v1/results/suites/{suite_run_id}/content` | same |
 | GET | `/v1/requests` | Inbox (`?inbox=1`) or suite (`?suite_run_id=`) |
-| POST | `/v1/requests` | `{ "kind", "suite_run_id", "agent?" }` |
+| POST | `/v1/requests` | `{ "kind", "suite_run_id", "agent?" }` (`leaderboard_list` / `agent_performance`) |
 | POST | `/v1/requests/decide` | `{ "ids", "action": "approve"|"reject" }` |
+| POST | `/v1/requests/hide` | `{ "ids" }` hide processed Inbox History for this user |
+| PATCH | `/v1/packages/{id}/performance-collect` | Maintainer; builtin agent `{ "mode": "off"|"official"|"official_and_personal" }` |
 
 Public board (`board=1`) is complete + release-bound + `board_listed`. Listing is
 not visibility.
 
-### Agent appearances (derived)
+### Agent Performance (derived)
 
-Read-only. No Runtime table, no appearance table, and no upload. Source rows
-are **public**, **complete**, **release-bound** suites on an official Dataset.
-Uploaded packs group by ``org/name`` and need Agent-org consent (owner attach
-or an approved `agent_appearance` request). Builtin mechanism cards group by
-harness short id and skip consent. ``file:`` / ``local/`` refs and
-hand-written ``--profiles`` suites do not attach. ``GET /v1/runtimes`` is gone
-(404). Scores are the source suite's observational metrics.
+Read-only. No Runtime table, no Performance table, and no upload. Plaza source
+rows are **public**, **complete**, **release-bound** suites on an official
+Dataset. Uploaded packs group by ``org/name`` and need Agent-org consent (owner
+attach or an approved `agent_performance` request). Builtin mechanism cards
+group by harness short id. Default collect mode is ``official`` (plaza, no
+consent). Maintainers (``AGEVAL_REGISTRY_MAINTAINERS``) can set ``off``
+(request/attach only) or ``official_and_personal`` (plaza plus non-official-org
+public complete release-bound suites). Non-maintainers cannot direct-attach a
+builtin short id. ``file:`` / ``local/`` refs and hand-written ``--profiles``
+suites do not attach. ``GET /v1/runtimes`` is gone (404). Scores are the source
+suite's observational metrics.
 
-``GET /v1/packages/{org/name}`` includes ``appearances`` for ``package_kind=agent``.
-Overlay bytes preview via the existing Agent package files API. Public official
-board suite JSON may include ``agent_refs`` (``role``, ``package_id``); builtin
-short ids are included without consent, uploaded ``org/name`` still needs it.
-Other suites omit the field.
+``GET /v1/packages/{id}`` includes ``performances`` for ``package_kind=agent``,
+plus ``performance_collect`` on builtin cards. Overlay bytes preview via the
+existing Agent package files API. Public official board suite JSON may include
+``agent_refs`` (``role``, ``package_id``); builtin short ids follow the card's
+collect mode, uploaded ``org/name`` still needs consent. Other suites omit the
+field.
 
 Row fields: `dataset_id`, `dataset_version`, `pass_rate`, `mean_score`, `metrics`,
 `task_refs`, optional `agent_label` / `model_label`, `exit_code`, and optional
@@ -342,6 +349,7 @@ Put in `services/registry/.env` (gitignored):
 - `AGEVAL_GITHUB_CLIENT_ID` / `AGEVAL_GITHUB_CLIENT_SECRET`
 - optional `AGEVAL_GITHUB_LOGIN_ALLOWLIST=yourlogin` (comma-separated). Unset or empty allows any GitHub user who completes OAuth; non-empty restricts to that list. Closed Hub: set the list.
 - optional `AGEVAL_GITHUB_WEB_REDIRECT_URIS=…` for extra Hub callback origins
+- optional `AGEVAL_REGISTRY_MAINTAINERS=login1,login2` (GitHub logins). Platform maintainers own builtin plugins/agents (Performance collect + builtin attach approval). Independent of `AGEVAL_OFFICIAL_ORGS`. Unset = nobody.
 
 ### CLI — Device Flow
 

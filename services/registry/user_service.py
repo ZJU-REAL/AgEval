@@ -5,6 +5,7 @@ from __future__ import annotations
 from typing import Any
 
 from services.registry.errors import RegistryAppError
+from services.registry.maintainers import is_maintainer
 from services.registry.official import is_official_upload_org
 from services.registry.org_service import normalize_description
 from services.registry.store import TokenInfo, _normalize_user_id, org_to_dict
@@ -43,6 +44,7 @@ class UserService:
             "description": profile.description if profile else "",
             "official": bool(official_orgs),
             "official_orgs": official_orgs,
+            "maintainer": is_maintainer(uid),
         }
 
     def patch(

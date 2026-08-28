@@ -1,6 +1,6 @@
 """Inject a published ``agent_ref`` onto matching overlay roles (design/12, /14).
 
-Compare uses ``_appearance_role_key`` (executor, ACP entry). Model and remaining
+Compare uses ``_performance_role_key`` (executor, ACP entry). Model and remaining
 plugin options are run parameters and must not block attach. The write is
 provenance only: it must not change fingerprint identity, lock bytes, or PASS.
 """
@@ -13,7 +13,7 @@ from dataclasses import dataclass
 from typing import Any
 
 from ageval.agents.refs import published_agent_ref_parts
-from ageval.application.suite.suite_config_fingerprint import _appearance_role_key
+from ageval.application.suite.suite_config_fingerprint import _performance_role_key
 from ageval.config.errors import ERROR_INVALID_SCHEMA, ConfigError
 
 _ROLE_RE = re.compile(r"^[A-Za-z_][A-Za-z0-9_-]*$")
@@ -190,7 +190,7 @@ def inject_published_agent_ref(
             location="/job_overlay/agent_profiles",
         )
 
-    want_key = _appearance_role_key(published_binding)
+    want_key = _performance_role_key(published_binding)
     want_role = role.strip() if isinstance(role, str) and role.strip() else None
     if want_role is not None and want_role not in profiles:
         raise AttachAgentRefError(
@@ -211,7 +211,7 @@ def inject_published_agent_ref(
         if want_role is not None and rid != want_role:
             new_profiles[rid] = row
             continue
-        if _appearance_role_key(row) != want_key:
+        if _performance_role_key(row) != want_key:
             if want_role is not None:
                 raise AttachAgentRefError(
                     ERROR_INVALID_SCHEMA,
@@ -253,3 +253,79 @@ def inject_published_agent_ref(
         package_id=package_id,
         version=version,
     )
+
+
+def strip_published_agent_ref(
+    overlay: Mapping[str, Any] | None,
+    *,
+    package_id: str,
+    role: str,
+) -> AttachAgentResult:
+    """Remove ``agent_ref`` on *role* when it names *package_id*.
+
+    Fingerprint identity is unchanged. Missing role or a ref that names
+    another package fails closed.
+    """
+    want_role = role.strip()
+    want_pkg = package_id.strip()
+    if not want_role or not want_pkg:
+        raise AttachAgentRefError(
+            ERROR_INVALID_SCHEMA,
+            "role and agent package are required",
+            location="/agent",
+        )
+    if not isinstance(overlay, Mapping):
+        raise AttachAgentRefError(
+            ERROR_INVALID_SCHEMA,
+            "suite job_overlay is missing",
+            location="/job_overlay",
+        )
+    profiles = overlay.get("agent_profiles")
+    if not isinstance(profiles, Mapping) or want_role not in profiles:
+        raise AttachAgentRefError(
+            ERROR_INVALID_SCHEMA,
+            f"overlay role {want_role!r} is missing",
+            location=f"/job_overlay/agent_profiles/{want_role}",
+        )
+    raw = profiles[want_role]
+    if not isinstance(raw, Mapping):
+        raise AttachAgentRefError(
+            ERROR_INVALID_SCHEMA,
+            f"overlay role {want_role!r} is missing",
+            location=f"/job_overlay/agent_profiles/{want_role}",
+        )
+    existing = raw.get("agent_ref")
+    parts = hub_agent_ref_parts(existing) if isinstance(existing, str) else None
+    named = parts[0] if parts else ""
+    if named and not _same_agent_package(named, want_pkg):
+        raise AttachAgentRefError(
+            ERROR_INVALID_SCHEMA,
+            "overlay role agent_ref names a different agent",
+            location=f"/job_overlay/agent_profiles/{want_role}/agent_ref",
+        )
+    new_profiles = dict(profiles)
+    row = dict(raw)
+    changed = False
+    if "agent_ref" in row:
+        row.pop("agent_ref", None)
+        changed = True
+    new_profiles[want_role] = row
+    new_overlay = {**dict(overlay), "agent_profiles": new_profiles}
+    return AttachAgentResult(
+        overlay=new_overlay,
+        roles=(want_role,),
+        changed=changed,
+        agent_ref="",
+        package_id=want_pkg,
+        version=parts[1] if parts else "",
+    )
+
+
+def _same_agent_package(left: str, right: str) -> bool:
+    if left == right:
+        return True
+    from ageval.agents.reserved import canonical_harness_id
+
+    a = canonical_harness_id(left)
+    b = canonical_harness_id(right)
+    return a is not None and a == b

@@ -2,7 +2,7 @@
 
 Identity is the agent product (ACP ``options.entry``, else plugin executor).
 Transport ``acp``, model, credentials, label, role, team, overlays, and
-``agent_ref`` are not this digest. Hub appearances for uploaded packs group
+``agent_ref`` are not this digest. Hub Performance for uploaded packs group
 by published ``org/name``; builtin mechanism cards group by this product id
 (design/12). Independent of suite ``config_fingerprint``.
 """

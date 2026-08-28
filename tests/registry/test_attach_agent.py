@@ -140,7 +140,8 @@ def _upload(
     )
 
 
-def test_attach_builtin_harness(tmp_path: Path) -> None:
+def test_attach_builtin_harness(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("AGEVAL_REGISTRY_MAINTAINERS", "alice")
     packages, results, runtimes = _services(tmp_path)
     _publish_dataset(packages, tmp_path, dataset_id="official/gaia", org_id="official")
     _upload(
@@ -160,7 +161,7 @@ def test_attach_builtin_harness(tmp_path: Path) -> None:
     overlay = attached["job_overlay"]["agent_profiles"]["solver"]
     assert str(overlay["agent_ref"]).startswith("pi@0.1.0+")
     assert attached["agent_refs"] == [{"role": "solver", "package_id": "pi"}]
-    rows = runtimes.appearances_for_agent("pi", auth)
+    rows = runtimes.performances_for_agent("pi", auth)
     assert [r["suite_run_id"] for r in rows] == ["suite_builtin"]
     again = results.attach_agent(
         suite_run_id="suite_builtin",
@@ -170,7 +171,86 @@ def test_attach_builtin_harness(tmp_path: Path) -> None:
     assert again["idempotent"] is True
 
 
-def test_attach_plaza_suite_then_appearances(tmp_path: Path) -> None:
+def test_named_role_attach_skips_teammate(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("AGEVAL_REGISTRY_MAINTAINERS", "alice")
+    packages, results, runtimes = _services(tmp_path)
+    _publish_dataset(packages, tmp_path, dataset_id="official/gaia", org_id="official")
+    http = {
+        "executor": "openai-http",
+        "extensions": [{"plugin": "openai-http"}, {"plugin": "local"}],
+        "model": "dashscope/qwen3.8-max",
+    }
+    _upload(
+        results,
+        tmp_path,
+        suite_run_id="suite_dual",
+        dataset_id="official/gaia",
+        agent_profiles={
+            "user": dict(http),
+            "service": {**http, "model": "dashscope/deepseek-v4-pro"},
+        },
+    )
+    auth = TokenInfo(scopes=frozenset({"results:upload"}), user_id="alice")
+    before = {
+        (r["suite_run_id"], r["role"]) for r in runtimes.performances_for_agent("openai-http", auth)
+    }
+    assert before == {("suite_dual", "user"), ("suite_dual", "service")}
+    attached = results.attach_agent(
+        suite_run_id="suite_dual",
+        agent="service=openai-http",
+        auth=auth,
+    )
+    profiles = attached["job_overlay"]["agent_profiles"]
+    assert "agent_ref" not in profiles["user"]
+    assert str(profiles["service"]["agent_ref"]).startswith("openai-http@")
+    after = {
+        (r["suite_run_id"], r["role"]) for r in runtimes.performances_for_agent("openai-http", auth)
+    }
+    assert after == {("suite_dual", "service")}
+    runtimes.detach_performance(
+        package_id="openai-http",
+        suite_run_id="suite_dual",
+        role="service",
+        auth=auth,
+    )
+    meta = results.serve_suite_meta(suite_run_id="suite_dual", auth=auth)
+    assert "agent_ref" not in meta["job_overlay"]["agent_profiles"]["service"]
+    assert "agent_ref" not in meta["job_overlay"]["agent_profiles"]["user"]
+    after_remove = {
+        (r["suite_run_id"], r["role"]) for r in runtimes.performances_for_agent("openai-http", auth)
+    }
+    assert after_remove == {("suite_dual", "user"), ("suite_dual", "service")}
+    again = results.attach_agent(
+        suite_run_id="suite_dual",
+        agent="service=openai-http",
+        auth=auth,
+    )
+    assert str(again["job_overlay"]["agent_profiles"]["service"]["agent_ref"]).startswith(
+        "openai-http@"
+    )
+    after_reattach = {
+        (r["suite_run_id"], r["role"]) for r in runtimes.performances_for_agent("openai-http", auth)
+    }
+    assert after_reattach == {("suite_dual", "service")}
+
+
+def test_attach_builtin_without_maintainer_is_forbidden(tmp_path: Path) -> None:
+    packages, results, _runtimes = _services(tmp_path)
+    _publish_dataset(packages, tmp_path, dataset_id="official/gaia", org_id="official")
+    _upload(
+        results,
+        tmp_path,
+        suite_run_id="suite_builtin",
+        dataset_id="official/gaia",
+        agent_profiles={"solver": dict(PI)},
+    )
+    auth = TokenInfo(scopes=frozenset({"results:upload"}), user_id="alice")
+    with pytest.raises(RegistryAppError) as forbidden:
+        results.attach_agent(suite_run_id="suite_builtin", agent="pi", auth=auth)
+    assert forbidden.value.http_status == 403
+
+
+def test_attach_plaza_suite_then_performances(tmp_path: Path) -> None:
     packages, results, runtimes = _services(tmp_path)
     _publish_dataset(packages, tmp_path, dataset_id="official/gaia", org_id="official")
     _publish_agent(packages, tmp_path, package_id="official/pi-default", org_id="official")
@@ -184,7 +264,7 @@ def test_attach_plaza_suite_then_appearances(tmp_path: Path) -> None:
     assert "agent_refs" not in uploaded
     auth = TokenInfo(scopes=frozenset({"results:upload"}), user_id="alice")
     before = results.serve_suite_meta(suite_run_id="suite_profiles", auth=auth)
-    assert runtimes.appearances_for_agent("official/pi-default", auth) == []
+    assert runtimes.performances_for_agent("official/pi-default", auth) == []
     attached = results.attach_agent(
         suite_run_id="suite_profiles",
         agent="official/pi-default@0.1.0",
@@ -195,7 +275,7 @@ def test_attach_plaza_suite_then_appearances(tmp_path: Path) -> None:
     assert attached["config_fingerprint"] == before["config_fingerprint"]
     overlay = attached["job_overlay"]["agent_profiles"]["solver"]
     assert str(overlay["agent_ref"]).startswith("official/pi-default@0.1.0+")
-    rows = runtimes.appearances_for_agent("official/pi-default", auth)
+    rows = runtimes.performances_for_agent("official/pi-default", auth)
     assert [r["suite_run_id"] for r in rows] == ["suite_profiles"]
     again = results.attach_agent(
         suite_run_id="suite_profiles",
@@ -224,7 +304,7 @@ def test_attach_private_suite_is_metadata_only(tmp_path: Path) -> None:
         agent="official/pi-default@0.1.0",
         auth=auth,
     )
-    assert runtimes.appearances_for_agent("official/pi-default", auth) == []
+    assert runtimes.performances_for_agent("official/pi-default", auth) == []
     meta = results.serve_suite_meta(suite_run_id="suite_private", auth=auth)
     assert "agent_ref" in meta["job_overlay"]["agent_profiles"]["solver"]
     assert "agent_refs" not in meta

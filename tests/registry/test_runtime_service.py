@@ -1,4 +1,4 @@
-"""Agent appearances derive from official public board suites via agent_ref."""
+"""Agent Performance derives from official public board suites via agent_ref."""
 
 from __future__ import annotations
 
@@ -7,8 +7,10 @@ import json
 from io import BytesIO
 from pathlib import Path
 
+import pytest
 from services.registry.access import AccessPolicy
 from services.registry.app import build_default_state
+from services.registry.errors import RegistryAppError
 from services.registry.http_api import RegistryHttpApi
 from services.registry.package_service import PackageService
 from services.registry.result_service import ResultService
@@ -158,7 +160,7 @@ def _upload(
     )
 
 
-def test_builtin_harness_appearances_skip_consent(tmp_path: Path) -> None:
+def test_builtin_harness_performances_skip_consent(tmp_path: Path) -> None:
     packages, results, runtimes = _services(tmp_path)
     _publish(packages, tmp_path, dataset_id="official/gaia", org_id="official")
     builtin_binding = {
@@ -183,8 +185,8 @@ def test_builtin_harness_appearances_skip_consent(tmp_path: Path) -> None:
         agent_profiles={"solver": uploaded_binding},
     )
     auth = TokenInfo(scopes=frozenset(), user_id="")
-    assert runtimes.appearances_for_agent("official/pi-default", auth) == []
-    rows = runtimes.appearances_for_agent("pi", auth)
+    assert runtimes.performances_for_agent("official/pi-default", auth) == []
+    rows = runtimes.performances_for_agent("pi", auth)
     by_suite = {r["suite_run_id"]: r for r in rows}
     assert set(by_suite) == {"suite_builtin_ref", "suite_uploaded_ref"}
     assert by_suite["suite_builtin_ref"]["model"] == "glm-4.7"
@@ -219,7 +221,7 @@ def test_official_public_suite_appears_community_does_not(tmp_path: Path) -> Non
     )
     _consent(results, "suite_community", "official/http-default")
     auth = TokenInfo(scopes=frozenset(), user_id="")
-    rows = runtimes.appearances_for_agent("official/http-default", auth)
+    rows = runtimes.performances_for_agent("official/http-default", auth)
     assert [r["suite_run_id"] for r in rows] == ["suite_official"]
     official_suites = results.list_suites(auth=auth, dataset_id=None)
     by_id = {i["suite_run_id"]: i for i in official_suites["items"]}
@@ -267,7 +269,7 @@ def test_private_incomplete_draft_excluded(tmp_path: Path) -> None:
         agent_profiles={"solver": bound},
     )
     auth = TokenInfo(scopes=frozenset({"results:upload"}), user_id="alice")
-    assert runtimes.appearances_for_agent("official/http-default", auth) == []
+    assert runtimes.performances_for_agent("official/http-default", auth) == []
     jobs = results.list_suites(auth=auth, dataset_id=None)
     for item in jobs["items"]:
         assert "agent_refs" not in item
@@ -285,7 +287,7 @@ def test_profiles_only_suite_does_not_appear(tmp_path: Path) -> None:
         agent_profiles={"solver": dict(GROK)},
     )
     auth = TokenInfo(scopes=frozenset(), user_id="")
-    assert runtimes.appearances_for_agent("official/http-default", auth) == []
+    assert runtimes.performances_for_agent("official/http-default", auth) == []
     suites = results.list_suites(auth=auth, dataset_id=None)
     assert "agent_refs" not in suites["items"][0]
 
@@ -310,8 +312,8 @@ def test_two_agents_same_entry_stay_separate(tmp_path: Path) -> None:
     )
     _consent(results, "suite_b", "official/bar")
     auth = TokenInfo(scopes=frozenset(), user_id="")
-    foo = runtimes.appearances_for_agent("official/foo", auth)
-    bar = runtimes.appearances_for_agent("official/bar", auth)
+    foo = runtimes.performances_for_agent("official/foo", auth)
+    bar = runtimes.performances_for_agent("official/bar", auth)
     assert [r["suite_run_id"] for r in foo] == ["suite_a"]
     assert [r["suite_run_id"] for r in bar] == ["suite_b"]
 
@@ -335,7 +337,9 @@ def test_versions_group_on_same_package(tmp_path: Path) -> None:
         agent_profiles={"solver": _bound("official/foo", version="0.2.0")},
     )
     _consent(results, "suite_v2", "official/foo")
-    rows = runtimes.appearances_for_agent("official/foo", TokenInfo(scopes=frozenset(), user_id=""))
+    rows = runtimes.performances_for_agent(
+        "official/foo", TokenInfo(scopes=frozenset(), user_id="")
+    )
     versions = {r["suite_run_id"]: r["agent_version"] for r in rows}
     assert versions == {"suite_v1": "0.1.0", "suite_v2": "0.2.0"}
 
@@ -368,14 +372,14 @@ def test_file_and_local_refs_do_not_appear(tmp_path: Path) -> None:
         },
     )
     auth = TokenInfo(scopes=frozenset(), user_id="")
-    assert runtimes.appearances_for_agent("official/http-default", auth) == []
-    assert runtimes.appearances_for_agent("local/http-default", auth) == []
+    assert runtimes.performances_for_agent("official/http-default", auth) == []
+    assert runtimes.performances_for_agent("local/http-default", auth) == []
     suites = results.list_suites(auth=auth, dataset_id=None)
     for item in suites["items"]:
         assert "agent_refs" not in item
 
 
-def test_appearance_overlays_and_teammates(tmp_path: Path) -> None:
+def test_performance_overlays_and_teammates(tmp_path: Path) -> None:
     packages, results, runtimes = _services(tmp_path)
     _publish(packages, tmp_path, dataset_id="official/gaia", org_id="official")
     solver = _bound(
@@ -395,13 +399,13 @@ def test_appearance_overlays_and_teammates(tmp_path: Path) -> None:
     _consent(results, "suite_overlays", "official/foo")
     _consent(results, "suite_overlays", "official/bar")
     auth = TokenInfo(scopes=frozenset(), user_id="")
-    foo = runtimes.appearances_for_agent("official/foo", auth)
+    foo = runtimes.performances_for_agent("official/foo", auth)
     assert len(foo) == 1
     assert foo[0]["role"] == "solver"
     assert foo[0]["overlays"] == ["overlays/skills/jsonl-agg", "overlays/AGENTS.md"]
     assert foo[0]["package_digest"] == compute_package_digest(FIXTURE)
     assert [t["role"] for t in foo[0]["teammates"]] == ["user"]
-    bar = runtimes.appearances_for_agent("official/bar", auth)
+    bar = runtimes.performances_for_agent("official/bar", auth)
     assert bar[0]["role"] == "user"
     assert "overlays" not in bar[0]
 
@@ -429,7 +433,7 @@ def test_runtimes_http_gone(tmp_path: Path) -> None:
     assert payload["error"] == "not_found"
 
 
-def test_appearances_on_package_versions(tmp_path: Path) -> None:
+def test_performances_on_package_versions(tmp_path: Path) -> None:
     packages, results, runtimes = _services(tmp_path)
     _publish(packages, tmp_path, dataset_id="official/gaia", org_id="official")
     _upload(
@@ -443,7 +447,7 @@ def test_appearances_on_package_versions(tmp_path: Path) -> None:
     state, token = build_default_state(tmp_path / "http2", bootstrap_token="tok", memory_blob=True)
     # Reuse the same sqlite? build_default_state is a new empty registry.
     # Call the service directly for this assertion; HTTP wiring is covered above.
-    rows = runtimes.appearances_for_agent(
+    rows = runtimes.performances_for_agent(
         "official/http-default", TokenInfo(scopes=frozenset(), user_id="")
     )
     assert rows[0]["agent_version"] == "0.1.0"
@@ -461,6 +465,47 @@ def test_agent_ref_without_consent_does_not_appear(tmp_path: Path) -> None:
         agent_profiles={"solver": _bound("official/http-default")},
     )
     auth = TokenInfo(scopes=frozenset(), user_id="")
-    assert runtimes.appearances_for_agent("official/http-default", auth) == []
+    assert runtimes.performances_for_agent("official/http-default", auth) == []
     suites = results.list_suites(auth=auth, dataset_id=None)
     assert "agent_refs" not in suites["items"][0]
+
+
+def test_builtin_collect_off_and_personal(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("AGEVAL_REGISTRY_MAINTAINERS", "alice")
+    packages, results, runtimes = _services(tmp_path)
+    _publish(packages, tmp_path, dataset_id="official/gaia", org_id="official")
+    _publish(packages, tmp_path, dataset_id="acme/bench", org_id="acme")
+    pi = {
+        "executor": "acp",
+        "extensions": [{"plugin": "acp", "options": {"entry": "pi"}}],
+        "model": "glm-4.7",
+    }
+    _upload(
+        results,
+        tmp_path,
+        suite_run_id="suite_official",
+        dataset_id="official/gaia",
+        agent_profiles={"solver": dict(pi)},
+    )
+    _upload(
+        results,
+        tmp_path,
+        suite_run_id="suite_personal",
+        dataset_id="acme/bench",
+        agent_profiles={"solver": dict(pi)},
+    )
+    auth = TokenInfo(scopes=frozenset({"results:upload"}), user_id="alice")
+    official_ids = {r["suite_run_id"] for r in runtimes.performances_for_agent("pi", auth)}
+    assert official_ids == {"suite_official"}
+    runtimes.set_collect_mode(package_id="pi", mode="off", auth=auth)
+    assert runtimes.performances_for_agent("pi", auth) == []
+    runtimes.set_collect_mode(package_id="pi", mode="official_and_personal", auth=auth)
+    both = {r["suite_run_id"] for r in runtimes.performances_for_agent("pi", auth)}
+    assert both == {"suite_official", "suite_personal"}
+    with pytest.raises(RegistryAppError) as forbidden:
+        runtimes.set_collect_mode(
+            package_id="pi",
+            mode="off",
+            auth=TokenInfo(scopes=frozenset({"results:upload"}), user_id="bob"),
+        )
+    assert forbidden.value.http_status == 403

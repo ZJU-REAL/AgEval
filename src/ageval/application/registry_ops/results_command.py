@@ -862,11 +862,11 @@ class ResultsCommands:
     ) -> dict[str, Any]:
         kind_s = kind.strip()
         sid = suite_run_id.strip()
-        if kind_s not in {"leaderboard_list", "agent_appearance"}:
+        if kind_s not in {"leaderboard_list", "agent_performance"}:
             raise ConfigError("invalid_request", "unknown request kind", location="--kind")
         if not sid:
             raise ConfigError("invalid_request", "suite-run is required", location="--suite-run")
-        if kind_s == "agent_appearance" and not (agent or "").strip():
+        if kind_s == "agent_performance" and not (agent or "").strip():
             raise ConfigError("invalid_request", "agent is required", location="--agent")
         client = self._client_factory(
             registry_url=registry_url, require_token=True, accept_results_url=True

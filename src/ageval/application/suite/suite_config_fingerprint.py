@@ -250,7 +250,7 @@ def _binding_role_key(binding: Mapping[str, Any]) -> tuple[str, str, str, str]:
     )
 
 
-def _appearance_role_key(binding: Mapping[str, Any]) -> tuple[str, str]:
+def _performance_role_key(binding: Mapping[str, Any]) -> tuple[str, str]:
     """Harness identity for delayed attach (design/12, /14).
 
     Executor + ACP entry. Model and remaining plugin options (including

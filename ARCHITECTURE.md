@@ -170,7 +170,7 @@ ageval/                              # GitHub: ZJU-REAL/ageval
 ├── services/registry/               # standalone HTTP: Route.access + *Service
 │   ├── app.py / http_api.py / asgi.py / backend.py
 │   ├── auth_service.py / package_service.py / result_service.py / org_service.py
-│   ├── request_service.py           # listing + appearance requests; Inbox
+│   ├── request_service.py           # listing + performance requests; Inbox
 │   ├── queries.py / dataset.py / sql_adapter.py / store.py
 │   └── routes.py                    # ROUTES must declare access
 ├── examples/
@@ -186,7 +186,7 @@ ageval/                              # GitHub: ZJU-REAL/ageval
 └── website/
 ```
 
-Hub Agent appearances are a **derived view** of consented `job_overlay.agent_ref` on official public suite rows, not a Core object. There is no `/runtimes` product surface. Public Leaderboard listing is a Registry flag (`board_listed`), not visibility. Delayed `agent_ref` attach and request decide share one ResultService write path; CLI `build_results_commands` is the Hub/CLI use-case root.
+Hub Agent Performance is a **derived view** of plaza / consented `job_overlay.agent_ref` rows, not a Core object. Builtin cards default to official plaza auto-collect; Maintainers (`AGEVAL_REGISTRY_MAINTAINERS`) own that setting and builtin attach approval. There is no `/runtimes` product surface. Public Leaderboard listing is a Registry flag (`board_listed`), not visibility. Delayed `agent_ref` attach and request decide share one ResultService write path; CLI `build_results_commands` is the Hub/CLI use-case root.
 
 Production Attempt: `application/run.py` mints identity once, then `attempt.run_attempt`. Cleanup is in `try/finally`. Parent Agent Service and hard ceilings share the same quota object.
 
