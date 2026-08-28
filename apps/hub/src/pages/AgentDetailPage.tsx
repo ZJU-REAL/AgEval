@@ -48,6 +48,7 @@ import {
   type PackageRelease,
   RegistryHttpError,
 } from "@/lib/api";
+import { groupAgentAppearances } from "@/lib/agent-appearances";
 import {
   bindingModel,
   formatAgentRunCommand,
@@ -311,16 +312,14 @@ export function AgentDetailPage() {
     setTab("files");
   }
 
-  const appearancesByVersion = useMemo(() => {
-    const groups = new Map<string, AgentAppearance[]>();
-    for (const row of visibleAppearances) {
-      const key = row.agent_version || "unknown";
-      const list = groups.get(key) ?? [];
-      list.push(row);
-      groups.set(key, list);
-    }
-    return [...groups.entries()].sort(([a], [b]) => b.localeCompare(a));
-  }, [visibleAppearances]);
+  const appearanceGroups = useMemo(
+    () =>
+      groupAgentAppearances(visibleAppearances, {
+        builtin,
+        selectedModel,
+      }),
+    [visibleAppearances, builtin, selectedModel],
+  );
 
   return (
     <>
@@ -584,7 +583,7 @@ export function AgentDetailPage() {
                   ? "Official public complete release-bound suites whose overlay harness matches this card. Observational metrics only — PASS stays on the independent evaluator."
                   : "Official public complete release-bound suites with this Agent org’s consent (direct attach or an approved appearance request). Observational metrics only — PASS stays on the independent evaluator."}
               </p>
-              {appearancesByVersion.length === 0 ? (
+              {appearanceGroups.length === 0 ? (
                 <p className="text-sm text-mute">
                   {selectedModel
                     ? builtin
@@ -601,9 +600,11 @@ export function AgentDetailPage() {
                       )}
                 </p>
               ) : (
-                appearancesByVersion.map(([version, rows]) => (
-                  <div key={version} className="space-y-2">
-                    <h3 className="text-xs text-mute">v{version}</h3>
+                appearanceGroups.map((group) => (
+                  <div key={group.key} className="space-y-2">
+                    {group.heading ? (
+                      <h3 className="text-xs text-mute">{group.heading}</h3>
+                    ) : null}
                     <div className="blob-panel overflow-hidden">
                       <Table>
                         <TableHeader>
@@ -616,7 +617,7 @@ export function AgentDetailPage() {
                           </TableRow>
                         </TableHeader>
                         <TableBody>
-                          {rows.map((row) => {
+                          {group.rows.map((row) => {
                             const key = `${row.suite_run_id}:${row.role}`;
                             return (
                               <TableRow key={key}>
