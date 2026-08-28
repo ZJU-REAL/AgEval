@@ -61,7 +61,7 @@ async def launch_task_worker(ctx: AttemptCtx) -> dict[str, Any]:
     return envelope
 
 
-async def launch_eval_worker(ctx: AttemptCtx) -> dict[str, Any]:
+async def launch_eval_worker(ctx: Any) -> dict[str, Any]:
     """Run ``evaluator.py`` in a parent child, same JSON-RPC socket as ``run.py``."""
     workspace = _eval_workspace(ctx)
     artifacts = ctx.evidence.path(TASK_ARTIFACTS_REL)
@@ -73,9 +73,7 @@ async def launch_eval_worker(ctx: AttemptCtx) -> dict[str, Any]:
         "-m",
         EVAL_WORKER_MODULE,
         cwd=str(workspace),
-        env=_eval_worker_env(
-            ctx, workspace=workspace, artifacts=artifacts, evaluation=evaluation
-        ),
+        env=_eval_worker_env(ctx, workspace=workspace, artifacts=artifacts, evaluation=evaluation),
         stdin=asyncio.subprocess.PIPE,
         stdout=asyncio.subprocess.PIPE,
         stderr=asyncio.subprocess.PIPE,
@@ -131,7 +129,7 @@ def _copy_seed(source: Path, dest: Path) -> None:
             shutil.copy2(path, target)
 
 
-def _eval_workspace(ctx: AttemptCtx) -> Path:
+def _eval_workspace(ctx: Any) -> Path:
     """Scoring-host workspace when the parent can see the bind-mount."""
     host = getattr(ctx, "scoring_host", None) or ctx.host
     host_path = getattr(host, "host_path", None)
@@ -142,7 +140,7 @@ def _eval_workspace(ctx: AttemptCtx) -> Path:
     return _worker_workspace(ctx)
 
 
-def _eval_gold_dir(ctx: AttemptCtx) -> Path:
+def _eval_gold_dir(ctx: Any) -> Path:
     """Gold on the parent disk. The agent box never received this tree."""
     src = getattr(ctx, "evaluation_src", None)
     if src is not None and Path(src).is_dir():
@@ -158,7 +156,7 @@ def _eval_gold_dir(ctx: AttemptCtx) -> Path:
     return empty
 
 
-def _eval_launch_message(ctx: AttemptCtx) -> dict[str, Any]:
+def _eval_launch_message(ctx: Any) -> dict[str, Any]:
     references = thaw(ctx.lock.resolved_references)
     return {
         "task_root": str(ctx.task_root),
@@ -173,7 +171,7 @@ def _eval_launch_message(ctx: AttemptCtx) -> dict[str, Any]:
 
 
 def _eval_worker_env(
-    ctx: AttemptCtx,
+    ctx: Any,
     *,
     workspace: Path,
     artifacts: Path,

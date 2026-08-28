@@ -31,6 +31,8 @@ def _box_host(ctx: Any) -> Any:
         if found is not None:
             return found
     return ctx.host
+
+
 _HANDSHAKE_TIMEOUT_SEC = 8
 _PROBE_EXEC_TIMEOUT_SEC = 90
 _PROTOCOL_VERSION = 1

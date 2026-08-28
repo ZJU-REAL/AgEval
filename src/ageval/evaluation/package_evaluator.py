@@ -10,10 +10,8 @@ from __future__ import annotations
 
 from typing import Any
 
-from ageval.attempt.ctx import AttemptCtx
 
-
-async def evaluate_in_box(ctx: AttemptCtx) -> dict[str, Any]:
+async def evaluate_in_box(ctx: Any) -> dict[str, Any]:
     """Launch the evaluator worker and return its verdict document."""
     from ageval.runtime.task_launch import launch_eval_worker
 

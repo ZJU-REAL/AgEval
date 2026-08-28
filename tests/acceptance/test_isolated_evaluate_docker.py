@@ -205,4 +205,3 @@ def test_isolated_evaluate_llm_judge_on_published_tree(tmp_path: Path) -> None:
         assert "workspace_materialized" in names
     finally:
         server.shutdown()
-
