@@ -25,6 +25,7 @@ colors:
     nav-datasets: "#187A8C"
     nav-plugins: "#9A5C16"
     nav-agents: "#5A4AA8"
+    nav-models: "#5A6B38"
     nav-inbox: "#B34A3C"
     nav-orgs: "#3E5F7A"
   dark:
@@ -49,6 +50,7 @@ colors:
     nav-datasets: "#5EC4D4"
     nav-plugins: "#D4924A"
     nav-agents: "#A898E8"
+    nav-models: "#B4C47A"
     nav-inbox: "#E08A7A"
     nav-orgs: "#8AA8C0"
 aliases:

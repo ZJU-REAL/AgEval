@@ -10,7 +10,7 @@ Which component to reuse: [DESIGN.md](./DESIGN.md). This file is product scope.
 | README + Files (package tree via #38) | Full Run/Attempt evidence browser (#43) |
 | Task Jobs **list only** | Click-through into trial trajectory |
 | Leaderboard tab (#40) | Suite-level PASS authority |
-| Agent Performance on `/agents/:id` — derived plaza / consented `agent_ref`; `?model=` selects a registered model | Persist a Runtime table; invent suite or per-role PASS; keep `/runtimes`; add `/agents/:id/models/:model` |
+| Agent Performance on `/agents/:id` — derived plaza / consented `agent_ref`; `?model=` is overlay invoke id on a model directory (not Chip). `/models` is the pin encyclopedia | Persist a Runtime table; invent suite or per-role PASS; keep `/runtimes`; add `/agents/:id/models/:model` or `package_kind=model` |
 | Same stack as viewer (Vite/React/shadcn) | Second component library / marketing CSS |
 
 Registry API is the data plane. Token stays in browser storage only.
@@ -40,7 +40,9 @@ Same family as Viewer. Role → component map: [DESIGN.md](./DESIGN.md).
    stay in the breadcrumb / mono heading, not in the list text.
 5. **Catalog cards for plugins and agents.** Marketplace packages use
    `CatalogCard` / `CatalogCardGrid`. Datasets, jobs, leaderboard, members,
-   and suites stay hairline tables.
+   suites, and model Appearances stay hairline tables. Model encyclopedia
+   and the harness model directory are lab-grouped dense rows — not cards,
+   not wrapping `Chip`.
 6. **One language per job.** Section switchers use `UnderlineTabs`.
    Compact in-panel segments use `PillTabs`. A second exclusive choice
    on the same view uses `Select`. Do not stack two tab strips or

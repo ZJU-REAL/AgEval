@@ -26,11 +26,45 @@ format `ageval.agent/1`。不要 `ageval.harness/1`，不要第二套 `package_k
 
 ## Hub 浏览与 model
 
-`/agents` Explore：机制卡在前，再是 upload。选中后二级 = 已登记 model：
+`binding.model` 是 invoke id。LiteLLM / OpenCode / DashScope 网关等要带前缀（`dashscope/qwen-max`、`openrouter/deepseek/deepseek-v4-flash`）。Runtime、lock、yaml、CommandStrip `--model` **原样**保留。Hub **不**把 overlay 改写成 catalog slug，也不在 `profiles.yaml` / agent 绑定上加 Hub-only 键。
+
+百科身份是 pin 里的 canonical id（如 `deepseek/deepseek-v4-flash`）。不要 `package_kind=model`，不要 `ageval.model/1`，不要 `/agents/:id/models/:model`。Lab 是 snapshot 分组键，不是 Hub `org_id`。
+
+### Pin
+
+Hub SPA、Registry GET、CI 的请求路径 **禁止** curl models.dev / OpenRouter / Hugging Face / logo CDN。Maintainer 脚本拉一次，提交 versioned snapshot（canonical JSON + lab SVG）。缺 pin：字母标，页面不崩。目录价是该 provider 在 pin 日的 USD/MTok，标成 directory price；不是本 suite 账单，不是 PASS。参数量只在 pin 的 `weights` 是 Hugging Face URL 时可选展示；闭包模型空着。禁止 `@lobehub/icons` 运行时依赖。Lab 标跟 snapshot 走，不进 plugin/agent 闭包 `brand-marks/`。
+
+Pin 可带 `aliases`：overlay **整串** exact → 一条 canonical。Maintainer 改 pin，不是 Hub 表单。Matcher 先吃 alias，再走下面的最长唯一匹配。
+
+### Join（Hub 侧）
+
+Join key = overlay `binding.model` **as run**。不要在 yaml 里剥前缀。
+
+Matcher（确定性，无编辑距离）：
+
+1. pin `aliases` exact。
+2. 候选 **最长优先**：整串；再剥 **已知 snapshot provider 前缀**（`openrouter/`、`dashscope/`、`dashscope-`、`openai/`、…）一次或两次（OpenCode 式 `openrouter/deepseek/…`）；再最后一段 `/`；再最后两段 `/`（`deepseek/deepseek-v4-flash`）。
+3. 每个候选对 pin 的 canonical id、canonical leaf、provider model id 做 **exact** lookup。
+4. **恰好一条** canonical → join。0 或大于 1 → 不自动 join。不要剥到 `flash` / `max`。
+
+`qwen-flash` vs `qwen3.6-flash` vs `qwen3.8-flash`：无 unique hit → 不 join。未 join 的 overlay 仍按原文字渲染（字母标，无百科）。
+
+### `/agents` 与 harness 页
+
+`/agents` Explore：机制卡在前，再是 upload。卡片仍是 harness 包（`CatalogCard`），不是模型。
 
 - 机制卡：plaza overlay 上 `resolve_agent_id` 等于该短 id 的 `model`，受该卡 Performance 采集设置约束（默认 `official`）。Maintainer 可改采集；非 Maintainer 把 suite 挂到内置卡必须走 `agent_performance` 申请。
 - 定制卡：同意出场的 `agent_ref` 行（owner attach 或批准 `agent_performance`）。
 
-落地 `/agents/{id}?model=` 是同一详情页 query，不是新路由、不是 combo 包。Performance：机制卡按 overlay `model` 分组，不按 agent package version；没有 `agent_ref` 不渲染 version（不要 `unknown`）。定制卡按所 attach 的 `org/name@version` 的 version 分组。
+落地 `/agents/{id}?model=` 是同一详情页 query，值仍是 overlay invoke id（CommandStrip `--model` 可跑；Leaderboard Model 格仍落这里）。二级 **不是** wrapping `Chip`：改成 directory 行（lab 标若已 join、overlay id、canonical 名若已 join、Default 标、suite 数 / pass rate）。canonical 名链到 `/models/{canonical}`。未 join：原样 overlay + 字母标。
+
+Performance **对齐尺子**仍是 harness（executor + ACP entry，**不含** model）。**展示桶**在 join 之后按 canonical；plaza 自动采集用同一 matcher，unique join 不另留前缀孤儿组。机制卡仍不按 agent package version 分组；没有 `agent_ref` 不渲染 version（不要 `unknown`）。定制卡仍按所 attach 的 `org/name@version` 的 version 分组。Share Attach 与 Inbox 的 Model Select 见 [12](12-hub-dataset-and-leaderboard.md)。
+
+### Models plaza
+
+侧栏 **Models**。身份 = pin canonical id。
+
+- `/models`：按 **lab** 分组的 dense directory 行。不要复用 Agent `CatalogCard` 当市场包，不要 Chip。`CatalogScopeBar`：默认 Explore = 全 pin；filter = 已有同意的 Agent Performance。
+- `/models/{canonical}`：百科（名、描述、family、release、context、capabilities、open weights、directory price、可选 HF 参数量）+ Appearances（harness + dataset + 观测分）。harness 链 `/agents/{package_id}?model={overlay}`。Eval 事实只来自已有 Agent Performance，不把第三方 bench 和 PASS 混写。
 
 产品禁止 mock-default Agent。

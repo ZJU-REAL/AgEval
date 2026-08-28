@@ -40,6 +40,7 @@ SPA 实现对照的**常量清单**在 `apps/viewer/DESIGN.md` 文首 YAML(Hub �
 | nav-datasets | `#187A8C` | `#5EC4D4` | Hub Datasets 侧栏 lucide,**仅字形** | `nav-datasets` | — |
 | nav-plugins | `#9A5C16` | `#D4924A` | Hub Plugins 侧栏 lucide,**仅字形** | `nav-plugins` | — |
 | nav-agents | `#5A4AA8` | `#A898E8` | Hub Agents 侧栏 lucide,**仅字形** | `nav-agents` | — |
+| nav-models | `#5A6B38` | `#B4C47A` | Hub Models 侧栏 lucide,**仅字形** | `nav-models` | — |
 | nav-inbox | `#B34A3C` | `#E08A7A` | Hub Inbox 侧栏 lucide,**仅字形** | `nav-inbox` | — |
 | nav-orgs | `#3E5F7A` | `#8AA8C0` | Hub Organizations 侧栏 lucide,**仅字形** | `nav-orgs` | — |
 | code-bg | `#F4F5F8` | `#0C0E14` | 代码底 | `code-bg` | — |
@@ -94,12 +95,12 @@ landing 的 oklch 系(`oklch(15.4% 0.018 264)` 底等)是本表的 oklch 等值�
 | 分段 tab | `UnderlineTabs`:sans `text-sm` + Liquid Move thumb(fill `canvas-soft-2`)。一页一条。不要再画 IKB `border-b-2` 底条 |
 | 紧凑 pill | `PillTabs`:同上,11px。只用于面板内紧凑分段。同页再出现互斥选择用 `Select` |
 | 按钮组 | 并列选项收进**一个** hairline 容器(8px 圆角)。选中 `canvas-soft-2` + `ink`,hover `canvas-soft`。字号 `body-sm`。不要 IKB 填充 |
-| Chip | 散开的标签 / 可选模型用 `Chip`:8px、hairline、选中 `canvas-soft-2`、hover `canvas-soft`。不要 `bg-link/10` |
+| Chip | 散开的标签用 `Chip`:8px、hairline、选中 `canvas-soft-2`、hover `canvas-soft`。不要 `bg-link/10`。**不要**用 Chip 做模型浏览（harness 目录与 `/models` 走 lab 分组 dense 行） |
 | 扫描字段 | 搜索是 stadium,焦点描边保持 `hairline`。不要给新搜索叠 `border-link` |
 | Toast | 底中 Overshoot 进场;只用于没有本地成功态的写操作。Copy / star 等控件自身已有反馈的不要再 toast。实色 `*-soft` 次底 + `--viewer-shadow-pop`,无描边、无第三方面包。图标走对应功能色,正文走 `body` |
 | Select / 下拉 | `Select` / `DropdownMenu` 用 `data-ageval-menu` 进场(220ms smooth, 随 `data-side` 上下),触发器 chevron 旋转 + squish;选项 `data-highlighted` 色过渡,选中勾 `ease-spring` pop。触发器焦点走扫描字段,不是 IKB 描边 |
 | Floating Label | 编辑字段:placeholder 在 focus 或有值时抬成 label;焦点描边走 `link` |
-| Catalog 卡 | 市场实体(plugin / agent)用 `CatalogCard`:14px、四面 hairline + pop 阴影、hover `canvas-soft`、按下 `squish`(0.96)。描述三行。宽屏三列(`xl:grid-cols-3`)。卡上不画 slot / binding tag。star 在卡上是计数不是写入口;写收藏不是卡上的控件,填实用 `star` 金。first-party overlay 走短 id + lucide builtin 标(`link`),不要冒充 OfficialMark。可比行(dataset / jobs / leaderboard / members)用表 |
+| Catalog 卡 | 市场实体(plugin / agent)用 `CatalogCard`:14px、四面 hairline + pop 阴影、hover `canvas-soft`、按下 `squish`(0.96)。描述三行。宽屏三列(`xl:grid-cols-3`)。卡上不画 slot / binding tag。star 在卡上是计数不是写入口;写收藏不是卡上的控件,填实用 `star` 金。first-party overlay 走短 id + lucide builtin 标(`link`),不要冒充 OfficialMark。可比行(dataset / jobs / leaderboard / members / 模型 Appearances)用表。模型百科**不是**市场包:按 lab 分组的 dense 行,不要复用 `CatalogCard` |
 | 表 | hairline 表。表头底 `canvas-soft`，表身 `canvas`。列名 `text-sm` / `mute`。不要 zinc 灰表头，也不要表头表身同色 |
 | 页头(PageHead) | h1 + 可选 sub + hairline(无编号 kicker) |
 | 相位/耗时图谱 | `--viewer-phase-1..6` 用 ink / body / mute / hairline 冷灰阶。执行段 `--viewer-phase-1` 为 ink 与 mute 的 `color-mix`（约 55% ink），不用实心 ink，也不用 IKB。IKB 留给链接 / 焦点 / 主 CTA。禁 zinc 等外部灰阶 |
@@ -122,7 +123,7 @@ landing 的 oklch 系(`oklch(15.4% 0.018 264)` 底等)是本表的 oklch 等值�
 6. 焦点可见性不妥协,但扫描与编辑不是同一条。按钮 / 链接 / 卡用 2px IKB 环(landing 3px outline);编辑字段用 1px IKB 描边;搜索与过滤保持 hairline 描边,不换焦点色。
 7. 选区、hover、active 的色彩表达一律引用令牌,不自调 hex / opacity 组合。
 8. 动效默认 `--ease-smooth` 200ms。`--ease-spring` / `--ease-glide`、按下 80ms、toast 550ms、landing hero/章节揭示 400ms、Hub/Viewer `ThinkingLogo` canvas、Hub/Viewer `liquid-gooey` Move 是已记录的例外。其它曲线、时长或运动库先改本文件。
-9. 图标三用途:产品品牌用 owl 系列(`owl-flat.tsx` / `OwlIcon`);功能用 lucide;plugin/agent 实体标默认 GitHub 头像(`uploaded_by`),可改闭包彩色标或另一个 GitHub login。闭包 SVG/PNG 在 `apps/hub/src/lib/brand-marks/assets/`,彩色,不把第三方 logo 组件库当运行时依赖。文件树仍用 `material-icon-theme`(既有例外)。
+9. 图标三用途:产品品牌用 owl 系列(`owl-flat.tsx` / `OwlIcon`);功能用 lucide;plugin/agent 实体标默认 GitHub 头像(`uploaded_by`),可改闭包彩色标或另一个 GitHub login。闭包 SVG/PNG 在 `apps/hub/src/lib/brand-marks/assets/`,彩色,不把第三方 logo 组件库当运行时依赖。模型百科的 **lab** 标是 pin 里 vendored 的 lab SVG,缺则字母标;不进 plugin/agent 闭包、不装 `@lobehub/icons`。Lab ≠ Hub org。文件树仍用 `material-icon-theme`(既有例外)。
 10. 深度感只用 `--viewer-shadow-pop`;blur 分档封顶,不为单个组件发明新档或第二套阴影令牌。
 
 ## 品牌资产入口
@@ -134,6 +135,7 @@ landing 的 oklch 系(`oklch(15.4% 0.018 264)` 底等)是本表的 oklch 等值�
 | `ThinkingLogo` | `apps/hub/src/components/thinking-logo.tsx`、`apps/viewer/src/components/thinking-logo.tsx` | Hub / Viewer 拉取中的工作态点云(owl 面标烘焙点,canvas 2D)。empty 与导航 logo 仍用静态 SVG |
 | favicon | `website/src/app/favicon.ico` + `website/public/favicon.svg`；`apps/{hub,viewer}/public/favicon.{ico,svg}` | 黑方底板 + 白面标。只用 ico（浏览器默认 `/favicon.ico`）和 svg，不另备 png |
 | 实体/机制标 | `apps/hub/src/lib/brand-marks/` | plugin / agent 卡片与详情、Leaderboard。默认 uploader GitHub 头像;闭包为彩色真实标。ink 标固定白底，paper 标固定黑底 |
+| 模型 lab 标 | 随 pin 提交的 lab SVG | `/models` 与 harness 模型目录。缺 SVG 字母标。不进 `brand-marks/`。Lab ≠ Hub org |
 
-`owl-flat` 与 `owl-icon` 内的 IKB、墨、纸、奶油 hex 是品牌资产允许值,纳入机检 allowlist。闭包标 hex 只许出现在 `brand-marks/assets/`(svg/png),不进 ts/tsx。
+`owl-flat` 与 `owl-icon` 内的 IKB、墨、纸、奶油 hex 是品牌资产允许值,纳入机检 allowlist。闭包标 hex 只许出现在 `brand-marks/assets/`(svg/png),不进 ts/tsx。模型 lab SVG hex 只许出现在 pin 资产目录,同样不进 ts/tsx。
 `OwlFlatPlate` 四色:`paper` / `cream`(深底浅标)、`ink`(浅底深标)、`klein`(IKB `#1B54E8` 底 + 白标)。导航图标走 `currentColor`。

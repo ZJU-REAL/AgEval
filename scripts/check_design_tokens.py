@@ -43,6 +43,7 @@ CANONICAL: dict[str, tuple[str, str]] = {
     "nav-datasets": ("#187A8C", "#5EC4D4"),
     "nav-plugins": ("#9A5C16", "#D4924A"),
     "nav-agents": ("#5A4AA8", "#A898E8"),
+    "nav-models": ("#5A6B38", "#B4C47A"),
     "nav-inbox": ("#B34A3C", "#E08A7A"),
     "nav-orgs": ("#3E5F7A", "#8AA8C0"),
     "code-bg": ("#F4F5F8", "#0C0E14"),

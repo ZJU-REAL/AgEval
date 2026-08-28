@@ -27,7 +27,7 @@ The look is already chosen. Shared anti-slop (copy, type, reject list, landing-p
 - Left/right shell: entire aside opaque `canvas-soft` + `border-r`; header and main `canvas`. Logo row `border-b`; GitHub / Documentation footer `border-t`. No glass, no blur wash. Wide (`xl`) main copy is `w-[80%]` centered; the top bar still spans the main column.
 - Selected sidebar row is Liquid Move fill `canvas`. Hover is `canvas/50`. Do not reuse `canvas-soft-2` on the rail — it disappears against the soft aside.
 - `nav-*` paints lucide only. Labels stay `ink` / `body`, sans, body-sm. Do not flood the page with those colors.
-- Marketplace entities (plugin / agent) are `CatalogCard` (squish press, three-line description, three columns at `xl`). Comparable rows (datasets, jobs, leaderboard, members) are tables. Do not put a dataset in a card "to match plugins".
+- Marketplace entities (plugin / agent) are `CatalogCard` (squish press, three-line description, three columns at `xl`). Comparable rows (datasets, jobs, leaderboard, members) are tables. Do not put a dataset in a card "to match plugins". Model encyclopedia is a lab-grouped directory, not a third marketplace: dense rows under a lab header, never `CatalogCard`, never wrapping `Chip`.
 - Star on a card is a count. The write control is on the package, not the list cell.
 - Search on a catalog list copies `CatalogScopeBar`.
 - Layout: Viewer DESIGN.md **Composition**. New chrome joins the band already scanning the page. Density 6/10 is not an excuse for a vacant half-row.
@@ -52,10 +52,11 @@ Token values, type stacks, radii, and motion curves: the YAML in Viewer `DESIGN.
 | Section switcher | `UnderlineTabs` (Liquid Move) |
 | In-page exclusive choice | `Select` |
 | Compact in-panel segment | `PillTabs` |
-| Wrapping label / model chip | `Chip` |
+| Wrapping label | `Chip` (overlay paths, plugin names in a preview — **not** model browse) |
 | Marketplace plugin / agent | `CatalogCard` / `CatalogCardGrid` |
-| Catalog list (scope + search) | `CatalogScopeBar` |
-| Comparable rows (datasets, jobs, leaderboard, members) | hairline `Table` |
+| Model encyclopedia / harness model directory | Lab-grouped dense rows: lab mark (snapshot SVG or letter) + canonical name + overlay invoke id + mute meta. Not `CatalogCard`. Not wrapping `Chip`. Lab ≠ Hub `org_id`. |
+| Catalog list (scope + search) | `CatalogScopeBar` (`/models` Explore = full pin; filter = has Performance) |
+| Comparable rows (datasets, jobs, leaderboard, members, model Appearances) | hairline `Table` |
 | Sortable table column | `SortableHead` (click cycles asc → desc → default) |
 | Score in a comparable row | `ScoreRing` (IKB arc + number; fill is value/max, default max 1) |
 | Optional table columns | `TableColumnPicker` |
