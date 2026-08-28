@@ -32,6 +32,7 @@ import {
 } from "@/lib/api";
 import { getToken } from "@/lib/auth";
 import { rememberReturnPath } from "@/lib/return-path";
+import { sortRows, useTableSort } from "@/components/sortable-head";
 import { formatDate } from "@/lib/utils";
 import { PeekHost, type PeekTarget } from "@/peek-host";
 
@@ -55,6 +56,33 @@ function kindLabel(kind: string): string {
   if (kind === "leaderboard_list") return "Listing";
   if (kind === "agent_performance") return "Performance";
   return kind;
+}
+
+function requestColumnValue(row: ResourceRequest, key: string): unknown {
+  switch (key) {
+    case "status":
+      return row.status || "";
+    case "kind":
+      return kindLabel(row.kind);
+    case "dataset":
+      return row.dataset_id || "";
+    case "suite":
+      return row.suite_run_id || "";
+    case "applicant":
+      return row.applicant || "";
+    case "agent":
+      return row.agent_ref || "";
+    case "decided":
+      return row.decided_at ?? row.created_at ?? null;
+    default:
+      return null;
+  }
+}
+
+function compareInboxHistory(a: ResourceRequest, b: ResourceRequest): number {
+  return (
+    (b.decided_at || b.created_at || 0) - (a.decided_at || a.created_at || 0)
+  );
 }
 
 function PeekCell({
@@ -86,6 +114,8 @@ export function InboxPage() {
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
   const [confirmHide, setConfirmHide] = useState(false);
+  const pendingSort = useTableSort();
+  const historySort = useTableSort("decided", "desc");
 
   const closePeek = useCallback(() => setPeek(null), []);
 
@@ -122,15 +152,25 @@ export function InboxPage() {
     [rows, needle, kindFilter, datasetFilter],
   );
   const pending = useMemo(
-    () => filtered.filter((row) => row.status === "pending"),
-    [filtered],
+    () =>
+      sortRows(
+        filtered.filter((row) => row.status === "pending"),
+        pendingSort.sortKey,
+        pendingSort.sortDir,
+        requestColumnValue,
+      ),
+    [filtered, pendingSort.sortKey, pendingSort.sortDir],
   );
   const history = useMemo(
     () =>
-      filtered
-        .filter((row) => row.status !== "pending")
-        .sort((a, b) => (b.decided_at || b.created_at || 0) - (a.decided_at || a.created_at || 0)),
-    [filtered],
+      sortRows(
+        filtered.filter((row) => row.status !== "pending"),
+        historySort.sortKey,
+        historySort.sortDir,
+        requestColumnValue,
+        compareInboxHistory,
+      ),
+    [filtered, historySort.sortKey, historySort.sortDir],
   );
   const pendingIds = useMemo(() => pending.map((r) => r.request_id), [pending]);
   const historyIds = useMemo(() => history.map((r) => r.request_id), [history]);
@@ -305,11 +345,13 @@ export function InboxPage() {
                     }}
                   />
                 </TableHead>
-                <TableHead>Kind</TableHead>
-                <TableHead>Dataset</TableHead>
-                <TableHead>Suite</TableHead>
-                <TableHead>Applicant</TableHead>
-                <TableHead>Agent</TableHead>
+                <TableHead>{pendingSort.head("kind", "Kind")}</TableHead>
+                <TableHead>{pendingSort.head("dataset", "Dataset")}</TableHead>
+                <TableHead>{pendingSort.head("suite", "Suite")}</TableHead>
+                <TableHead>
+                  {pendingSort.head("applicant", "Applicant")}
+                </TableHead>
+                <TableHead>{pendingSort.head("agent", "Agent")}</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -363,13 +405,19 @@ export function InboxPage() {
             <Table className="table-auto">
               <TableHeader>
                 <TableRow>
-                  <TableHead>Status</TableHead>
-                  <TableHead>Kind</TableHead>
-                  <TableHead>Dataset</TableHead>
-                  <TableHead>Suite</TableHead>
-                  <TableHead>Applicant</TableHead>
-                  <TableHead>Agent</TableHead>
-                  <TableHead>Decided</TableHead>
+                  <TableHead>{historySort.head("status", "Status")}</TableHead>
+                  <TableHead>{historySort.head("kind", "Kind")}</TableHead>
+                  <TableHead>
+                    {historySort.head("dataset", "Dataset")}
+                  </TableHead>
+                  <TableHead>{historySort.head("suite", "Suite")}</TableHead>
+                  <TableHead>
+                    {historySort.head("applicant", "Applicant")}
+                  </TableHead>
+                  <TableHead>{historySort.head("agent", "Agent")}</TableHead>
+                  <TableHead>
+                    {historySort.head("decided", "Decided")}
+                  </TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>

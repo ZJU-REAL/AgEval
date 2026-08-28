@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { ArrowDown, ArrowUp, ArrowUpDown } from "lucide-react";
 
 import { cn } from "@/lib/utils";
@@ -56,4 +57,52 @@ export function compareValues(a: unknown, b: unknown, dir: "asc" | "desc"): numb
   if (b == null) return -1;
   if (typeof a === "number" && typeof b === "number") return (a - b) * mul;
   return String(a).localeCompare(String(b), undefined, { numeric: true }) * mul;
+}
+
+export function sortRows<T>(
+  rows: readonly T[],
+  key: string | null,
+  dir: SortDir,
+  value: (row: T, key: string) => unknown,
+  fallback?: (a: T, b: T) => number,
+): T[] {
+  const list = [...rows];
+  if (key && dir) {
+    list.sort((a, b) => {
+      const cmp = compareValues(value(a, key), value(b, key), dir);
+      if (cmp !== 0) return cmp;
+      return fallback ? fallback(a, b) : 0;
+    });
+  } else if (fallback) {
+    list.sort(fallback);
+  }
+  return list;
+}
+
+export function useTableSort(
+  initialKey: string | null = null,
+  initialDir: SortDir = "asc",
+) {
+  const [sortKey, setSortKey] = useState<string | null>(initialKey);
+  const [sortDir, setSortDir] = useState<SortDir>(initialDir);
+
+  function onSort(key: string) {
+    const next = nextSort(sortKey, sortDir, key);
+    setSortKey(next.dir ? next.key : null);
+    setSortDir(next.dir);
+  }
+
+  function head(key: string, label: string, className?: string) {
+    return (
+      <SortableHead
+        label={label}
+        active={sortKey === key}
+        dir={sortKey === key ? sortDir : null}
+        onClick={() => onSort(key)}
+        className={className}
+      />
+    );
+  }
+
+  return { sortKey, sortDir, setSortKey, setSortDir, onSort, head };
 }

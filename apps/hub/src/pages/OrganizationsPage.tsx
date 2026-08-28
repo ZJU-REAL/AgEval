@@ -29,6 +29,7 @@ import {
   RegistryHttpError,
 } from "@/lib/api";
 import { getToken } from "@/lib/auth";
+import { sortRows, useTableSort } from "@/components/sortable-head";
 import { TableColumnPicker } from "@/components/ui/table-column-picker";
 import { useTableColumns } from "@/hooks/use-table-columns";
 import { toastError } from "@/lib/toast-error";
@@ -61,6 +62,7 @@ export function OrganizationsPage() {
     ORG_OPTIONAL_IDS,
     ORG_OPTIONAL_DEFAULT,
   );
+  const sort = useTableSort();
 
   const [joinOpen, setJoinOpen] = useState(false);
   const [inviteKey, setInviteKey] = useState("");
@@ -169,16 +171,57 @@ export function OrganizationsPage() {
     return counts;
   }, [agents]);
 
+  useEffect(() => {
+    if (
+      sort.sortKey === "org_id" ||
+      sort.sortKey === "datasets" ||
+      sort.sortKey === "plugins" ||
+      sort.sortKey === "agents"
+    ) {
+      if (!columns.includes(sort.sortKey)) {
+        sort.setSortKey(null);
+        sort.setSortDir(null);
+      }
+    }
+  }, [columns, sort.sortKey, sort.setSortKey, sort.setSortDir]);
+
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
-    if (!q) return orgs;
-    return orgs.filter(
-      (o) =>
-        o.org_id.toLowerCase().includes(q) ||
-        (o.display_name || "").toLowerCase().includes(q) ||
-        (o.name || "").toLowerCase().includes(q),
-    );
-  }, [orgs, query]);
+    const matched = !q
+      ? orgs
+      : orgs.filter(
+          (o) =>
+            o.org_id.toLowerCase().includes(q) ||
+            (o.display_name || "").toLowerCase().includes(q) ||
+            (o.name || "").toLowerCase().includes(q),
+        );
+    return sortRows(matched, sort.sortKey, sort.sortDir, (org, key) => {
+      switch (key) {
+        case "name":
+          return org.display_name || org.name || org.org_id;
+        case "org_id":
+          return org.org_id;
+        case "role":
+          return org.role || "";
+        case "datasets":
+          return datasetCountByOrg.get(org.org_id) ?? 0;
+        case "plugins":
+          return pluginCountByOrg.get(org.org_id) ?? 0;
+        case "agents":
+          return agentCountByOrg.get(org.org_id) ?? 0;
+        default:
+          return null;
+      }
+    });
+  }, [
+    orgs,
+    query,
+    sort.sortKey,
+    sort.sortDir,
+    datasetCountByOrg,
+    pluginCountByOrg,
+    agentCountByOrg,
+  ]);
 
   async function submitCreate() {
     if (!token) return;
@@ -325,19 +368,25 @@ export function OrganizationsPage() {
               <Table>
                 <TableHeader>
                   <TableRow className="hover:bg-transparent">
-                    <TableHead>Organization</TableHead>
+                    <TableHead>{sort.head("name", "Organization")}</TableHead>
                     {columns.includes("org_id") ? (
-                      <TableHead>ID</TableHead>
+                      <TableHead>{sort.head("org_id", "ID")}</TableHead>
                     ) : null}
-                    <TableHead>Role</TableHead>
+                    <TableHead>{sort.head("role", "Role")}</TableHead>
                     {columns.includes("datasets") ? (
-                      <TableHead className="tabular-nums">Datasets</TableHead>
+                      <TableHead className="tabular-nums">
+                        {sort.head("datasets", "Datasets")}
+                      </TableHead>
                     ) : null}
                     {columns.includes("plugins") ? (
-                      <TableHead className="tabular-nums">Plugins</TableHead>
+                      <TableHead className="tabular-nums">
+                        {sort.head("plugins", "Plugins")}
+                      </TableHead>
                     ) : null}
                     {columns.includes("agents") ? (
-                      <TableHead className="tabular-nums">Agents</TableHead>
+                      <TableHead className="tabular-nums">
+                        {sort.head("agents", "Agents")}
+                      </TableHead>
                     ) : null}
                   </TableRow>
                 </TableHeader>

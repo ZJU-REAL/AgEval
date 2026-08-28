@@ -33,6 +33,7 @@ import {
   RegistryHttpError,
 } from "@/lib/api";
 import { getToken } from "@/lib/auth";
+import { sortRows, useTableSort } from "@/components/sortable-head";
 import { TableColumnPicker } from "@/components/ui/table-column-picker";
 import { useTableColumns } from "@/hooks/use-table-columns";
 import { formatDate } from "@/lib/utils";
@@ -57,6 +58,7 @@ export function DatasetsPage() {
     DATASET_OPTIONAL_IDS,
     DATASET_OPTIONAL_DEFAULT,
   );
+  const sort = useTableSort();
   const token = getToken();
   const needsAuth = scope === "orgs";
 
@@ -92,19 +94,45 @@ export function DatasetsPage() {
     };
   }, [token, scope, needsAuth]);
 
+  useEffect(() => {
+    if (sort.sortKey === "updated" && !columns.includes("updated")) {
+      sort.setSortKey(null);
+      sort.setSortDir(null);
+    }
+  }, [columns, sort.sortKey, sort.setSortKey, sort.setSortDir]);
+
   const datasets = useMemo(() => {
     const latest = latestPackageByDataset(items);
     const q = query.trim().toLowerCase();
-    if (!q) return latest;
-    return latest.filter(
-      (r) =>
-        r.dataset_id.toLowerCase().includes(q) ||
-        packageDisplayTitle(r.dataset_id, r.display_name)
-          .toLowerCase()
-          .includes(q) ||
-        (r.org_id && r.org_id.toLowerCase().includes(q)),
-    );
-  }, [items, query]);
+    const filtered = !q
+      ? latest
+      : latest.filter(
+          (r) =>
+            r.dataset_id.toLowerCase().includes(q) ||
+            packageDisplayTitle(r.dataset_id, r.display_name)
+              .toLowerCase()
+              .includes(q) ||
+            (r.org_id && r.org_id.toLowerCase().includes(q)),
+        );
+    return sortRows(filtered, sort.sortKey, sort.sortDir, (row, key) => {
+      switch (key) {
+        case "dataset":
+          return packageDisplayTitle(row.dataset_id, row.display_name);
+        case "org":
+          return row.org_id || "";
+        case "version":
+          return versionLabel(row);
+        case "visibility":
+          return row.visibility || "";
+        case "tasks":
+          return typeof row.task_count === "number" ? row.task_count : null;
+        case "updated":
+          return row.created_at ?? null;
+        default:
+          return null;
+      }
+    });
+  }, [items, query, sort.sortKey, sort.sortDir]);
 
   function setScope(next: CatalogScope) {
     setSearchParams(catalogScopeSearch(next), { replace: true });
@@ -174,13 +202,17 @@ export function DatasetsPage() {
               <Table>
                 <TableHeader>
                   <TableRow className="hover:bg-transparent">
-                    <TableHead>Dataset</TableHead>
-                    <TableHead>Org</TableHead>
-                    <TableHead>Version</TableHead>
-                    <TableHead>Visibility</TableHead>
-                    <TableHead className="tabular-nums">Tasks</TableHead>
+                    <TableHead>{sort.head("dataset", "Dataset")}</TableHead>
+                    <TableHead>{sort.head("org", "Org")}</TableHead>
+                    <TableHead>{sort.head("version", "Version")}</TableHead>
+                    <TableHead>
+                      {sort.head("visibility", "Visibility")}
+                    </TableHead>
+                    <TableHead className="tabular-nums">
+                      {sort.head("tasks", "Tasks")}
+                    </TableHead>
                     {columns.includes("updated") ? (
-                      <TableHead>Updated</TableHead>
+                      <TableHead>{sort.head("updated", "Updated")}</TableHead>
                     ) : null}
                   </TableRow>
                 </TableHeader>

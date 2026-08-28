@@ -68,7 +68,12 @@ import {
   type SuiteRow,
   RegistryHttpError,
 } from "@/lib/api";
-import { groupAgentPerformances } from "@/lib/agent-performances";
+import {
+  comparePerformances,
+  groupAgentPerformances,
+  performanceColumnValue,
+} from "@/lib/agent-performances";
+import { sortRows, useTableSort } from "@/components/sortable-head";
 import { toast } from "@/components/ui/toast";
 import { toastError } from "@/lib/toast-error";
 import {
@@ -78,6 +83,7 @@ import {
 } from "@/lib/agent-models";
 import { getGithubUser, getToken } from "@/lib/auth";
 import { buildNestedTree, type TreeNode } from "@/lib/file-tree";
+import { ScoreRing } from "@/components/score-ring";
 import { formatScore } from "@/lib/utils";
 
 type AgentTab = "overview" | "performance" | "files";
@@ -375,6 +381,25 @@ export function AgentDetailPage() {
         selectedModel,
       }),
     [visiblePerformances, builtin, selectedModel],
+  );
+  const performanceSort = useTableSort("pass_rate", "desc");
+  const sortedPerformanceGroups = useMemo(
+    () =>
+      performanceGroups.map((group) => ({
+        ...group,
+        rows: sortRows(
+          group.rows,
+          performanceSort.sortKey,
+          performanceSort.sortDir,
+          performanceColumnValue,
+          comparePerformances,
+        ),
+      })),
+    [
+      performanceGroups,
+      performanceSort.sortKey,
+      performanceSort.sortDir,
+    ],
   );
 
   function openCollect() {
@@ -714,8 +739,11 @@ export function AgentDetailPage() {
                 {builtin
                   ? "Leaderboard suites collected onto this card (official plaza by default; a Maintainer can change the range). Observational metrics only — PASS stays on the independent evaluator."
                   : "Official public complete release-bound suites with this Agent org’s consent (direct attach or an approved Performance request). Observational metrics only — PASS stays on the independent evaluator."}
+                {sortedPerformanceGroups.length > 0
+                  ? " · click headers to sort"
+                  : null}
               </p>
-              {performanceGroups.length === 0 ? (
+              {sortedPerformanceGroups.length === 0 ? (
                 <p className="text-sm text-mute">
                   {selectedModel
                     ? builtin
@@ -732,7 +760,7 @@ export function AgentDetailPage() {
                       )}
                 </p>
               ) : (
-                performanceGroups.map((group) => (
+                sortedPerformanceGroups.map((group) => (
                   <div key={group.key} className="space-y-2">
                     {group.heading ? (
                       <h3 className="text-xs text-mute">{group.heading}</h3>
@@ -741,11 +769,21 @@ export function AgentDetailPage() {
                       <Table>
                         <TableHeader>
                           <TableRow>
-                            <TableHead>Dataset</TableHead>
-                            <TableHead>Role</TableHead>
-                            <TableHead>Model</TableHead>
-                            <TableHead>Pass rate</TableHead>
-                            <TableHead>Mean</TableHead>
+                            <TableHead>
+                              {performanceSort.head("dataset_id", "Dataset")}
+                            </TableHead>
+                            <TableHead>
+                              {performanceSort.head("role", "Role")}
+                            </TableHead>
+                            <TableHead>
+                              {performanceSort.head("model", "Model")}
+                            </TableHead>
+                            <TableHead>
+                              {performanceSort.head("pass_rate", "Pass rate")}
+                            </TableHead>
+                            <TableHead>
+                              {performanceSort.head("mean_score", "Mean")}
+                            </TableHead>
                           </TableRow>
                         </TableHeader>
                         <TableBody>
@@ -773,10 +811,14 @@ export function AgentDetailPage() {
                                   {row.model || "—"}
                                 </TableCell>
                                 <TableCell className="tabular-nums">
-                                  {formatScore(row.pass_rate)}
+                                  <ScoreRing value={row.pass_rate}>
+                                    {formatScore(row.pass_rate)}
+                                  </ScoreRing>
                                 </TableCell>
                                 <TableCell className="tabular-nums">
-                                  {formatScore(row.mean_score)}
+                                  <ScoreRing value={row.mean_score}>
+                                    {formatScore(row.mean_score)}
+                                  </ScoreRing>
                                 </TableCell>
                               </TableRow>
                             );
@@ -879,7 +921,7 @@ export function AgentDetailPage() {
       {inspect ? (
         <SuiteInspector
           suite={inspect.suite}
-          datasetId={inspect.suite.dataset_id}
+          datasetId={inspect.suite.dataset_id || ""}
           overlayDigest={inspect.packageDigest}
           pluginCatalog={pluginCatalog}
           orgId={undefined}

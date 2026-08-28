@@ -56,6 +56,7 @@ Token values, type stacks, radii, and motion curves: the YAML in Viewer `DESIGN.
 | Marketplace plugin / agent | `CatalogCard` / `CatalogCardGrid` |
 | Catalog list (scope + search) | `CatalogScopeBar` |
 | Comparable rows (datasets, jobs, leaderboard, members) | hairline `Table` |
+| Sortable table column | `SortableHead` (click cycles asc → desc → default) |
 | Score in a comparable row | `ScoreRing` (IKB arc + number; fill is value/max, default max 1) |
 | Optional table columns | `TableColumnPicker` |
 | Version list | `VersionSwitcher` (`Select` + human label + trailing date) |

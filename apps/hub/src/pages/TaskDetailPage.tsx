@@ -15,6 +15,11 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import {
+  SortableHead,
+  sortRows,
+  useTableSort,
+} from "@/components/sortable-head";
 import { TableColumnPicker } from "@/components/ui/table-column-picker";
 import { useTableColumns } from "@/hooks/use-table-columns";
 import { PillTabs } from "@/components/ui/pill-tabs";
@@ -65,6 +70,55 @@ const JOB_OPTIONAL_COLUMNS = [
 ] as const;
 const JOB_OPTIONAL_IDS = JOB_OPTIONAL_COLUMNS.map((col) => col.id);
 const JOB_OPTIONAL_DEFAULT: typeof JOB_OPTIONAL_IDS = ["environment", "time"];
+
+type TaskJobRow = {
+  job_id: string;
+  job_kind: "suite" | "attempt";
+  status?: string | null;
+  score?: number | null;
+  agent_label?: string;
+  model_label?: string;
+  reasoning_effort?: string;
+  environment?: string | null;
+  created_at?: number | string;
+  run_id?: string | null;
+  has_attempt_content?: boolean;
+  dataset_ref?: string | null;
+};
+
+function jobColumnValue(row: TaskJobRow, key: string): unknown {
+  switch (key) {
+    case "job_id":
+      return row.job_id || "";
+    case "dataset":
+      return row.dataset_ref || "";
+    case "status":
+      return row.status || "";
+    case "score":
+      return row.score ?? null;
+    case "agent_label":
+      return row.agent_label || "";
+    case "model_label":
+      return row.model_label || "";
+    case "environment":
+      return row.environment || "";
+    case "time": {
+      return (
+        Date.parse(String(row.created_at ?? "")) || Number(row.created_at) || 0
+      );
+    }
+    default:
+      return null;
+  }
+}
+
+function compareTaskJobs(a: TaskJobRow, b: TaskJobRow): number {
+  const left =
+    Date.parse(String(a.created_at ?? "")) || Number(a.created_at) || 0;
+  const right =
+    Date.parse(String(b.created_at ?? "")) || Number(b.created_at) || 0;
+  return right - left;
+}
 
 function FilesScopeSwitch({
   filesScope,
@@ -123,28 +177,14 @@ export function TaskDetailPage() {
   const [filesScope, setFilesScope] = useState<FilesScope>("local");
   const [overlayPrefixes, setOverlayPrefixes] = useState<string[]>([]);
   const [readme, setReadme] = useState<string | null>(null);
-  const [jobs, setJobs] = useState<
-    Array<{
-      job_id: string;
-      job_kind: "suite" | "attempt";
-      status?: string | null;
-      score?: number | null;
-      agent_label?: string;
-      model_label?: string;
-      reasoning_effort?: string;
-      environment?: string | null;
-      created_at?: number | string;
-      run_id?: string | null;
-      has_attempt_content?: boolean;
-      dataset_ref?: string | null;
-    }>
-  >([]);
+  const [jobs, setJobs] = useState<TaskJobRow[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [jobColumns, setJobColumns] = useTableColumns(
     "ageval.hub.columns.task-jobs",
     JOB_OPTIONAL_IDS,
     JOB_OPTIONAL_DEFAULT,
   );
+  const jobSort = useTableSort("time", "desc");
   const token = getToken();
   const jobOffsetRaw = Number.parseInt(search.get("offset") || "0", 10);
   const jobOffset =
@@ -457,10 +497,51 @@ export function TaskDetailPage() {
     setSearch(n, { replace: true });
   }
 
-  const pagedJobs = useMemo(
-    () => jobs.slice(jobOffset, jobOffset + TASK_PAGE_SIZE),
-    [jobs, jobOffset],
+  useEffect(() => {
+    if (
+      jobSort.sortKey === "dataset" ||
+      jobSort.sortKey === "environment" ||
+      jobSort.sortKey === "time"
+    ) {
+      if (!jobColumns.includes(jobSort.sortKey)) {
+        jobSort.setSortKey(null);
+        jobSort.setSortDir(null);
+      }
+    }
+  }, [jobColumns, jobSort.sortKey, jobSort.setSortKey, jobSort.setSortDir]);
+
+  const sortedJobs = useMemo(
+    () =>
+      sortRows(
+        jobs,
+        jobSort.sortKey,
+        jobSort.sortDir,
+        jobColumnValue,
+        compareTaskJobs,
+      ),
+    [jobs, jobSort.sortKey, jobSort.sortDir],
   );
+
+  const pagedJobs = useMemo(
+    () => sortedJobs.slice(jobOffset, jobOffset + TASK_PAGE_SIZE),
+    [sortedJobs, jobOffset],
+  );
+
+  function onJobSort(key: string) {
+    jobSort.onSort(key);
+    if (jobOffset > 0) setJobOffset(0);
+  }
+
+  function jobHead(key: string, label: string) {
+    return (
+      <SortableHead
+        label={label}
+        active={jobSort.sortKey === key}
+        dir={jobSort.sortKey === key ? jobSort.sortDir : null}
+        onClick={() => onJobSort(key)}
+      />
+    );
+  }
 
   const filesScopeSwitch =
     [localPresent, sharedPresent, overlaysPresent].filter(Boolean).length >= 2 ? (
@@ -582,7 +663,7 @@ export function TaskDetailPage() {
               <p className="text-xs text-mute">
                 Each row is a standalone Attempt or this task inside a suite run.
                 Click a row with full evidence to open the detail view. Grey rows
-                are summary-only.
+                are summary-only. Click headers to sort.
               </p>
               <TableColumnPicker
                 options={JOB_OPTIONAL_COLUMNS}
@@ -595,19 +676,21 @@ export function TaskDetailPage() {
               <Table>
                 <TableHeader>
                   <TableRow className="hover:bg-transparent">
-                    <TableHead>Job</TableHead>
+                    <TableHead>{jobHead("job_id", "Job")}</TableHead>
                     {jobColumns.includes("dataset") ? (
-                      <TableHead>Dataset</TableHead>
+                      <TableHead>{jobHead("dataset", "Dataset")}</TableHead>
                     ) : null}
-                    <TableHead>Status</TableHead>
-                    <TableHead>Score</TableHead>
-                    <TableHead>Harness</TableHead>
-                    <TableHead>Model</TableHead>
+                    <TableHead>{jobHead("status", "Status")}</TableHead>
+                    <TableHead>{jobHead("score", "Score")}</TableHead>
+                    <TableHead>{jobHead("agent_label", "Harness")}</TableHead>
+                    <TableHead>{jobHead("model_label", "Model")}</TableHead>
                     {jobColumns.includes("environment") ? (
-                      <TableHead>Environment</TableHead>
+                      <TableHead>
+                        {jobHead("environment", "Environment")}
+                      </TableHead>
                     ) : null}
                     {jobColumns.includes("time") ? (
-                      <TableHead>Time</TableHead>
+                      <TableHead>{jobHead("time", "Time")}</TableHead>
                     ) : null}
                   </TableRow>
                 </TableHeader>
