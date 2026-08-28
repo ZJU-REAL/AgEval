@@ -126,6 +126,37 @@ def test_invalid_step_limit() -> None:
         )
 
 
+def test_reasoning_effort_forwarded_to_litellm_kwargs() -> None:
+    spi = build_executor(
+        host=SimpleNamespace(kind="local"),
+        placement=_placement(),
+        options={"reasoning_effort": "max"},
+        model="openai/dashscope/qwen3.8-max",
+    )
+    assert spi.reasoning_effort == "max"
+    kwargs = spi._litellm_model_kwargs(key="sk-x", base="https://example.invalid/v1")
+    assert kwargs["reasoning_effort"] == "max"
+    assert kwargs["drop_params"] is True
+    omitted = build_executor(
+        host=SimpleNamespace(kind="local"),
+        placement=_placement(),
+        model="openai/x",
+    )
+    assert omitted.reasoning_effort is None
+    assert "reasoning_effort" not in omitted._litellm_model_kwargs(key=None, base=None)
+
+
+def test_invalid_reasoning_effort() -> None:
+    from ageval.plugins.errors import ExtensionMaterializeError
+
+    with pytest.raises(ExtensionMaterializeError, match="reasoning_effort"):
+        build_executor(
+            host=SimpleNamespace(kind="local"),
+            placement=_placement(),
+            options={"reasoning_effort": 1},
+        )
+
+
 def test_offline_invoke_does_not_import_vendor(monkeypatch: object) -> None:
     monkeypatch.setenv("AGEVAL_OFFLINE_AGENT", "1")  # type: ignore[attr-defined]
     spi = MinisweExecutorSPI(

@@ -82,6 +82,17 @@ def _as_nonneg_float(raw: Any, *, name: str, default: float) -> float:
     return value
 
 
+def _as_optional_effort(raw: Any) -> str | None:
+    if raw is None or raw == "":
+        return None
+    if not isinstance(raw, str) or not raw.strip():
+        raise ExtensionMaterializeError(
+            f"miniswe_reasoning_effort_invalid:{raw!r}",
+            kind="extension_materialize_failed",
+        )
+    return raw.strip()
+
+
 def resolve_api_key_value(locator: str | None) -> str | None:
     names: list[str] = []
     if locator and str(locator).strip():
@@ -192,6 +203,7 @@ class MinisweExecutorSPI:
         self.step_limit = _as_positive_int(opts.get("step_limit"), name="step_limit", default=30)
         self.cost_limit = _as_nonneg_float(opts.get("cost_limit"), name="cost_limit", default=0.0)
         self.cmd_timeout = _as_positive_int(opts.get("cmd_timeout"), name="cmd_timeout", default=30)
+        self.reasoning_effort = _as_optional_effort(opts.get("reasoning_effort"))
         self.session_id = f"ageval-{self.profile_id or 'solver'}-{uuid.uuid4().hex[:12]}"
         self.execution_location = getattr(host, "kind", None) or "box"
         self._ready = False
@@ -281,11 +293,23 @@ class MinisweExecutorSPI:
                 "execution_location": location,
                 "n_calls": extra.get("n_calls"),
                 "cost": extra.get("cost"),
+                "locked_reasoning_effort": self.reasoning_effort,
+                "actual_reasoning_effort": self.reasoning_effort,
             },
         )
 
     def _make_env(self) -> ProtocolEnv:
         return ProtocolEnv(host=self.host, placement=self.placement, timeout=self.cmd_timeout)
+
+    def _litellm_model_kwargs(self, *, key: str | None, base: str | None) -> dict[str, Any]:
+        model_kwargs: dict[str, Any] = {"drop_params": True}
+        if key:
+            model_kwargs["api_key"] = key
+        if base:
+            model_kwargs["api_base"] = base
+        if self.reasoning_effort:
+            model_kwargs["reasoning_effort"] = self.reasoning_effort
+        return model_kwargs
 
     def _run_agent(self, prompt: str, *, timeout: float) -> dict[str, Any]:
         key = resolve_api_key_value(self.api_key_env)
@@ -303,11 +327,7 @@ class MinisweExecutorSPI:
                 "miniswe_package_missing: install mini-swe-agent (uv sync --extra miniswe)",
                 kind="extension_materialize_failed",
             ) from exc
-        model_kwargs: dict[str, Any] = {"drop_params": True}
-        if key:
-            model_kwargs["api_key"] = key
-        if base:
-            model_kwargs["api_base"] = base
+        model_kwargs = self._litellm_model_kwargs(key=key, base=base)
         official = _load_official_mini_config()
         agent_cfg = official.get("agent") if isinstance(official.get("agent"), dict) else {}
         model_cfg = official.get("model") if isinstance(official.get("model"), dict) else {}

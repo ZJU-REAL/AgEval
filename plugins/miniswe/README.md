@@ -37,6 +37,7 @@ client; they never enter the lock.
 | `options.step_limit` | `30` | Agent step cap. `0` = unlimited. Negative / non-int fail closed. |
 | `options.cost_limit` | `0` | Cost cap. `0` = unlimited. Negative fail closed. |
 | `options.cmd_timeout` | `30` | Seconds per `host.exec` bash action. |
+| `options.reasoning_effort` | omit | Optional. Forwarded to LiteLLM as Chat Completions `reasoning_effort`. Empty / omit = do not send. Non-string fail closed. |
 | `model` | `openai/gpt-4o-mini` | LiteLLM model id on the parent. |
 | `api_key` | `OPENAI_API_KEY` / `litellm_api_key` / `LITELLM_API_KEY` | Env **locator name** for the parent HTTP client. Omit on loopback `base_url` (`127.0.0.1` / `localhost` / `::1`). |
 | `base_url` | `OPENAI_BASE_URL` / `litellm_base_url` / `LITELLM_BASE_URL` | OpenAI-compatible base (`api_base`). |
