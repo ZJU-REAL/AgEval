@@ -389,6 +389,100 @@ def test_named_environment_invalid_name_fails_closed(tmp_path: Path) -> None:
     assert "environment name" in caught.value.message
 
 
+def test_named_environment_docker_image_only_locks(tmp_path: Path) -> None:
+    yaml = """format: ageval.task/1
+task_id: isolated
+agent_profiles:
+  - id: solver
+artifacts:
+  publishable:
+    - id: repo
+      path: workspace
+      kind: tree
+evaluation:
+  inputs:
+    - artifact: repo
+      target: workspace
+  environments:
+    audit:
+      docker_image: python:3.12-slim
+"""
+    root = _standalone(tmp_path / "pkg", task_yaml=yaml, files=("run.py", "evaluator.py"))
+    locked = _lock(
+        root,
+        job=job_document(
+            {"solver": dict(DOCKER_SOLVER)},
+            environment="docker",
+            evaluate_host={"isolated": True},
+        ),
+    )
+    refs = thaw(locked.resolved_references)
+    assert refs["evaluation_environments"] == {"audit": {"docker_image": "python:3.12-slim"}}
+    assert "environment_evaluate_dockerfile" not in refs
+
+
+def test_named_environment_docker_image_and_dockerfile_locks(tmp_path: Path) -> None:
+    yaml = NAMED_YAML.replace(
+        "dockerfile: environment/evaluate/audit/Dockerfile",
+        "dockerfile: environment/evaluate/audit/Dockerfile\n      docker_image: python:3.12-slim",
+    )
+    root = _standalone(
+        tmp_path / "pkg",
+        task_yaml=yaml,
+        files=(
+            "run.py",
+            "evaluator.py",
+            "environment/evaluate/audit/Dockerfile",
+            "environment/evaluate/verification/Dockerfile",
+        ),
+    )
+    locked = _lock(
+        root,
+        job=job_document(
+            {"solver": dict(DOCKER_SOLVER)},
+            environment="docker",
+            evaluate_host={"isolated": True},
+        ),
+    )
+    refs = thaw(locked.resolved_references)
+    assert refs["evaluation_environments"]["audit"] == {
+        "dockerfile": "environment/evaluate/audit/Dockerfile",
+        "docker_image": "python:3.12-slim",
+    }
+
+
+def test_named_environment_empty_docker_image_fails_closed(tmp_path: Path) -> None:
+    yaml = """format: ageval.task/1
+task_id: isolated
+agent_profiles:
+  - id: solver
+artifacts:
+  publishable:
+    - id: repo
+      path: workspace
+      kind: tree
+evaluation:
+  inputs:
+    - artifact: repo
+      target: workspace
+  environments:
+    audit:
+      docker_image: "  "
+"""
+    root = _standalone(tmp_path / "pkg", task_yaml=yaml, files=("run.py", "evaluator.py"))
+    with pytest.raises(ConfigError) as caught:
+        _lock(
+            root,
+            job=job_document(
+                {"solver": dict(DOCKER_SOLVER)},
+                environment="docker",
+                evaluate_host={"isolated": True},
+            ),
+        )
+    assert caught.value.error_code == "invalid_schema"
+    assert "docker_image" in caught.value.message
+
+
 def test_named_environment_dockerfile_under_gold_fails_closed(tmp_path: Path) -> None:
     yaml = NAMED_YAML.replace(
         "dockerfile: environment/evaluate/audit/Dockerfile",
