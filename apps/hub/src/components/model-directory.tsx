@@ -1,5 +1,6 @@
 import { Link } from "react-router-dom";
 
+import { LabGroupHead } from "@/components/lab-group-head";
 import { LabMark } from "@/components/lab-mark";
 import { ModalityMarks } from "@/components/modality-mark";
 import { encodeDatasetId } from "@/lib/api";
@@ -18,11 +19,9 @@ export type ModelDirectoryRow = {
 
 export function ModelDirectory({
   rows,
-  showOverlay = true,
   linkCanonical = false,
 }: {
   rows: ModelDirectoryRow[];
-  showOverlay?: boolean;
   /** When the row lands on a harness, also link the canonical id to /models. */
   linkCanonical?: boolean;
 }) {
@@ -54,7 +53,6 @@ export function ModelDirectory({
           lab={lab}
           name={pin.labs[lab]?.name || lab}
           rows={items}
-          showOverlay={showOverlay}
           linkCanonical={linkCanonical}
         />
       ))}
@@ -63,7 +61,6 @@ export function ModelDirectory({
           lab=""
           name="Unmatched"
           rows={unmatched}
-          showOverlay={showOverlay}
           linkCanonical={false}
         />
       ) : null}
@@ -75,23 +72,17 @@ function LabGroup({
   lab,
   name,
   rows,
-  showOverlay,
   linkCanonical,
 }: {
   lab: string;
   name: string;
   rows: ModelDirectoryRow[];
-  showOverlay: boolean;
   linkCanonical: boolean;
 }) {
   const pin = loadModelPin();
   return (
     <section>
-      <div className="mb-1.5 flex items-center gap-2">
-        {lab ? <LabMark lab={lab} size={18} /> : null}
-        <h3 className="text-sm font-semibold text-ink">{name}</h3>
-        <span className="text-xs text-mute tabular-nums">{rows.length}</span>
-      </div>
+      <LabGroupHead lab={lab} name={name} count={rows.length} />
       <ul className="m-0 list-none divide-y divide-hairline border-y border-hairline p-0">
         {rows.map((row) => {
           const info = row.canonical ? pin.models[row.canonical] : undefined;
@@ -123,11 +114,9 @@ function LabGroup({
                         <span className="text-xs text-mute">Default</span>
                       ) : null}
                     </span>
-                    {showOverlay ? (
-                      <span className="mt-0.5 block truncate text-sm text-body">
-                        {row.overlay}
-                      </span>
-                    ) : null}
+                    <span className="mt-0.5 block truncate text-sm text-body">
+                      {row.overlay}
+                    </span>
                   </span>
                 </Link>
                 {linkCanonical && row.canonical ? (
