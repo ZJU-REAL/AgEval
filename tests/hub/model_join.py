@@ -84,16 +84,21 @@ def join_overlay(overlay: str, pin: dict[str, Any] | None) -> dict[str, Any]:
     models = pin.get("models") or {}
     if alias and alias in models:
         return {"overlay": text, "canonical": alias, "hits": [alias]}
-    hits: set[str] = set()
     lookup = pin.get("lookup") or {}
+    collected: list[str] = []
+    seen: set[str] = set()
     for candidate in overlay_candidates(text, list(pin.get("prefixes") or [])):
-        ids = lookup.get(candidate) or []
-        for item in ids:
-            if item in models:
-                hits.add(item)
-    unique = sorted(hits)
-    return {
-        "overlay": text,
-        "canonical": unique[0] if len(unique) == 1 else None,
-        "hits": unique,
-    }
+        unique: list[str] = []
+        local: set[str] = set()
+        for item in lookup.get(candidate) or []:
+            if item in models and item not in local:
+                local.add(item)
+                unique.append(item)
+        if len(unique) == 1:
+            return {"overlay": text, "canonical": unique[0], "hits": unique}
+        for item in unique:
+            if item in seen:
+                continue
+            seen.add(item)
+            collected.append(item)
+    return {"overlay": text, "canonical": None, "hits": collected}

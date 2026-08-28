@@ -283,7 +283,12 @@ def test_maintainer_direct_attaches_builtin(
     )
     assert pending["status"] == "pending"
     assert [i["request_id"] for i in requests.inbox(auth=alice)["items"]] == [pending["request_id"]]
-    requests.decide(request_ids=[pending["request_id"]], action="approve", auth=alice)
+    requests.decide(
+        request_ids=[pending["request_id"]],
+        action="approve",
+        auth=alice,
+        canonical_model="alibaba/qwen-max",
+    )
     meta = results.serve_suite_meta(suite_run_id="s_builtin", auth=bob)
     assert str(meta["job_overlay"]["agent_profiles"]["solver"]["agent_ref"]).startswith("pi@0.1.0+")
     _upload(
@@ -331,7 +336,12 @@ def test_performance_request_approve_uses_attach(tmp_path: Path) -> None:
     assert applied["status"] == "pending"
     assert applied["owner_org_id"] == "official"
     assert runtimes.performances_for_agent("official/pi-default", alice) == []
-    requests.decide(request_ids=[applied["request_id"]], action="approve", auth=alice)
+    requests.decide(
+        request_ids=[applied["request_id"]],
+        action="approve",
+        auth=alice,
+        canonical_model="alibaba/qwen-max",
+    )
     rows = runtimes.performances_for_agent("official/pi-default", alice)
     assert [r["suite_run_id"] for r in rows] == ["s_bob"]
     meta = results.serve_suite_meta(suite_run_id="s_bob", auth=bob)
@@ -415,7 +425,12 @@ def test_performance_approve_private_suite_and_mismatch(tmp_path: Path) -> None:
         auth=bob,
         agent="official/pi-default@0.1.0",
     )
-    decided = requests.decide(request_ids=[applied["request_id"]], action="approve", auth=alice)
+    decided = requests.decide(
+        request_ids=[applied["request_id"]],
+        action="approve",
+        auth=alice,
+        canonical_model="alibaba/qwen-max",
+    )
     assert decided["items"][0]["status"] == "approved"
     meta = results.serve_suite_meta(suite_run_id="s_priv", auth=bob)
     assert str(meta["job_overlay"]["agent_profiles"]["solver"]["agent_ref"]).startswith(
@@ -444,7 +459,12 @@ def test_performance_approve_private_suite_and_mismatch(tmp_path: Path) -> None:
     )
     overlay_before = results.serve_suite_meta(suite_run_id="s_mis", auth=bob)["job_overlay"]
     with pytest.raises(RegistryAppError, match="match"):
-        requests.decide(request_ids=[bad["request_id"]], action="approve", auth=alice)
+        requests.decide(
+            request_ids=[bad["request_id"]],
+            action="approve",
+            auth=alice,
+            canonical_model="alibaba/qwen-max",
+        )
     still = results.meta.get_resource_request(bad["request_id"])
     assert still is not None and still.status == "pending"
     after = results.serve_suite_meta(suite_run_id="s_mis", auth=bob)
@@ -606,3 +626,45 @@ def test_owner_direct_attach_records_canonical_bucket(tmp_path: Path) -> None:
     rows = runtimes.performances_for_agent("official/pi-default", alice)
     assert rows[0]["canonical_model"] == "deepseek/deepseek-v4-flash"
     assert rows[0]["model"] == "openrouter/deepseek/deepseek-v4-flash"
+
+
+def test_approve_performance_without_canonical_fails_closed(tmp_path: Path) -> None:
+    packages, results, requests, runtimes = _svcs(tmp_path)
+    _publish_dataset(
+        packages, tmp_path, dataset_id="official/gaia", org_id="official", owner="alice"
+    )
+    _publish_agent(
+        packages, tmp_path, package_id="official/pi-default", org_id="official", owner="alice"
+    )
+    alice = TokenInfo(scopes=frozenset({"results:upload"}), user_id="alice")
+    bob = TokenInfo(scopes=frozenset({"results:upload"}), user_id="bob")
+    _upload(
+        results,
+        tmp_path,
+        suite_run_id="s_bare",
+        dataset_id="official/gaia",
+        user_id="bob",
+        agent_profiles={"solver": {**PI, "model": "dashscope/qwen-max"}},
+    )
+    applied = requests.apply(
+        kind="agent_performance",
+        suite_run_id="s_bare",
+        auth=bob,
+        agent="official/pi-default@0.1.0",
+    )
+    assert applied["status"] == "pending"
+    assert not applied.get("canonical_model")
+    with pytest.raises(RegistryAppError) as missing:
+        requests.decide(request_ids=[applied["request_id"]], action="approve", auth=alice)
+    assert missing.value.http_status == 400
+    assert missing.value.error == "invalid_request"
+    assert runtimes.performances_for_agent("official/pi-default", alice) == []
+    requests.decide(
+        request_ids=[applied["request_id"]],
+        action="approve",
+        auth=alice,
+        canonical_model="alibaba/qwen-max",
+    )
+    rows = runtimes.performances_for_agent("official/pi-default", alice)
+    assert rows[0]["canonical_model"] == "alibaba/qwen-max"
+    assert rows[0]["model"] == "dashscope/qwen-max"

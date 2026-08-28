@@ -213,9 +213,13 @@ export function ResultOwnerOps({
   }, [jobOverlay, attachRole]);
 
   useEffect(() => {
-    if (attachModelHits.length === 1 && attachModelHits[0]) {
-      setAttachCanonical(attachModelHits[0]);
-    }
+    setAttachCanonical((prev) => {
+      if (attachModelHits.length === 1 && attachModelHits[0]) {
+        return attachModelHits[0];
+      }
+      if (attachModelHits.includes(prev)) return prev;
+      return "";
+    });
   }, [attachModelHits]);
 
   if ((!canManage && !canDetachPerformance) || !token) return null;

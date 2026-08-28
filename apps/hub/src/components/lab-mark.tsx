@@ -44,7 +44,7 @@ export function LabMark({
   const id = lab.trim();
   const pin = loadModelPin();
   const name = pin.labs[id]?.name || id;
-  const src = id ? labLogoSrc(id) : "";
+  const src = pin.labs[id] ? labLogoSrc(id) : "";
   const letter = (name || id || "?").slice(0, 1).toUpperCase();
 
   if (!src || broken) {

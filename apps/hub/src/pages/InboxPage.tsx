@@ -184,20 +184,35 @@ export function InboxPage() {
     const set = new Set(rows.map((row) => row.dataset_id).filter(Boolean));
     return [...set].sort();
   }, [rows]);
+  const selectedPerformance = useMemo(
+    () =>
+      rows.filter(
+        (row) =>
+          selected.has(row.request_id) &&
+          row.kind === "agent_performance" &&
+          row.status === "pending",
+      ),
+    [rows, selected],
+  );
   const selectedProposed = useMemo(() => {
     const hits = new Set<string>();
-    for (const row of rows) {
-      if (!selected.has(row.request_id) || row.kind !== "agent_performance") continue;
+    for (const row of selectedPerformance) {
       const canonical = (row.canonical_model || "").trim();
       if (canonical) hits.add(canonical);
     }
     return [...hits];
-  }, [rows, selected]);
+  }, [selectedPerformance]);
+  const needsCanonical = selectedPerformance.length > 0;
+  const noneSelected = pendingIds.every((id) => !selected.has(id));
 
   useEffect(() => {
-    if (selectedProposed.length === 1 && selectedProposed[0]) {
-      setApproveCanonical(selectedProposed[0]);
-    }
+    setApproveCanonical((prev) => {
+      if (selectedProposed.length === 1 && selectedProposed[0]) {
+        return selectedProposed[0];
+      }
+      if (selectedProposed.includes(prev)) return prev;
+      return "";
+    });
   }, [selectedProposed]);
 
   if (!token) {
@@ -323,15 +338,19 @@ export function InboxPage() {
             value={approveCanonical}
             onChange={setApproveCanonical}
             hits={selectedProposed}
-            allowEmpty
+            allowEmpty={!needsCanonical}
             includePin
-            disabled={busy || pendingIds.every((id) => !selected.has(id))}
+            disabled={busy || noneSelected}
             label="Canonical model"
           />
           <Button
             type="button"
             size="sm"
-            disabled={busy || pendingIds.every((id) => !selected.has(id))}
+            disabled={
+              busy ||
+              noneSelected ||
+              (needsCanonical && !approveCanonical.trim())
+            }
             onClick={() => void decide("approve")}
           >
             Approve
@@ -340,7 +359,7 @@ export function InboxPage() {
             type="button"
             size="sm"
             variant="outline"
-            disabled={busy || pendingIds.every((id) => !selected.has(id))}
+            disabled={busy || noneSelected}
             onClick={() => void decide("reject")}
           >
             Reject

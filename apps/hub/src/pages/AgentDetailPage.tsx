@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { Link, useNavigate, useParams, useSearchParams } from "react-router-dom";
 
 import { Settings } from "lucide-react";
@@ -342,6 +342,21 @@ export function AgentDetailPage() {
     if (!q) return models;
     return models.filter((model) => model.toLowerCase().includes(q));
   }, [models, modelQuery]);
+
+  const agentHref = useCallback(
+    (next?: { model?: string | null; tab?: AgentTab }) => {
+      const n = new URLSearchParams();
+      const model = next && "model" in next ? next.model : selectedModel;
+      const tab = next?.tab ?? pageTab;
+      const m = (model || "").trim();
+      if (m) n.set("model", m);
+      if (tab !== "overview") n.set("tab", tab);
+      const qs = n.toString();
+      return `/agents/${encodeDatasetId(agentId)}${qs ? `?${qs}` : ""}`;
+    },
+    [agentId, pageTab, selectedModel],
+  );
+
   const directoryRows = useMemo(() => {
     const pin = loadModelPin();
     return shownModels.map((model) => {
@@ -350,11 +365,6 @@ export function AgentDetailPage() {
         .map((row) => row.pass_rate)
         .filter((n): n is number => n != null);
       const stored = related.map((row) => performanceCanonical(row)).find(Boolean);
-      const n = new URLSearchParams();
-      const nextModel = model === selectedModel ? "" : model;
-      if (nextModel) n.set("model", nextModel);
-      if (pageTab !== "overview") n.set("tab", pageTab);
-      const qs = n.toString();
       return {
         overlay: model,
         canonical: stored || joinOverlay(model, pin).canonical,
@@ -363,27 +373,18 @@ export function AgentDetailPage() {
         suiteCount: new Set(related.map((row) => row.suite_run_id)).size,
         passRate:
           rates.length > 0 ? rates.reduce((a, b) => a + b, 0) / rates.length : null,
-        href: `/agents/${encodeDatasetId(agentId)}${qs ? `?${qs}` : ""}`,
+        href: agentHref({
+          model: model === selectedModel ? null : model,
+        }),
       };
     });
-  }, [shownModels, performances, selectedModel, defaultModel, agentId, pageTab]);
+  }, [shownModels, performances, selectedModel, defaultModel, agentHref]);
   const visiblePerformances = useMemo(() => {
     if (!selectedModel) return performances;
     return performances.filter(
       (row) => (row.model || "").trim() === selectedModel,
     );
   }, [performances, selectedModel]);
-
-  function agentHref(next?: { model?: string | null; tab?: AgentTab }) {
-    const n = new URLSearchParams();
-    const model = next && "model" in next ? next.model : selectedModel;
-    const tab = next?.tab ?? pageTab;
-    const m = (model || "").trim();
-    if (m) n.set("model", m);
-    if (tab !== "overview") n.set("tab", tab);
-    const qs = n.toString();
-    return `/agents/${encodeDatasetId(agentId)}${qs ? `?${qs}` : ""}`;
-  }
 
   function setTab(next: AgentTab) {
     const n = new URLSearchParams(searchParams);

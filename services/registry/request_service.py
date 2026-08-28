@@ -95,6 +95,18 @@ class RequestService:
             row = by_id.get(rid)
             if row is None or row.status != "pending" or not self._can_decide(row, auth):
                 raise RegistryAppError("not_found", "request not found", http_status=404)
+        if action == "approve":
+            for rid in ids:
+                row = by_id[rid]
+                if row.kind != "agent_performance":
+                    continue
+                chosen = (canonical_model or row.canonical_model or "").strip()
+                if not chosen:
+                    raise RegistryAppError(
+                        "invalid_request",
+                        "canonical_model required",
+                        http_status=400,
+                    )
         decided: list[dict[str, Any]] = []
         for rid in ids:
             row = by_id[rid]
@@ -266,6 +278,12 @@ class RequestService:
                 self.meta.set_suite_board_listed(row.suite_run_id, True)
                 return
             chosen = (canonical_model or row.canonical_model or "").strip()
+            if not chosen:
+                raise RegistryAppError(
+                    "invalid_request",
+                    "canonical_model required",
+                    http_status=400,
+                )
             self.results.attach_agent(
                 suite_run_id=row.suite_run_id,
                 agent=row.agent_ref,

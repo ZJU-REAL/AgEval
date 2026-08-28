@@ -67,9 +67,28 @@ def test_alias_pins_ambiguous_overlay():
 
 def test_candidates_longest_first():
     pin = load_pin()
-    cands = overlay_candidates(
-        "openrouter/deepseek/deepseek-v4-flash", list(pin["prefixes"])
-    )
+    cands = overlay_candidates("openrouter/deepseek/deepseek-v4-flash", list(pin["prefixes"]))
     assert cands[0] == "openrouter/deepseek/deepseek-v4-flash"
     assert "deepseek/deepseek-v4-flash" in cands
     assert "deepseek-v4-flash" in cands
+
+
+def test_longest_unique_exact_canonical_beats_ambiguous_leaf():
+    pin = {
+        "format": "ageval.model-pin/1",
+        "models": {
+            "acme/twin": {"name": "Twin A", "lab": "acme"},
+            "other/twin": {"name": "Twin B", "lab": "other"},
+        },
+        "prefixes": ["openrouter"],
+        "lookup": {
+            "acme/twin": ["acme/twin"],
+            "other/twin": ["other/twin"],
+            "twin": ["acme/twin", "other/twin"],
+        },
+        "aliases": {},
+    }
+    assert join_overlay("acme/twin", pin)["canonical"] == "acme/twin"
+    assert join_overlay("openrouter/acme/twin", pin)["canonical"] == "acme/twin"
+    assert join_overlay("twin", pin)["canonical"] is None
+    assert join_overlay("twin", pin)["hits"] == ["acme/twin", "other/twin"]

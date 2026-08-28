@@ -11,20 +11,28 @@ export function joinOverlay(overlay: string, pin: ModelPin | null | undefined): 
     return { overlay: text, canonical: alias, hits: [alias] };
   }
 
-  const hits = new Set<string>();
+  const collected: string[] = [];
+  const seen = new Set<string>();
   for (const candidate of overlayCandidates(text, pin.prefixes)) {
     const ids = pin.lookup[candidate];
     if (!ids || ids.length === 0) continue;
+    const unique: string[] = [];
+    const local = new Set<string>();
     for (const id of ids) {
-      if (pin.models[id]) hits.add(id);
+      if (!pin.models[id] || local.has(id)) continue;
+      local.add(id);
+      unique.push(id);
+    }
+    if (unique.length === 1) {
+      return { overlay: text, canonical: unique[0] ?? null, hits: unique };
+    }
+    for (const id of unique) {
+      if (seen.has(id)) continue;
+      seen.add(id);
+      collected.push(id);
     }
   }
-  const unique = [...hits];
-  return {
-    overlay: text,
-    canonical: unique.length === 1 ? unique[0] : null,
-    hits: unique,
-  };
+  return { overlay: text, canonical: null, hits: collected };
 }
 
 export function overlayCandidates(overlay: string, prefixes: readonly string[]): string[] {
