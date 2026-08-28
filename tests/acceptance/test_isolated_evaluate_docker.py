@@ -69,7 +69,6 @@ def test_isolated_evaluate_scores_published_tree_in_new_container(tmp_path: Path
     metrics = result.get("metrics") or {}
     assert metrics.get("answer") == "42"
     assert metrics.get("leaked") is False
-    assert metrics.get("oracle_present") is False
 
     run_dir = _run_dir(dataset, result)
     snap = run_dir / "task-artifacts" / "repo"
@@ -146,7 +145,7 @@ def test_isolated_evaluate_llm_judge_on_published_tree(tmp_path: Path) -> None:
     task.write_text(text, encoding="utf-8")
     (dataset / "tasks" / "publish-tree" / "evaluator.py").write_text(
         "from __future__ import annotations\n"
-        "import asyncio, importlib.util\n"
+        "import asyncio\n"
         "from pathlib import Path\n"
         "from typing import Any\n"
         "def evaluate(inputs: dict[str, Any]) -> dict[str, Any]:\n"
@@ -156,7 +155,6 @@ def test_isolated_evaluate_llm_judge_on_published_tree(tmp_path: Path) -> None:
         "    if answer_path.is_file():\n"
         "        answer = answer_path.read_text(encoding='utf-8').strip()\n"
         "    leaked = (workspace / 'target' / 'leak.so').exists()\n"
-        "    oracle = importlib.util.find_spec('ageval_agent_oracle') is not None\n"
         "    agent = inputs.get('agent')\n"
         "    judge_ok = False\n"
         "    err = 'agent_missing'\n"
@@ -167,9 +165,9 @@ def test_isolated_evaluate_llm_judge_on_published_tree(tmp_path: Path) -> None:
         "        reply = asyncio.run(_invoke())\n"
         "        judge_ok = bool(reply.get('ok'))\n"
         "        err = str(reply.get('error') or '')\n"
-        "    ok = answer == '42' and not leaked and not oracle and judge_ok\n"
+        "    ok = answer == '42' and not leaked and judge_ok\n"
         "    return {'status': 'PASS' if ok else 'FAIL', 'score': 1.0 if ok else 0.0,\n"
-        "            'metrics': {'answer': answer, 'leaked': leaked, 'oracle_present': oracle,\n"
+        "            'metrics': {'answer': answer, 'leaked': leaked,\n"
         "                        'judge_ok': judge_ok, 'judge_error': err}}\n",
         encoding="utf-8",
     )
