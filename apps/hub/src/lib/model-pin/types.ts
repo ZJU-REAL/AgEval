@@ -20,7 +20,10 @@ export type PinnedModel = {
 
 export type PinnedLab = {
   name: string;
+  /** Pin SVG filename, or empty when BrandMark / letter mark owns the glyph. */
   logo: string;
+  /** How LabMark plates a pin SVG. Omitted when logo is empty. */
+  tone?: "ink" | "color" | "paper";
 };
 
 export type ModelPin = {

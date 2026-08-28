@@ -1,6 +1,8 @@
 import { useState } from "react";
 
-import { labLogoSrc, loadModelPin } from "@/lib/model-pin";
+import { BrandMark } from "@/components/brand-mark";
+import { BRAND_MARK_BY_ID } from "@/lib/brand-marks";
+import { LAB_BRAND_MARK, labLogoSrc, loadModelPin } from "@/lib/model-pin";
 import { cn } from "@/lib/utils";
 
 function LetterMark({
@@ -44,8 +46,22 @@ export function LabMark({
   const id = lab.trim();
   const pin = loadModelPin();
   const name = pin.labs[id]?.name || id;
-  const src = pin.labs[id] ? labLogoSrc(id) : "";
   const letter = (name || id || "?").slice(0, 1).toUpperCase();
+  const brandId = LAB_BRAND_MARK[id];
+  if (brandId && BRAND_MARK_BY_ID.has(brandId)) {
+    return (
+      <BrandMark
+        mark={{ kind: "catalog", id: brandId }}
+        size={size}
+        className={className}
+        title={title || name}
+      />
+    );
+  }
+
+  const row = pin.labs[id];
+  const src = row?.logo ? labLogoSrc(id) : "";
+  const tone = row?.tone ?? "ink";
 
   if (!src || broken) {
     return (
@@ -56,7 +72,9 @@ export function LabMark({
   return (
     <span
       className={cn(
-        "inline-flex shrink-0 items-center justify-center rounded-full bg-canvas-soft p-0.5",
+        "inline-flex shrink-0 items-center justify-center rounded-full",
+        tone === "ink" && "bg-white p-0.5",
+        tone === "paper" && "bg-black p-0.5",
         className,
       )}
       title={title || name}

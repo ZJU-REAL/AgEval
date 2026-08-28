@@ -8,6 +8,9 @@ hosts. Run: python3 scripts/sync_model_pin.py
 from __future__ import annotations
 
 import json
+import re
+import sys
+import urllib.error
 import urllib.request
 from datetime import date
 from pathlib import Path
@@ -19,6 +22,47 @@ LOGO_DIR = REPO / "apps/hub/public/model-pin/logos"
 MODELS_URL = "https://models.dev/models.json"
 API_URL = "https://models.dev/api.json"
 LAB_LOGO_URL = "https://models.dev/logos/labs/{lab}.svg"
+LOBE_SVG_URL = "https://unpkg.com/@lobehub/icons-static-svg@latest/icons/{slug}.svg"
+# docs/13 ink (light). Baked into pin SVGs so <img> currentColor is not black-on-dark.
+INK_FILL = "#14161F"
+PLACEHOLDER_NEEDLE = "9.8132 15.9038"
+
+# Keep in lockstep with apps/hub/src/lib/model-pin/lab-marks.ts.
+# These labs reuse Hub brand-marks at render; do not vendor a pin SVG.
+LAB_BRAND_MARK = {
+    "alibaba": "qwen",
+    "anthropic": "anthropic",
+    "deepseek": "deepseek",
+    "google": "gemini",
+    "minimax": "minimax",
+    "moonshotai": "kimi",
+    "openai": "openai",
+    "xai": "grok",
+    "zhipuai": "zhipu",
+}
+
+# Remaining labs: vendor Lobe *static* color SVG (not the npm runtime).
+LOBE_COLOR_SLUG = {
+    "arcee-ai": "arcee-color",
+    "bytedance-seed": "doubao-color",
+    "cohere": "cohere-color",
+    "meituan": "longcat-color",
+    "meta": "meta-color",
+    "microsoft": "microsoft-color",
+    "mistral": "mistral-color",
+    "nvidia": "nvidia-color",
+    "perplexity": "perplexity-color",
+    "poolside": "poolside-color",
+    "stepfun": "stepfun-color",
+    "tencent": "hunyuan-color",
+    "upstage": "upstage-color",
+}
+
+# Mono Lobe marks we still want as identity (baked ink + white plate).
+LOBE_INK_SLUG = {
+    "ibm": "ibm",
+}
+
 LITELLM_URL = (
     "https://raw.githubusercontent.com/BerriAI/litellm/main/"
     "model_prices_and_context_window.json"
@@ -147,7 +191,7 @@ def build_pin(models: dict, api: dict, litellm: dict | None) -> dict:
         lab = cid.split("/", 1)[0]
         labs[lab] = {
             "name": LAB_NAMES.get(lab, lab),
-            "logo": f"{lab}.svg",
+            "logo": "",
         }
         limit = row.get("limit") if isinstance(row.get("limit"), dict) else {}
         slim_models[cid] = {
@@ -219,17 +263,116 @@ def build_pin(models: dict, api: dict, litellm: dict | None) -> dict:
     }
 
 
-def write_logos(labs: list[str]) -> None:
+def _try_get(url: str) -> bytes | None:
+    try:
+        return _get(url)
+    except (urllib.error.URLError, urllib.error.HTTPError, TimeoutError, OSError):
+        return None
+
+
+def _is_placeholder(svg: str) -> bool:
+    return PLACEHOLDER_NEEDLE in svg
+
+
+def _bake_ink(svg: str) -> str:
+    text = svg
+    text = re.sub(r'fill="currentColor"', f'fill="{INK_FILL}"', text, flags=re.I)
+    text = re.sub(r"fill='currentColor'", f"fill='{INK_FILL}'", text, flags=re.I)
+    text = re.sub(r'stroke="currentColor"', f'stroke="{INK_FILL}"', text, flags=re.I)
+    text = re.sub(r"stroke='currentColor'", f"stroke='{INK_FILL}'", text, flags=re.I)
+    text = re.sub(r"fill:\s*currentColor", f"fill:{INK_FILL}", text, flags=re.I)
+    text = re.sub(r"stroke:\s*currentColor", f"stroke:{INK_FILL}", text, flags=re.I)
+    return text
+
+
+def _has_hex_paint(svg: str) -> bool:
+    return bool(re.search(r"#[0-9A-Fa-f]{3,8}\b", svg))
+
+
+def resolve_lab_logo(lab: str) -> tuple[str, str, bytes | None]:
+    """Return (logo filename or '', tone, svg bytes or None)."""
+    if lab in LAB_BRAND_MARK:
+        return "", "", None
+    slug = LOBE_COLOR_SLUG.get(lab)
+    if slug:
+        raw = _try_get(LOBE_SVG_URL.format(slug=slug))
+        if raw:
+            text = raw.decode("utf-8", "replace")
+            if not _is_placeholder(text):
+                return f"{lab}.svg", "color", raw
+    ink_slug = LOBE_INK_SLUG.get(lab)
+    if ink_slug:
+        raw = _try_get(LOBE_SVG_URL.format(slug=ink_slug))
+        if raw:
+            text = raw.decode("utf-8", "replace")
+            if not _is_placeholder(text):
+                return f"{lab}.svg", "ink", _bake_ink(text).encode("utf-8")
+    raw = _try_get(LAB_LOGO_URL.format(lab=lab))
+    if raw:
+        text = raw.decode("utf-8", "replace")
+        if not _is_placeholder(text):
+            if _has_hex_paint(text) and "currentColor" not in text:
+                return f"{lab}.svg", "color", raw
+            return f"{lab}.svg", "ink", _bake_ink(text).encode("utf-8")
+    return "", "", None
+
+
+def write_logos(labs: dict[str, dict]) -> dict[str, int]:
     LOGO_DIR.mkdir(parents=True, exist_ok=True)
-    for lab in labs:
+    counts = {"brand": 0, "color": 0, "ink": 0, "letter": 0}
+    wanted: set[str] = set()
+    for lab, row in labs.items():
+        filename, tone, data = resolve_lab_logo(lab)
+        row["logo"] = filename
+        if tone:
+            row["tone"] = tone
+        else:
+            row.pop("tone", None)
         dest = LOGO_DIR / f"{lab}.svg"
-        try:
-            dest.write_bytes(_get(LAB_LOGO_URL.format(lab=lab)))
-        except Exception:
-            continue
+        if filename and data is not None:
+            dest.write_bytes(data)
+            wanted.add(dest.name)
+            counts["color" if tone == "color" else "ink"] += 1
+        else:
+            if dest.exists():
+                dest.unlink()
+            if lab in LAB_BRAND_MARK:
+                counts["brand"] += 1
+            else:
+                counts["letter"] += 1
+    for leftover in LOGO_DIR.glob("*.svg"):
+        if leftover.name not in wanted:
+            leftover.unlink()
+    return counts
+
+
+def _write_pin(pin: dict) -> None:
+    PIN_DIR.mkdir(parents=True, exist_ok=True)
+    (PIN_DIR / "pin.json").write_text(
+        json.dumps(pin, ensure_ascii=False, indent=2) + "\n",
+        encoding="utf-8",
+    )
 
 
 def main() -> int:
+    logos_only = "--logos-only" in sys.argv
+    if logos_only:
+        pin_path = PIN_DIR / "pin.json"
+        pin = json.loads(pin_path.read_text(encoding="utf-8"))
+        if not isinstance(pin, dict) or not isinstance(pin.get("labs"), dict):
+            raise SystemExit("pin.json missing labs")
+        for lab, row in pin["labs"].items():
+            if isinstance(row, dict) and "name" not in row:
+                row["name"] = LAB_NAMES.get(lab, lab)
+        counts = write_logos(pin["labs"])
+        _write_pin(pin)
+        print(
+            "logos-only "
+            f"brand={counts['brand']} color={counts['color']} "
+            f"ink={counts['ink']} letter={counts['letter']}"
+        )
+        return 0
+
     models = json.loads(_get(MODELS_URL).decode("utf-8"))
     api = json.loads(_get(API_URL).decode("utf-8"))
     if not isinstance(models, dict) or not isinstance(api, dict):
@@ -240,15 +383,16 @@ def main() -> int:
     except Exception:
         litellm = None
     pin = build_pin(models, api, litellm)
-    PIN_DIR.mkdir(parents=True, exist_ok=True)
-    (PIN_DIR / "pin.json").write_text(
-        json.dumps(pin, ensure_ascii=False, indent=2) + "\n",
-        encoding="utf-8",
-    )
-    write_logos(list(pin["labs"]))
+    counts = write_logos(pin["labs"])
+    _write_pin(pin)
     print(
         f"pinned {len(pin['models'])} models, {len(pin['labs'])} labs, "
         f"{len(pin['lookup'])} lookup keys → {PIN_DIR / 'pin.json'}"
+    )
+    print(
+        "logos "
+        f"brand={counts['brand']} color={counts['color']} "
+        f"ink={counts['ink']} letter={counts['letter']}"
     )
     return 0
 

@@ -5,135 +5,150 @@
   "labs": {
     "aisingapore": {
       "name": "AI Singapore",
-      "logo": "aisingapore.svg"
+      "logo": ""
     },
     "alibaba": {
       "name": "Alibaba",
-      "logo": "alibaba.svg"
+      "logo": ""
     },
     "anthropic": {
       "name": "Anthropic",
-      "logo": "anthropic.svg"
+      "logo": ""
     },
     "arcee-ai": {
       "name": "Arcee",
-      "logo": "arcee-ai.svg"
+      "logo": "arcee-ai.svg",
+      "tone": "color"
     },
     "bytedance-seed": {
       "name": "ByteDance Seed",
-      "logo": "bytedance-seed.svg"
+      "logo": "bytedance-seed.svg",
+      "tone": "color"
     },
     "cohere": {
       "name": "Cohere",
-      "logo": "cohere.svg"
+      "logo": "cohere.svg",
+      "tone": "color"
     },
     "deepreinforce": {
       "name": "DeepReinforce",
-      "logo": "deepreinforce.svg"
+      "logo": ""
     },
     "deepseek": {
       "name": "DeepSeek",
-      "logo": "deepseek.svg"
+      "logo": ""
     },
     "google": {
       "name": "Google",
-      "logo": "google.svg"
+      "logo": ""
     },
     "ibm": {
       "name": "IBM",
-      "logo": "ibm.svg"
+      "logo": "ibm.svg",
+      "tone": "ink"
     },
     "inclusionai": {
       "name": "InclusionAI",
-      "logo": "inclusionai.svg"
+      "logo": ""
     },
     "meituan": {
       "name": "Meituan",
-      "logo": "meituan.svg"
+      "logo": "meituan.svg",
+      "tone": "color"
     },
     "meta": {
       "name": "Meta",
-      "logo": "meta.svg"
+      "logo": "meta.svg",
+      "tone": "color"
     },
     "microsoft": {
       "name": "Microsoft",
-      "logo": "microsoft.svg"
+      "logo": "microsoft.svg",
+      "tone": "color"
     },
     "minimax": {
       "name": "MiniMax",
-      "logo": "minimax.svg"
+      "logo": ""
     },
     "mistral": {
       "name": "Mistral",
-      "logo": "mistral.svg"
+      "logo": "mistral.svg",
+      "tone": "color"
     },
     "moonshotai": {
       "name": "Moonshot",
-      "logo": "moonshotai.svg"
+      "logo": ""
     },
     "nvidia": {
       "name": "NVIDIA",
-      "logo": "nvidia.svg"
+      "logo": "nvidia.svg",
+      "tone": "color"
     },
     "openai": {
       "name": "OpenAI",
-      "logo": "openai.svg"
+      "logo": ""
     },
     "perplexity": {
       "name": "Perplexity",
-      "logo": "perplexity.svg"
+      "logo": "perplexity.svg",
+      "tone": "color"
     },
     "poolside": {
       "name": "Poolside",
-      "logo": "poolside.svg"
+      "logo": "poolside.svg",
+      "tone": "color"
     },
     "sakana": {
       "name": "Sakana",
-      "logo": "sakana.svg"
+      "logo": ""
     },
     "sarvam": {
       "name": "Sarvam",
-      "logo": "sarvam.svg"
+      "logo": ""
     },
     "sdaia": {
       "name": "SDAIA",
-      "logo": "sdaia.svg"
+      "logo": ""
     },
     "stepfun": {
       "name": "StepFun",
-      "logo": "stepfun.svg"
+      "logo": "stepfun.svg",
+      "tone": "color"
     },
     "swiss-ai": {
       "name": "Swiss AI",
-      "logo": "swiss-ai.svg"
+      "logo": ""
     },
     "tencent": {
       "name": "Tencent",
-      "logo": "tencent.svg"
+      "logo": "tencent.svg",
+      "tone": "color"
     },
     "thinkingmachines": {
       "name": "Thinking Machines",
-      "logo": "thinkingmachines.svg"
+      "logo": ""
     },
     "trendyol": {
       "name": "Trendyol",
-      "logo": "trendyol.svg"
+      "logo": ""
     },
     "upstage": {
       "name": "Upstage",
-      "logo": "upstage.svg"
+      "logo": "upstage.svg",
+      "tone": "color"
     },
     "xai": {
       "name": "xAI",
-      "logo": "xai.svg"
+      "logo": ""
     },
     "xiaomi": {
       "name": "Xiaomi",
-      "logo": "xiaomi.svg"
+      "logo": "xiaomi.svg",
+      "tone": "ink"
     },
     "zhipuai": {
       "name": "Zhipu AI",
-      "logo": "zhipuai.svg"
+      "logo": ""
     }
   },
   "models": {
