@@ -31,6 +31,8 @@ agent_profiles:
 
 No command/version/install in package yaml.
 
+Evaluate-phase ACP (for example `judge`) on a named map must `Agent.session("judge", environment="<name>")`; attach targets that scoring host. Naming a host during run, or omitting the name when the map is set, fails once. HTTP judges ignore `environment=`. See [Write an evaluator](/docs/author/write-evaluator).
+
 ## Host readiness
 
 ```bash

@@ -30,7 +30,7 @@ Empty suite fails lock. Unknown format → `invalid_format`.
 | `agent_profiles` | Role slots `{id}` only; ACP `entry` lives on root `profiles.yaml` |
 | `limits` | wall / invokes / env actions / memory |
 | `artifacts` | publishable id + path |
-| `evaluation` | optional inputs / output; `evaluator.py` is recognized. Optional `tmpfs_mb` (in-environment evaluator `/tmp`, positive MiB, default 32; **not** `limits.*`) |
+| `evaluation` | optional inputs / output; `evaluator.py` is recognized. Optional `tmpfs_mb` (in-environment evaluator `/tmp`, positive MiB, default 32; **not** `limits.*`). Optional `environments`: named scoring hosts (`dockerfile` and/or `docker_image`); setting it requires job `evaluate_host.isolated: true` + `environment: docker` and ignores `evaluate.Dockerfile` |
 | `provenance` | optional |
 | Forbidden | `harness:` block, `provider.kind`, `assurance`, `executor` / `api_key` on the member role |
 
@@ -53,6 +53,8 @@ agent_profiles:
 ```
 
 Optional `label` on a role. `--agent` is mutually exclusive with `--profiles`. `--model` requires `--agent`. Optional `overlays` paths must start with `overlays/` and stay locator-only.
+
+Optional `evaluate_host.isolated: true` (Current: docker) starts a scoring box. Combined with member `evaluation.environments`, Runtime lazily starts one host per name.
 
 ## Allowed top-level dirs
 

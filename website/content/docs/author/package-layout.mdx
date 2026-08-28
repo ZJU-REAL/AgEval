@@ -26,8 +26,8 @@ my-dataset/
         ├── run.py
         ├── evaluator.py
         ├── prompts/
-        ├── environment/
-        ├── evaluation/     # gold 等，默认不给 agent
+        ├── environment/    # Agent Dockerfile；打分配方在 evaluate.Dockerfile 或 evaluate/<name>/
+        ├── evaluation/     # gold 等，默认不给 agent；禁止放打分 Dockerfile
         ├── data/
         └── lib/            # 仅本 task；以 lib.* 导入
 ```

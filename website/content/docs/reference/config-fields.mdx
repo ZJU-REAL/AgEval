@@ -30,7 +30,7 @@ description: ageval.yaml / task.yaml 字段与校验要点速查。
 | `agent_profiles` | 成员只写 `{id}`；ACP `entry` 写在根 `profiles.yaml` |
 | `limits` | wall / agent_invocations / environment_actions / memory_mb |
 | `artifacts.publishable` | id + path + producer |
-| `evaluation` | 可选 inputs / output；有 `evaluator.py` 就认。可选 `tmpfs_mb`（环境内 evaluator `/tmp`，正整数 MiB，省略 32；**不是** `limits.*`） |
+| `evaluation` | 可选 inputs / output；有 `evaluator.py` 就认。可选 `tmpfs_mb`（环境内 evaluator `/tmp`，正整数 MiB，省略 32；**不是** `limits.*`）。可选 `environments`：按名打分 Host（`dockerfile` 和/或 `docker_image`）；写出则必须 job `evaluate_host.isolated: true` + `environment: docker`，并忽略 `evaluate.Dockerfile` |
 | `provenance` | 可选 |
 | 禁止 | `harness:` 块、`provider.kind`、`assurance`、角色上的 `executor` / `api_key` |
 
@@ -55,6 +55,8 @@ agent_profiles:
 role 上可选 `label`。缺省：ACP 用 `options.entry`，其它 kind 用 `executor`。**不要**把 `options.agent` 当展示名。`--agent` 与 `--profiles` 互斥。`--model` 须配合 `--agent`。
 
 可选 `overlays` 是该 role 在 Hub 上的发布文件集（路径必须以 `overlays/` 开头）。列出的文件只能含 locator，不能含密钥。
+
+可选 `evaluate_host.isolated: true`（Current：docker）：另起打分环境。与成员 `evaluation.environments` 一起用时，Runtime 按名懒启动多只 Host。
 
 ## 成员一级目录白名单
 
