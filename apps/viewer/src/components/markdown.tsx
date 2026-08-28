@@ -22,7 +22,9 @@ const components: Components = {
     </h3>
   ),
   p: ({ children }) => (
-    <p className="text-sm text-body leading-6 mb-3 last:mb-0">{children}</p>
+    <p className="min-w-0 text-sm text-body leading-6 mb-3 last:mb-0 break-words">
+      {children}
+    </p>
   ),
   ul: ({ children }) => (
     <ul className="list-disc pl-5 mb-3 space-y-1 text-sm text-body">{children}</ul>
@@ -56,7 +58,7 @@ const components: Components = {
     const text = String(children).replace(/\n$/, "");
     if (!isBlock) {
       return (
-        <code className="font-mono text-[12px] bg-canvas-soft-2 text-ink px-1 py-0.5 rounded-[4px]">
+        <code className="max-w-full whitespace-pre-wrap break-all font-mono text-[12px] bg-canvas-soft-2 text-ink px-1 py-0.5 rounded-[4px]">
           {text}
         </code>
       );
@@ -123,7 +125,7 @@ export function Markdown({
   return (
     <div
       className={cn(
-        "blob-panel p-5 max-w-none",
+        "blob-panel min-w-0 p-5 max-w-none",
         className,
       )}
     >
