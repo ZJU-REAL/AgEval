@@ -13,12 +13,66 @@ import importlib.util
 import json
 import os
 import traceback
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
 from ageval.runtime.task_worker import _claim_stdout, _extend_import_path, _Frames
 
 RESULT_NAME = "evaluation.json"
+
+
+@dataclass(frozen=True)
+class ScoringExecResult:
+    """Protocol host.exec result, as seen by evaluator.py. Not PASS."""
+
+    exit_code: int
+    stdout: str = ""
+    stderr: str = ""
+    truncated: bool = False
+
+    @property
+    def ok(self) -> bool:
+        return self.exit_code == 0
+
+
+class ScoringFacade:
+    """Ask the parent to exec on a named scoring host. No docker socket here."""
+
+    def __init__(self, frames: _Frames) -> None:
+        self._frames = frames
+        self._n = 0
+
+    async def exec(
+        self,
+        name: str,
+        argv: list[str],
+        timeout_sec: float | None = None,
+    ) -> ScoringExecResult:
+        if not isinstance(name, str) or not name.strip():
+            raise RuntimeError("unknown_evaluate_environment")
+        if not isinstance(argv, list) or not all(isinstance(part, str) for part in argv):
+            raise TypeError("scoring.exec argv must be a list of strings")
+        self._n += 1
+        payload: dict[str, Any] = {
+            "op": "exec",
+            "id": str(self._n),
+            "environment": name.strip(),
+            "argv": list(argv),
+        }
+        if timeout_sec is not None:
+            payload["timeout_sec"] = timeout_sec
+        self._frames.send(payload)
+        resp = self._frames.recv()
+        error = resp.get("error")
+        if error:
+            raise RuntimeError(str(error))
+        return ScoringExecResult(
+            exit_code=int(resp.get("exit_code") or 0),
+            stdout=str(resp.get("stdout") or ""),
+            stderr=str(resp.get("stderr") or ""),
+            truncated=bool(resp.get("truncated")),
+        )
 
 
 def _box_dir(env_name: str) -> Path:
@@ -95,6 +149,7 @@ def _run(frames: _Frames) -> int:
         agent = _maybe_agent(attempt_id)
         if agent is not None:
             inputs["agent"] = agent
+        inputs["scoring"] = ScoringFacade(frames)
         verdict = func(inputs)
         if asyncio.iscoroutine(verdict):
             verdict = asyncio.run(verdict)

@@ -116,9 +116,16 @@ class AgentServiceServer:
             actor_id = (
                 str(actor_raw).strip() if isinstance(actor_raw, str) and actor_raw.strip() else None
             )
+            environment_raw = req.get("environment")
+            environment = (
+                str(environment_raw).strip()
+                if isinstance(environment_raw, str) and environment_raw.strip()
+                else None
+            )
             return self.service.open_session(
                 profile_id=str(req.get("profile_id") or ""),
                 actor_id=actor_id,
+                environment=environment,
             )
         if op == "invoke":
             tools = req.get("tools")

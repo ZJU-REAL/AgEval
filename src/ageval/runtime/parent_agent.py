@@ -124,6 +124,8 @@ class ParentAgentService:
     _lock: threading.Lock = field(default_factory=threading.Lock, repr=False)
     _run_sealed: bool = field(default=False, repr=False)
     _run_profile_ids: set[str] = field(default_factory=set, repr=False)
+    evaluate_environment_names: frozenset[str] | None = None
+    evaluate_environment_binder: Any = None
 
     def __post_init__(self) -> None:
         if self.invoke_quota is None:
@@ -146,7 +148,13 @@ class ParentAgentService:
         for session_id in session_ids:
             self.close_session(session_id=session_id)
 
-    def open_session(self, *, profile_id: str, actor_id: str | None = None) -> dict[str, Any]:
+    def open_session(
+        self,
+        *,
+        profile_id: str,
+        actor_id: str | None = None,
+        environment: str | None = None,
+    ) -> dict[str, Any]:
         if self._wall_expired():
             return {"ok": False, "error": "wall_time_exceeded", "profile_id": profile_id}
         with self._lock:
@@ -157,6 +165,9 @@ class ParentAgentService:
                     "profile_id": profile_id,
                 }
         actor = str(actor_id).strip() if actor_id and str(actor_id).strip() else None
+        targeted = self._target_evaluate_environment(profile_id, environment)
+        if targeted is not None:
+            return targeted
         try:
             bound = self.binder.bind(profile_id)
         except UnknownProfileError:
@@ -211,6 +222,54 @@ class ParentAgentService:
             "provider_session_handle": None,
             "executor_plugin": binding.executor_kind,
         }
+
+    def _target_evaluate_environment(
+        self,
+        profile_id: str,
+        environment: str | None,
+    ) -> dict[str, Any] | None:
+        """Bind ACP attach to a named scoring host. HTTP judges ignore the name."""
+        name = str(environment).strip() if environment else ""
+        if not name:
+            return None
+        names = self.evaluate_environment_names
+        if names is None or name not in names:
+            return {
+                "ok": False,
+                "error": "unknown_evaluate_environment",
+                "profile_id": profile_id,
+            }
+        try:
+            row = self.binder.profile(profile_id)
+        except UnknownProfileError:
+            return {"ok": False, "error": "unknown_profile", "profile_id": profile_id}
+        from ageval.plugins.http_loopback import HTTP_EXECUTORS
+
+        if str(row.get("executor") or "") in HTTP_EXECUTORS:
+            return None
+        binder = self.evaluate_environment_binder
+        if binder is None:
+            return {
+                "ok": False,
+                "error": "unknown_evaluate_environment",
+                "profile_id": profile_id,
+            }
+        try:
+            _drive(binder(name))
+        except Exception as exc:  # noqa: BLE001 — open fails closed, once
+            message = str(exc)
+            error = (
+                "unknown_evaluate_environment"
+                if "unknown_evaluate_environment" in message
+                else (getattr(exc, "kind", None) or type(exc).__name__)
+            )
+            return {
+                "ok": False,
+                "error": str(error),
+                "profile_id": profile_id,
+                "detail": message,
+            }
+        return None
 
     def close_session(self, *, session_id: str) -> dict[str, Any]:
         with self._lock:

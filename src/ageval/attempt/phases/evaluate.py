@@ -52,7 +52,8 @@ async def run(ctx: AttemptCtx) -> None:
 
 
 def named_evaluate_environments(ctx: AttemptCtx) -> dict[str, dict[str, str]]:
-    refs = thaw(getattr(ctx.lock, "resolved_references", None) or {})
+    lock = getattr(ctx, "lock", None)
+    refs = thaw(getattr(lock, "resolved_references", None) or {})
     raw = refs.get("evaluation_environments") or {}
     if not isinstance(raw, dict):
         return {}

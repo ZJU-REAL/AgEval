@@ -157,6 +157,54 @@ def test_seal_run_refuses_solver_and_keeps_judge_on_evaluate_surface(
     assert "evaluation/invocations/" in str(eval_dirs[0])
 
 
+def test_open_session_unknown_evaluate_environment_fails_closed(tmp_path: Path) -> None:
+    service, _ = _service(tmp_path)
+    service.evaluate_environment_names = frozenset({"audit"})
+    called: list[str] = []
+    service.evaluate_environment_binder = lambda name: called.append(name)
+    refused = service.open_session(profile_id="solver", environment="nope")
+    assert refused["error"] == "unknown_evaluate_environment"
+    assert called == []
+
+
+def test_open_session_named_environment_runs_binder_before_bind(tmp_path: Path) -> None:
+    service, _ = _service(tmp_path)
+    service.evaluate_environment_names = frozenset({"audit"})
+    called: list[str] = []
+
+    async def _bind(name: str) -> str:
+        called.append(name)
+        return name
+
+    service.evaluate_environment_binder = _bind
+    opened = service.open_session(profile_id="solver", environment="audit")
+    assert opened["ok"] is True
+    assert called == ["audit"]
+
+
+def test_open_session_http_judge_ignores_environment_attach(tmp_path: Path) -> None:
+    class HttpBinder(ScriptedBinder):
+        def profile(self, profile_id: str) -> dict[str, object]:
+            row = dict(super().profile(profile_id))
+            row["executor"] = "openai-http"
+            return row
+
+    backend = ScriptedExecutor()
+    service = ParentAgentService(
+        attempt_id=ATTEMPT,
+        binder=HttpBinder(backend),
+        agent_invocation_limit=2,
+        evidence_store=AttemptEvidenceStore(root=tmp_path / "run", attempt_id=ATTEMPT, run_id="r"),
+        offline_env="",
+    )
+    service.evaluate_environment_names = frozenset({"audit"})
+    called: list[str] = []
+    service.evaluate_environment_binder = lambda name: called.append(name)
+    opened = service.open_session(profile_id="solver", environment="audit")
+    assert opened["ok"] is True
+    assert called == []
+
+
 def test_unknown_profile_never_opens(tmp_path: Path) -> None:
     service, _ = _service(tmp_path)
     assert service.open_session(profile_id="nobody") == {

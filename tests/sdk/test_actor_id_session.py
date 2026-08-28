@@ -16,3 +16,9 @@ def test_session_actor_id_optional_l0() -> None:
     agent = Agent(attempt_id="attempt_x")
     session = agent.session("p1")
     assert session.actor_id is None
+
+
+def test_session_carries_evaluate_environment() -> None:
+    agent = Agent(attempt_id="attempt_x")
+    session = agent.session("judge", environment="verification")
+    assert session.environment == "verification"
