@@ -53,6 +53,7 @@ src/ageval/
     contrib/                # first-party；按机制命名
       acp/                  # 独占槽 executor
       openai_http/
+      anthropic_http/
       docker/               # 独占槽 environment；attach_stdio=exec -i
       local/
       e2b/                  # SDK 只在本包

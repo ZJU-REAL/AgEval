@@ -38,7 +38,7 @@ PASS 只经 `bind_evaluation` 进入 Result。`RunTerminal.completed`、轨迹�
 
 同一份 job `profiles.yaml` 多一行 `agent_profiles.<id>`（例：`judge`），task 角色表列入同一 id。gold **已经** upload 之后，`evaluator.py` 可以 `Agent.session("judge").invoke(...)`（可多次）。提示词归题包。`invoke` kwargs 仍不得改 `profile_id` / executor。
 
-这些 invoke 走 **同一** Parent Agent Service 与该 profile 自己的 executor 赢家（ACP、openai-http、…）。同一 Attempt 上 solver 与 judge **可以** 选不同机制（solver `acp`、judge `openai-http`）。`environment` 仍是 Attempt 级一份赢家；isolated 时 evaluate 相位把该服务绑到打分 Host，所以 ACP `attach_stdio` 进打分环境，HTTP judge 仍在 parent 出站。不要把 Agent Service unix socket bind-mount 进容器。
+这些 invoke 走 **同一** Parent Agent Service 与该 profile 自己的 executor 赢家（ACP、openai-http、anthropic-http、…）。同一 Attempt 上 solver 与 judge **可以** 选不同机制（solver `acp`、judge `openai-http`）。`environment` 仍是 Attempt 级一份赢家；isolated 时 evaluate 相位把该服务绑到打分 Host，所以 ACP `attach_stdio` 进打分环境，HTTP judge 仍在 parent 出站。不要把 Agent Service unix socket bind-mount 进容器。
 
 约束：
 

@@ -82,7 +82,7 @@ evaluate 相位同样可以用 SDK：`evaluator.py` 是 parent 子进程（与 `
 - 禁止把 `profile_id` / workspace / executor 绑定从 invoke kwargs 里改掉。
 - `tool_calls` 与 `RunTerminal.completed` 都不是 PASS。PASS 只来自独立 evaluator。
 
-最小形状（openai-http 原生工具；ACP 路径可继续只传 prompt）：
+最小形状（openai-http / anthropic-http 原生工具；ACP 路径可继续只传 prompt）：
 
 ```python
 reply = await session.invoke(

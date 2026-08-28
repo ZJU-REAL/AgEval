@@ -62,6 +62,7 @@ extra: { ... }                                                       # 兄弟字
 - `trajectory_collect` / `trajectory_enrich` 可以在 payload 的兄弟字段 `extra` 增补或合并键；不得删自己不拥有的一等 usage 字段。invoke 这袋 **不开新槽**（没有 `trajectory_extra` / `hub_display`）。
 - `trajectory_seal` 仍是层 C 的作者；collect/enrich 只塑 payload。`turn_rows` 把 `usage` 与兄弟 `extra` 拷到 `terminal`，不得丢掉 `extra`。
 - `openai-http` 从 Chat Completions `usage` 映射：`prompt_tokens` / `completion_tokens`（或 text tokens）/ `cached_tokens`（cached prompt tokens）。`AgentResult.usage` 与层 C 同一形状。
+- `anthropic-http` 从 Messages `usage` 映射：`input_tokens` → `prompt_tokens`，`output_tokens` → `completion_tokens`，`cache_read_input_tokens` → `cached_tokens`。cache-write 等剩余进 `extra`。
 - ACP 保持现有双源（`PromptResponse.usage` + `usage_update`），已知量映到一等名；cache-read / cache-write 等剩余进 `extra`，不丢。
 
 ## Attempt `summary.extra`

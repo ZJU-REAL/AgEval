@@ -88,7 +88,7 @@ agent_profiles:
 - `ageval plugin install` 只写 `~/.ageval/plugins`，永不改 profiles。
 - 按机制命名（`acp` / `acp-oneshot` / `docker` / `e2b` / `daytona` / `ssh` / `nooa`）。禁止按 bench 名。
 
-独占槽默认赢家（Current）：`environment` 由 job `environment:` 选出（缺省常见 local 或 docker，以 profiles 为准）；`executor` 由 **各** `agent_profiles.*.executor` 选出（coding-agent 默认 acp；judge 行可以是 `openai-http`）；`evaluation_runtime` / `trajectory_seal` 由引擎 `plugin_id: default` 赢（parent `evaluator.py` / 层 C writer）。缺默认注册 → lock fail-closed。lock 记录 **per-profile** executor 绑定。
+独占槽默认赢家（Current）：`environment` 由 job `environment:` 选出（缺省常见 local 或 docker，以 profiles 为准）；`executor` 由 **各** `agent_profiles.*.executor` 选出（coding-agent 默认 acp；judge 行可以是 `openai-http` 或 `anthropic-http`）；`evaluation_runtime` / `trajectory_seal` 由引擎 `plugin_id: default` 赢（parent `evaluator.py` / 层 C writer）。缺默认注册 → lock fail-closed。lock 记录 **per-profile** executor 绑定。
 
 链默认：`after_environment_ready`（ACP 探测安装 + HOME overlay）；`environment_setup`（`setup.sh`，引擎 defaults）。
 
@@ -108,13 +108,13 @@ Resolve：显式 binding > 更低 priority 赢；并列且无显式挑选 → fa
 
 ## 包
 
-manifest：`ageval.plugin/1`。first-party：`src/ageval/plugins/contrib/{acp,docker,local,e2b,daytona,ssh,openai_http}`。引擎默认：`plugins/defaults`（`environment_setup`、`evaluation_runtime`、`trajectory_seal`）。外置包在仓库根 `plugins/`（nooa、dsh、miniswe、acp-oneshot、home-files、agent-skills）。`acp-oneshot` 是第二条 coding inlet（环境内 oneshot client + `exec`），不是 first-party `acp` 的运输开关。
+manifest：`ageval.plugin/1`。first-party：`src/ageval/plugins/contrib/{acp,docker,local,e2b,daytona,ssh,openai_http,anthropic_http}`。引擎默认：`plugins/defaults`（`environment_setup`、`evaluation_runtime`、`trajectory_seal`）。外置包在仓库根 `plugins/`（nooa、dsh、miniswe、acp-oneshot、home-files、agent-skills）。`acp-oneshot` 是第二条 coding inlet（环境内 oneshot client + `exec`），不是 first-party `acp` 的运输开关。
 
 Recognition（list/lock 认得）≠ 本机能跑 ≠ 镜像已 bake。缺 extra / 钥 → skip，不要假绿。
 
-Hub `/plugins` 可以把 first-party contrib 画成 **catalog overlay**，不是 upload。contrib 目录仍是正规 `ageval.plugin/1`（`plugin.yaml` + README）。README 是详情页的公开合同：必须用表格写清 **export / inject 的 capabilities** 与 **读取的参数**（名称、默认值、作用）。作者约定见 `skills/ageval-plugin`。手写 JSON（`services/registry/builtin_plugins.json`）列出七个 bootstrap id：`local`、`docker`、`e2b`、`ssh`、`daytona`、`acp`、`openai-http`。Registry 读 JSON 与 contrib 文件树；**禁止**在 Registry 进程 `import ageval.plugins.contrib`。行上 `builtin: true`，不绑 `org_id`，不设 `official`（`official` 仍是 upload-org allowlist）。没有 blob / digest / 下载数 / 安装命令；详情仍预览 `plugin.yaml` 与 README。详情路由是短 id（`/plugins/docker`）。`plugins/defaults` 不进这张表。机制 Agent 卡是另一张 catalog overlay（`src/ageval/agents/builtin/catalog.json`，见 [14](14-agent-hub.md)），不要把 `ageval.agent/1` upload 画进 `/plugins`。
+Hub `/plugins` 可以把 first-party contrib 画成 **catalog overlay**，不是 upload。contrib 目录仍是正规 `ageval.plugin/1`（`plugin.yaml` + README）。README 是详情页的公开合同：必须用表格写清 **export / inject 的 capabilities** 与 **读取的参数**（名称、默认值、作用）。作者约定见 `skills/ageval-plugin`。手写 JSON（`services/registry/builtin_plugins.json`）列出八个 bootstrap id：`local`、`docker`、`e2b`、`ssh`、`daytona`、`acp`、`openai-http`、`anthropic-http`。Registry 读 JSON 与 contrib 文件树；**禁止**在 Registry 进程 `import ageval.plugins.contrib`。行上 `builtin: true`，不绑 `org_id`，不设 `official`（`official` 仍是 upload-org allowlist）。没有 blob / digest / 下载数 / 安装命令；详情仍预览 `plugin.yaml` 与 README。详情路由是短 id（`/plugins/docker`）。`plugins/defaults` 不进这张表。机制 Agent 卡是另一张 catalog overlay（`src/ageval/agents/builtin/catalog.json`，见 [14](14-agent-hub.md)），不要把 `ageval.agent/1` upload 画进 `/plugins`。
 
-四条不相等：**Hub 认得** ≠ **本机能跑** ≠ **镜像已 bake** ≠ **`ageval plugin install` 装过**。空店 Explore 仍应看到这七张卡；e2b / ssh / daytona 缺 extra 或缺钥时卡仍在，lock/run 维持既有 skip / fail-closed。七个短 id 保留：`ageval plugin publish` 与 `ageval plugin install` 撞到它们 fail-closed，避免 `/plugins/docker` 和店包抢同一条路由。运行时装载路径仍是 `bootstrap.py`。
+四条不相等：**Hub 认得** ≠ **本机能跑** ≠ **镜像已 bake** ≠ **`ageval plugin install` 装过**。空店 Explore 仍应看到这八张卡；e2b / ssh / daytona 缺 extra 或缺钥时卡仍在，lock/run 维持既有 skip / fail-closed。八个短 id 保留：`ageval plugin publish` 与 `ageval plugin install` 撞到它们 fail-closed，避免 `/plugins/docker` 和店包抢同一条路由。运行时装载路径仍是 `bootstrap.py`。
 
 `FAIL_OPEN_SLOTS`：`before_run` / `after_run` / `trajectory_collect` / `trajectory_enrich` / `summary_enrich` / `cleanup_report`。其余失败即该相位失败。
 
