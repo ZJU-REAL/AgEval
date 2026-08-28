@@ -23,7 +23,6 @@ from collections.abc import Mapping, Sequence
 from pathlib import Path
 
 from ageval.environments.protocol import (
-    AGENT_SERVICE_SOCK_PATH,
     ARTIFACTS_PATH,
     EVALUATION_PATH,
     HOME_PATH,
@@ -121,8 +120,6 @@ class DockerHost:
             self._egress_allowlist = ()
         self._proxy: object | None = None
         self._proxy_url: str | None = None
-        socket = spec.agent_service_socket
-        self._agent_socket = socket.expanduser().resolve(strict=False) if socket else None
         self._container: str | None = None
         self._compose_project: str | None = None
         self._image: str | None = None
@@ -333,18 +330,9 @@ class DockerHost:
     def root(self) -> Path:
         return self._root
 
-    def projected_agent_socket(self) -> str | None:
-        """In-box path of the parent Agent Service socket, when mounted."""
-        if self._agent_socket is None:
-            return None
-        return AGENT_SERVICE_SOCK_PATH
-
     def _volume_flags(self) -> list[str]:
         """Bind mounts. Never the docker daemon socket."""
-        flags = ["-v", f"{self._root}:{BOX_ROOT}"]
-        if self._agent_socket is not None:
-            flags.extend(["-v", f"{self._agent_socket}:{AGENT_SERVICE_SOCK_PATH}"])
-        return flags
+        return ["-v", f"{self._root}:{BOX_ROOT}"]
 
     def _start_egress_proxy(self) -> list[str]:
         if self._egress != "llm":
@@ -403,8 +391,6 @@ class DockerHost:
             "AGEVAL_EVALUATION": EVALUATION_PATH,
             **{k: v for k, v in (env or {}).items() if k not in _DAEMON_ENV_KEYS and v},
         }
-        if self._agent_socket is not None:
-            projected["AGEVAL_AGENT_SERVICE_SOCK"] = AGENT_SERVICE_SOCK_PATH
         if self._proxy_url:
             projected["HTTP_PROXY"] = self._proxy_url
             projected["HTTPS_PROXY"] = self._proxy_url

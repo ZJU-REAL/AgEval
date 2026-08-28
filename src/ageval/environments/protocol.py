@@ -32,9 +32,6 @@ WORKSPACE_PATH = "/attempt/workspace"
 HOME_PATH = "/attempt/home"
 ARTIFACTS_PATH = "/attempt/artifacts"
 EVALUATION_PATH = "/attempt/evaluation"
-# Parent Agent Service unix socket, when a kind can project it into the box.
-# Not under /attempt: Docker Desktop cannot nest a second mount on that bind.
-AGENT_SERVICE_SOCK_PATH = "/ageval-agent.sock"
 
 
 @dataclass(frozen=True, slots=True)
@@ -87,8 +84,6 @@ class BoxSpec:
     # Task-relative recipes, present only when the task actually ships them.
     dockerfile: str | None = None
     compose_file: str | None = None
-    # Parent unix socket to project at start. None = do not mount (agent box).
-    agent_service_socket: Path | None = None
 
 
 @dataclass(frozen=True, slots=True)

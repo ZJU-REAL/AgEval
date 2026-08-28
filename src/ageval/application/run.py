@@ -396,7 +396,6 @@ def _evaluate_box_spec(
     *,
     task_root: Path,
     attempt_root: Path,
-    agent_service_socket: Path | None = None,
 ) -> BoxSpec:
     references = thaw(lock.resolved_references)
     return BoxSpec(
@@ -405,7 +404,6 @@ def _evaluate_box_spec(
         repo_root=Path.cwd(),
         dockerfile=references.get("environment_evaluate_dockerfile"),
         compose_file=None,
-        agent_service_socket=agent_service_socket,
     )
 
 
@@ -416,7 +414,6 @@ def _bind_evaluate_host(
     graph: ExtensionGraph,
     task_root: Path,
     attempt_root: Path,
-    agent_service_socket: Path | None = None,
 ) -> Any | None:
     """Second EnvironmentProvider when isolated; otherwise None (same box)."""
     if not _evaluate_isolated(lock):
@@ -425,12 +422,7 @@ def _bind_evaluate_host(
         registry,
         graph,
         ENVIRONMENT,
-        spec=_evaluate_box_spec(
-            lock,
-            task_root=task_root,
-            attempt_root=attempt_root,
-            agent_service_socket=agent_service_socket,
-        ),
+        spec=_evaluate_box_spec(lock, task_root=task_root, attempt_root=attempt_root),
         plugin_layers=(),
         options=_evaluate_host_options(lock),
     )
