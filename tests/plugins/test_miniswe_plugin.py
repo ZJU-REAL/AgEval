@@ -157,6 +157,66 @@ def test_invalid_reasoning_effort() -> None:
         )
 
 
+def test_extra_body_merges_into_litellm_kwargs() -> None:
+    spi = build_executor(
+        host=SimpleNamespace(kind="local"),
+        placement=_placement(),
+        options={
+            "reasoning_effort": "low",
+            "step_limit": 12,
+            "extra_body": {
+                "reasoning": {"max_tokens": 2000},
+                "provider": {"order": ["Together"]},
+            },
+        },
+        model="openrouter/openai/gpt-4o",
+    )
+    kwargs = spi._litellm_model_kwargs(key="sk-x", base="https://openrouter.ai/api/v1")
+    assert kwargs["reasoning"] == {"max_tokens": 2000}
+    assert kwargs["provider"] == {"order": ["Together"]}
+    assert kwargs["reasoning_effort"] == "low"
+    assert kwargs["drop_params"] is True
+    assert "step_limit" not in kwargs
+    omitted = build_executor(
+        host=SimpleNamespace(kind="local"),
+        placement=_placement(),
+        model="openai/x",
+    )
+    assert omitted.extra_body == {}
+    assert "reasoning" not in omitted._litellm_model_kwargs(key=None, base=None)
+
+
+def test_extra_body_overrides_reasoning_effort() -> None:
+    spi = build_executor(
+        host=SimpleNamespace(kind="local"),
+        placement=_placement(),
+        options={
+            "reasoning_effort": "low",
+            "extra_body": {"reasoning_effort": "high"},
+        },
+        model="openai/x",
+    )
+    kwargs = spi._litellm_model_kwargs(key=None, base=None)
+    assert kwargs["reasoning_effort"] == "high"
+
+
+def test_invalid_extra_body() -> None:
+    from ageval.plugins.errors import ExtensionMaterializeError
+
+    with pytest.raises(ExtensionMaterializeError, match="extra_body_invalid"):
+        build_executor(
+            host=SimpleNamespace(kind="local"),
+            placement=_placement(),
+            options={"extra_body": ["reasoning"]},
+        )
+    with pytest.raises(ExtensionMaterializeError, match="extra_body_reserved"):
+        build_executor(
+            host=SimpleNamespace(kind="local"),
+            placement=_placement(),
+            options={"extra_body": {"api_key": "sk-leak", "model": "other"}},
+        )
+
+
 def test_offline_invoke_does_not_import_vendor(monkeypatch: object) -> None:
     monkeypatch.setenv("AGEVAL_OFFLINE_AGENT", "1")  # type: ignore[attr-defined]
     spi = MinisweExecutorSPI(

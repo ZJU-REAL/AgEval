@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import concurrent.futures
+import copy
 import json
 import os
 import uuid
@@ -18,6 +19,7 @@ from miniswe_plugin.trajectory import to_ageval_trajectory_events
 
 _CREDENTIAL_ENV_NAMES = ("OPENAI_API_KEY", "litellm_api_key", "LITELLM_API_KEY")
 _BASE_URL_ENV_FALLBACKS = ("OPENAI_BASE_URL", "litellm_base_url", "LITELLM_BASE_URL")
+_EXTRA_BODY_RESERVED = frozenset({"model", "api_key", "api_base", "drop_params"})
 
 
 def describe_miniswe() -> dict[str, Any]:
@@ -91,6 +93,35 @@ def _as_optional_effort(raw: Any) -> str | None:
             kind="extension_materialize_failed",
         )
     return raw.strip()
+
+
+def _as_extra_body(raw: Any) -> dict[str, Any]:
+    if raw is None or raw == "":
+        return {}
+    if not isinstance(raw, dict):
+        raise ExtensionMaterializeError(
+            f"miniswe_extra_body_invalid:{raw!r}",
+            kind="extension_materialize_failed",
+        )
+    out: dict[str, Any] = {}
+    reserved: list[str] = []
+    for key, value in raw.items():
+        if not isinstance(key, str) or not key.strip():
+            raise ExtensionMaterializeError(
+                f"miniswe_extra_body_invalid:{raw!r}",
+                kind="extension_materialize_failed",
+            )
+        name = key.strip()
+        if name in _EXTRA_BODY_RESERVED:
+            reserved.append(name)
+            continue
+        out[name] = copy.deepcopy(value)
+    if reserved:
+        raise ExtensionMaterializeError(
+            "miniswe_extra_body_reserved:" + ",".join(sorted(reserved)),
+            kind="extension_materialize_failed",
+        )
+    return out
 
 
 def resolve_api_key_value(locator: str | None) -> str | None:
@@ -204,6 +235,7 @@ class MinisweExecutorSPI:
         self.cost_limit = _as_nonneg_float(opts.get("cost_limit"), name="cost_limit", default=0.0)
         self.cmd_timeout = _as_positive_int(opts.get("cmd_timeout"), name="cmd_timeout", default=30)
         self.reasoning_effort = _as_optional_effort(opts.get("reasoning_effort"))
+        self.extra_body = _as_extra_body(opts.get("extra_body"))
         self.session_id = f"ageval-{self.profile_id or 'solver'}-{uuid.uuid4().hex[:12]}"
         self.execution_location = getattr(host, "kind", None) or "box"
         self._ready = False
@@ -309,6 +341,8 @@ class MinisweExecutorSPI:
             model_kwargs["api_base"] = base
         if self.reasoning_effort:
             model_kwargs["reasoning_effort"] = self.reasoning_effort
+        if self.extra_body:
+            model_kwargs.update(copy.deepcopy(self.extra_body))
         return model_kwargs
 
     def _run_agent(self, prompt: str, *, timeout: float) -> dict[str, Any]:

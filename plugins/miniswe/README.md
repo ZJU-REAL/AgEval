@@ -16,8 +16,10 @@ agent.run(prompt)
 ```
 
 A kind that cannot `exec` fails at `ageval lock`, not mid-invoke. Model HTTP
-stays on the parent. Credentials are locators projected into the parent HTTP
-client; they never enter the lock.
+stays on the parent (mini-swe-agent's `LitellmModel` client). The upstream is
+whatever that client routes: an OpenAI-compatible `base_url`, or a LiteLLM
+prefix (`openai/`, `openrouter/`, `anthropic/`, …). Credentials are locators
+projected into the parent HTTP client; they never enter the lock.
 
 ## Capabilities
 
@@ -37,10 +39,11 @@ client; they never enter the lock.
 | `options.step_limit` | `30` | Agent step cap. `0` = unlimited. Negative / non-int fail closed. |
 | `options.cost_limit` | `0` | Cost cap. `0` = unlimited. Negative fail closed. |
 | `options.cmd_timeout` | `30` | Seconds per `host.exec` bash action. |
-| `options.reasoning_effort` | omit | Optional. Forwarded to LiteLLM as Chat Completions `reasoning_effort`. Empty / omit = do not send. Non-string fail closed. |
-| `model` | `openai/gpt-4o-mini` | LiteLLM model id on the parent. |
+| `options.reasoning_effort` | omit | Optional OpenAI-shaped Chat Completions `reasoning_effort`. Empty / omit = do not send. Non-string fail closed. |
+| `options.extra_body` | omit | Optional mapping merged as-is into the parent completion kwargs (after `reasoning_effort`). Vendor-native keys (OpenRouter `reasoning` / `provider`, vLLM extras, …). Omit / empty = do not merge. Non-mapping fail closed. Rejects `model` / `api_key` / `api_base` / `drop_params`. Conflicting keys: extra_body wins. |
+| `model` | `openai/gpt-4o-mini` | Upstream model id on the parent client (`openai/…`, `openrouter/…`, `anthropic/…`, or any id the `base_url` gateway accepts). |
 | `api_key` | `OPENAI_API_KEY` / `litellm_api_key` / `LITELLM_API_KEY` | Env **locator name** for the parent HTTP client. Omit on loopback `base_url` (`127.0.0.1` / `localhost` / `::1`). |
-| `base_url` | `OPENAI_BASE_URL` / `litellm_base_url` / `LITELLM_BASE_URL` | OpenAI-compatible base (`api_base`). |
+| `base_url` | `OPENAI_BASE_URL` / `litellm_base_url` / `LITELLM_BASE_URL` | OpenAI-compatible base (`api_base`). Point at OpenRouter, DashScope, a local gateway, etc. |
 
 ## Install
 
@@ -65,6 +68,9 @@ agent_profiles:
           step_limit: 30          # 0 = unlimited
           cost_limit: 0           # 0 = unlimited
           cmd_timeout: 30
+          extra_body:             # optional; vendor-native body keys
+            reasoning:
+              max_tokens: 2000
       - plugin: docker
     model: openai/glm-5.2
     api_key: ${litellm_api_key}
