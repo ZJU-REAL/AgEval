@@ -1,11 +1,19 @@
-import { Inbox } from "lucide-react";
+import { Inbox, Trash2 } from "lucide-react";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Navigate } from "react-router-dom";
 
 import { EmptyState, LoadingState } from "@/components/empty-state";
 import { PageHead } from "@/components/page-head";
 import { Button } from "@/components/ui/button";
+import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { Input } from "@/components/ui/input";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import {
   Table,
   TableBody,
@@ -18,6 +26,7 @@ import { toast } from "@/components/ui/toast";
 import { toastError } from "@/lib/toast-error";
 import {
   decideRequests,
+  hideInboxRequests,
   listInbox,
   type ResourceRequest,
 } from "@/lib/api";
@@ -40,6 +49,12 @@ function matchesQuery(row: ResourceRequest, query: string): boolean {
     .join(" ")
     .toLowerCase();
   return hay.includes(query);
+}
+
+function kindLabel(kind: string): string {
+  if (kind === "leaderboard_list") return "Listing";
+  if (kind === "agent_performance") return "Performance";
+  return kind;
 }
 
 function PeekCell({
@@ -65,9 +80,12 @@ export function InboxPage() {
   const [rows, setRows] = useState<ResourceRequest[]>([]);
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [query, setQuery] = useState("");
+  const [kindFilter, setKindFilter] = useState("all");
+  const [datasetFilter, setDatasetFilter] = useState("all");
   const [peek, setPeek] = useState<PeekTarget | null>(null);
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
+  const [confirmHide, setConfirmHide] = useState(false);
 
   const closePeek = useCallback(() => setPeek(null), []);
 
@@ -93,20 +111,37 @@ export function InboxPage() {
   }, [token]);
 
   const needle = query.trim().toLowerCase();
-  const pending = useMemo(
+  const filtered = useMemo(
     () =>
-      rows.filter((row) => row.status === "pending").filter((row) => matchesQuery(row, needle)),
-    [rows, needle],
+      rows.filter((row) => {
+        if (!matchesQuery(row, needle)) return false;
+        if (kindFilter !== "all" && row.kind !== kindFilter) return false;
+        if (datasetFilter !== "all" && row.dataset_id !== datasetFilter) return false;
+        return true;
+      }),
+    [rows, needle, kindFilter, datasetFilter],
+  );
+  const pending = useMemo(
+    () => filtered.filter((row) => row.status === "pending"),
+    [filtered],
   );
   const history = useMemo(
     () =>
-      rows
+      filtered
         .filter((row) => row.status !== "pending")
-        .filter((row) => matchesQuery(row, needle))
         .sort((a, b) => (b.decided_at || b.created_at || 0) - (a.decided_at || a.created_at || 0)),
-    [rows, needle],
+    [filtered],
   );
   const pendingIds = useMemo(() => pending.map((r) => r.request_id), [pending]);
+  const historyIds = useMemo(() => history.map((r) => r.request_id), [history]);
+  const kindOptions = useMemo(() => {
+    const set = new Set(rows.map((row) => row.kind).filter(Boolean));
+    return [...set].sort();
+  }, [rows]);
+  const datasetOptions = useMemo(() => {
+    const set = new Set(rows.map((row) => row.dataset_id).filter(Boolean));
+    return [...set].sort();
+  }, [rows]);
 
   if (!token) {
     rememberReturnPath("/inbox");
@@ -158,11 +193,27 @@ export function InboxPage() {
     }
   }
 
+  async function hideHistory() {
+    if (!historyIds.length) return;
+    setBusy(true);
+    try {
+      await hideInboxRequests(historyIds, token);
+      const drop = new Set(historyIds);
+      setRows((prev) => prev.filter((row) => !drop.has(row.request_id)));
+      setConfirmHide(false);
+      toast("Hidden from your History");
+    } catch (err) {
+      toastError(err);
+    } finally {
+      setBusy(false);
+    }
+  }
+
   return (
     <div className="space-y-6">
       <PageHead
         title="Inbox"
-        sub="Pending listing and appearance requests you can decide."
+        sub="Pending listing and Performance requests you can decide."
       />
 
       <div className="flex flex-wrap items-center gap-2">
@@ -173,6 +224,36 @@ export function InboxPage() {
           aria-label="Search requests"
           className="h-8 min-w-0 flex-1 basis-56"
         />
+        <Select value={kindFilter} onValueChange={setKindFilter}>
+          <SelectTrigger className="h-8 min-w-[8rem]" aria-label="Kind">
+            <SelectValue placeholder="Kind" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all" mono={false}>
+              All kinds
+            </SelectItem>
+            {kindOptions.map((kind) => (
+              <SelectItem key={kind} value={kind} mono={false}>
+                {kindLabel(kind)}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+        <Select value={datasetFilter} onValueChange={setDatasetFilter}>
+          <SelectTrigger className="h-8 min-w-[10rem]" aria-label="Dataset">
+            <SelectValue placeholder="Dataset" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all" mono={false}>
+              All datasets
+            </SelectItem>
+            {datasetOptions.map((datasetId) => (
+              <SelectItem key={datasetId} value={datasetId} mono={false}>
+                {datasetId}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
         <div className="ml-auto flex items-center gap-2">
           <Button
             type="button"
@@ -201,15 +282,15 @@ export function InboxPage() {
           icon={Inbox}
           glyph="inbox"
           title="No pending requests"
-          caption="Listing and appearance requests show up here."
+          caption="Listing and Performance requests show up here."
           className={history.length > 0 ? "min-h-0 flex-none py-10" : undefined}
         />
       ) : (
         <div className="blob-panel overflow-hidden">
-          <Table>
+          <Table className="table-auto">
             <TableHeader>
               <TableRow>
-                <TableHead className="w-10">
+                <TableHead className="w-12 px-3 overflow-visible">
                   <input
                     type="checkbox"
                     aria-label="Select all pending"
@@ -234,7 +315,7 @@ export function InboxPage() {
             <TableBody>
               {pending.map((row) => (
                 <TableRow key={row.request_id}>
-                  <TableCell>
+                  <TableCell className="w-12 px-3 overflow-visible">
                     <input
                       type="checkbox"
                       aria-label={`Select ${row.request_id}`}
@@ -242,7 +323,7 @@ export function InboxPage() {
                       onChange={() => toggle(row.request_id)}
                     />
                   </TableCell>
-                  <TableCell className="text-body">{row.kind}</TableCell>
+                  <TableCell className="text-body">{kindLabel(row.kind)}</TableCell>
                   <TableCell>
                     <PeekCell label={row.dataset_id} onPeek={() => peekDataset(row)} />
                   </TableCell>
@@ -264,9 +345,22 @@ export function InboxPage() {
 
       {history.length > 0 ? (
         <div className="space-y-2">
-          <h2 className="text-sm font-medium text-ink">History</h2>
+          <div className="flex items-center gap-2">
+            <h2 className="text-sm font-medium text-ink">History</h2>
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon"
+              className="ml-auto h-8 w-8 text-mute"
+              aria-label="Hide processed requests from your inbox"
+              disabled={busy}
+              onClick={() => setConfirmHide(true)}
+            >
+              <Trash2 className="h-4 w-4" aria-hidden />
+            </Button>
+          </div>
           <div className="blob-panel overflow-hidden">
-            <Table>
+            <Table className="table-auto">
               <TableHeader>
                 <TableRow>
                   <TableHead>Status</TableHead>
@@ -282,7 +376,7 @@ export function InboxPage() {
                 {history.map((row) => (
                   <TableRow key={row.request_id}>
                     <TableCell className="text-body">{row.status}</TableCell>
-                    <TableCell className="text-body">{row.kind}</TableCell>
+                    <TableCell className="text-body">{kindLabel(row.kind)}</TableCell>
                     <TableCell>
                       <PeekCell label={row.dataset_id} onPeek={() => peekDataset(row)} />
                     </TableCell>
@@ -305,6 +399,17 @@ export function InboxPage() {
           </div>
         </div>
       ) : null}
+
+      <ConfirmDialog
+        open={confirmHide}
+        title="Hide History"
+        description="Hide these processed requests from your inbox? Other owners still see them. Listing and attach are unchanged."
+        confirmLabel="Hide"
+        confirmVariant="default"
+        busy={busy}
+        onCancel={() => setConfirmHide(false)}
+        onConfirm={() => void hideHistory()}
+      />
 
       {peek ? <PeekHost peek={peek} onClose={closePeek} /> : null}
     </div>
