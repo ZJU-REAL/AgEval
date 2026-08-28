@@ -2,7 +2,7 @@
 
 结构地图见 [ARCHITECTURE.md](../../ARCHITECTURE.md)。产品故事与命名见 [00](00-overview-and-product.md)。
 
-Core 拥有：配置锁定、Attempt 身份、盒子 Protocol、硬顶、evaluate 绑定、evidence 布局。不拥有题业务、厂商 SDK、PASS 算法。
+Core 拥有：配置锁定、Attempt 身份、环境 Protocol、硬顶、evaluate 绑定、evidence 布局。不拥有题业务、厂商 SDK、PASS 算法。
 
 ## 五组（映射到当前模块）
 
@@ -81,7 +81,7 @@ PASS 仍只经 `AttemptCtx.bind_evaluation` 进入 Result。`evaluation_runtime`
 | --- | --- |
 | `environment` | `host.start` + upload seed + 槽（见下） |
 | `run` | 调 task `run.py`；内含 agent open/invoke/close **子槽**。结束时停 solver writer，**保持** Agent Service |
-| `evaluate` | 选打分 Host（缺省 = run 盒；job `evaluate_host.isolated` 则另起同 kind 第二实例）、materialize gold **只进该 Host**、调 `evaluation_runtime` 赢家（可选 SDK `Agent.session`）、`bind_evaluation` |
+| `evaluate` | 选打分 Host（缺省 = run 环境；job `evaluate_host.isolated` 则另起同 kind 第二实例）、materialize gold **只进该 Host**、调 `evaluation_runtime` 赢家（可选 SDK `Agent.session`）、`bind_evaluation` |
 | `record` | collect/enrich → `trajectory_seal` 写 run 相位 `trajectory.jsonl`；evaluate 相位 invoke 另封 `evaluation/observation.jsonl`（省略 user） |
 | `cleanup` | `host.stop`；isolated 时 **两个** Host 都停。实现可加报告，不能选择跳过 |
 
@@ -103,15 +103,15 @@ async def run(ctx) -> None:
     await emit(ctx, "after_environment")
 ```
 
-- `after_environment_ready`：盒已开、`environment_setup` 之前。HOME overlay、env inject、**ACP 探测再装**挂这里。按 `options.entry` 探名字 + 钉死包版本 + 一次 stdio `initialize`；齐了就跳过；不对再按 entry 的 `install_command` `exec`。失败 = environment 相位失败。不把安装写进 task `setup.sh`。
+- `after_environment_ready`：环境已开、`environment_setup` 之前。HOME overlay、env inject、**ACP 探测再装**挂这里。按 `options.entry` 探名字 + 钉死包版本 + 一次 stdio `initialize`；齐了就跳过；不对再按 entry 的 `install_command` `exec`。失败 = environment 相位失败。不把安装写进 task `setup.sh`。
 - `environment_setup`：默认插件若存在 `environment/setup.sh`（或 yaml 覆盖的 entry）则 `host.exec`。本题依赖，不是 agent CLI。
 - bake / `image_layers` 消化在 `host.start()` 内部（docker build / e2b template），不是 attempt 上的独立 phase。`kind: ssh` 且 skip_build 时无 bake。
 
-### evaluate：缺省同盒晚上传 gold；opt-in 第二 Host（权威）
+### evaluate：缺省同一环境晚上传 gold；opt-in 第二 Host（权威）
 
-以 `src/ageval/attempt/phases/evaluate.py` 为准。`environment` 仍是 **Attempt 级一份**赢家，只服务 **run**。打分另开盒子 **不是新槽、不是第二套 resolve**：同一 `environment` 赢家再构造一个 EnvironmentProvider 实例（不同 `BoxSpec` / 不同 work root）。
+以 `src/ageval/attempt/phases/evaluate.py` 为准。`environment` 仍是 **Attempt 级一份**赢家，只服务 **run**。打分另开环境 **不是新槽、不是第二套 resolve**：同一 `environment` 赢家再构造一个 EnvironmentProvider 实例（不同 `BoxSpec` / 不同 work root）。
 
-**缺省**（省略 job `evaluate_host`）：同盒、进 phase 再 upload gold。形状不变：
+**缺省**（省略 job `evaluate_host`）：同一环境、进 phase 再 upload gold。形状不变：
 
 ```python
 async def run(ctx) -> None:
@@ -124,11 +124,11 @@ async def run(ctx) -> None:
     await emit(ctx, "after_evaluate")            # 不得改 status
 ```
 
-**opt-in**（job `evaluate_host.isolated: true`）：harvest 之后、evaluate 开头，Runtime 用题包 `environment/evaluate.Dockerfile`（或 `evaluation.docker_image`）`start` 第二实例。gold 与 harvest 快照只进这个 Host。`evaluator.py` 仍在 parent 跑；evaluate 相位的 ACP `attach_stdio` 打第二实例。Agent 盒永不 mount / upload `evaluation/`。cleanup 停两个。Current 要求 kind 是 `docker`；不能再起一盒的 kind + `isolated: true` → lock 一次失败（不要报假 cap）。
+**opt-in**（job `evaluate_host.isolated: true`）：harvest 之后、evaluate 开头，Runtime 用题包 `environment/evaluate.Dockerfile`（或 `evaluation.docker_image`）`start` 第二实例。gold 与 harvest 快照只进这个 Host。`evaluator.py` 仍在 parent 跑；evaluate 相位的 ACP `attach_stdio` 打第二实例。Agent 环境永不 mount / upload `evaluation/`。cleanup 停两个。Current 要求 kind 是 `docker`；不能再起一份环境的 kind + `isolated: true` → lock 一次失败（不要报假 cap）。
 
-- Agent / `run.py` / `environment_setup` **禁止**看到 `evaluation/`（不 upload、不 mount、不 COPY 进 Agent 用镜像层）。isolated 时这条红线变成 **空间切开 + 时间切开**：gold 根本不进 Agent 盒。
+- Agent / `run.py` / `environment_setup` **禁止**看到 `evaluation/`（不 upload、不 mount、不 COPY 进 Agent 用镜像层）。isolated 时这条红线变成 **空间切开 + 时间切开**：gold 根本不进 Agent 环境。
 - 这不是 `path_views`。evidence 记 `gold_materialized`（at evaluate）；isolated 另记第二 Host 的 start/stop，那些事实 **不是** PASS。
-- gold 进打分盒之后 solver 不得再 invoke。evaluate 相位可以按 **另一** profile（例 `judge`）走同一 Parent Agent Service；isolated 时 attach 目标是打分 Host。
+- gold 进打分环境之后 solver 不得再 invoke。evaluate 相位可以按 **另一** profile（例 `judge`）走同一 Parent Agent Service；isolated 时 attach 目标是打分 Host。
 - 省略开关 = 今日 Attempt。judge 观察不是 PASS。`observation.jsonl` 缺席 = 今日脚本评测路径。
 
 ### 其他 slot
@@ -146,7 +146,7 @@ async def run(ctx) -> None:
 
 完整 emit 图：[ARCHITECTURE.md](../../ARCHITECTURE.md) § Extension emit map、[05-runtime/README.md](05-runtime/README.md)。
 
-## 盒子 Protocol
+## 环境 Protocol
 
 独占槽 `environment`。赢家实现 `src/ageval/environments/protocol.py`。厂商 SDK 只活在 `plugins/contrib/<kind>/`。Protocol 文件禁止出现 `e2b` / `docker` / `paramiko` 实现。
 
@@ -174,7 +174,7 @@ kind：`local` | `docker` | `e2b` | `ssh` | `daytona`。能力矩阵与 `attach_
 
 合同路径：`/attempt/workspace`、`/attempt/home`、`/attempt/artifacts`、`/attempt/evaluation`。
 
-job 选盒子：`profiles.yaml` 的 `environment:`，不是 `provider.kind`。
+job 选环境：`profiles.yaml` 的 `environment:`，不是 `provider.kind`。
 
 ## composition
 

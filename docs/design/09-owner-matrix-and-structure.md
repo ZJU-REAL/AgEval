@@ -6,11 +6,11 @@
 
 | 谁 | 拥有 | 不拥有 |
 | --- | --- | --- |
-| Core Config | lock、digest、format 校验 | 开盒、打分 |
+| Core Config | lock、digest、format 校验 | 开环境、打分 |
 | Attempt 宿主 | 相位序、identity、deadline、cleanup | 厂商 SDK |
-| 盒子 contrib | 一种 kind 的运输 | ACP 协议、PASS |
+| 环境 contrib | 一种 kind 的运输 | ACP 协议、PASS |
 | ACP contrib | parent client、`attach_stdio` 消费 | `docker exec` 实现 |
-| 题包 `run.py` | 业务、本地 Tool、publish | PASS、凭据、开盒 |
+| 题包 `run.py` | 业务、本地 Tool、publish | PASS、凭据、开环境 |
 | evaluator | 真值算法 | 启动 Agent |
 | evidence | 路径字符串、轨迹层 C | PASS |
 | CLI | argv、exit code | 业务规则（只调 `build_*`） |
@@ -85,7 +85,7 @@ Target 未全部兑现：`plugins/defaults` 与 `contrib/defaults` 不要两套�
 ## 结构规范（不可退化）
 
 1. **深模块，少文件跳转。** `attempt/` 是生命周期的深模块：打开 `attempt/__init__.py` 能说出相位。禁止再拆出 `run_l1_prepare.py` 这类把复杂度摊到十个浅文件。删除测试：删掉一个文件若只是把逻辑搬到邻居，说明它是浅的，不要新建。
-2. **测试面是公开 CLI + 真实 kind。** `local` 用真目录；`docker` / `e2b` / `ssh` 用真盒子。禁止 `FakeHost` / `executor: mock` / 空 Agent Service 当完成证据。两个真实赢家（docker + e2b/ssh）才使 Protocol seam 成立。无凭证就 skip 该 job，不要标完成。
+2. **测试面是公开 CLI + 真实 kind。** `local` 用真目录；`docker` / `e2b` / `ssh` 用真环境。禁止 `FakeHost` / `executor: mock` / 空 Agent Service 当完成证据。两个真实赢家（docker + e2b/ssh）才使 Protocol seam 成立。无凭证就 skip 该 job，不要标完成。
 3. **locality。** `docker exec` 只活在 `plugins/contrib/docker/`。ACP / `attempt` / `run.py` 不得出现 `container_id`、`if kind == e2b`。厂商 SDK 不得进 `environments/protocol.py`。
 4. **一条路径。** 选 executor / environment 只经注册表独占槽。禁止第二套 `resolve_executor`、CLI 旁路、application 里手 new Docker。
 5. **composition root 唯一。** 平台对象（SDK client、docker CLI、SSH）只在 `application/composition.py` 的 `build_*` 连接。新公开 usecase 必须有 `build_*`。CLI 只 import composition。
@@ -93,6 +93,6 @@ Target 未全部兑现：`plugins/defaults` 与 `contrib/defaults` 不要两套�
 7. **PASS / 身份 / cleanup 不是服务。** 插件 `exports` 不得覆盖这三样。cleanup 必须在 `try/finally`。
 8. **adapter 按机制命名**（`docker` / `ssh` / `acp`），禁止按 bench / task 名分支。
 9. **layout 字符串只在 `evidence/`。** lock / evidence / 默认环境禁止写入 host token。
-10. **inject 在 lock 完成。** executor 只通过已 inject 的 `environment` 服务调用 Protocol。ACP 要 `attach_stdio`；盒内 worker 要 `exec` / `upload`。缺则 fail closed，不在 invoke 时探测管子。`exec` 不是独立 service。
+10. **inject 在 lock 完成。** executor 只通过已 inject 的 `environment` 服务调用 Protocol。ACP 要 `attach_stdio`；环境内 worker 要 `exec` / `upload`。缺则 fail closed，不在 invoke 时探测管子。`exec` 不是独立 service。
 
 决策检查：改树先改 ARCHITECTURE；改红线先改 design；不要在代码里发明第二套 owner。

@@ -6,7 +6,7 @@
 ```text
 PRD + 00     产品
 01–03        Attempt、dataset、run.py、SDK
-05-runtime   盒子、ACP、evaluate、evidence、campaign
+05-runtime   环境、ACP、evaluate、evidence、campaign
 06–09        可见性、硬顶、转换、owner
 11–14        插件、Hub、UI 令牌、Agent 对象
 ARCHITECTURE.md

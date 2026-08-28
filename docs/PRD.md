@@ -9,15 +9,15 @@
 
 ## 1. 一句话
 
-ageval 锁定一份 dataset，在选定的盒子里跑一次 Attempt，由独立 evaluator 出分。盒子可以是本机、Docker、E2B、SSH 或 Daytona；编排始终在本机 `ageval run`。
+ageval 锁定一份 dataset，在选定的环境里跑一次 Attempt，由独立 evaluator 出分。环境可以是本机、Docker、E2B、SSH 或 Daytona；编排始终在本机 `ageval run`。
 
 设计口令：**边界硬、契约薄、实现可胖。** 胖的是题包 `run.py`，不是 Core。
 
 ## 2. 问题
 
-Agent 评测把编排、隔离、可见性和打分权威散落在各家 harness 里。换 coding agent 或换盒子，分数就不可比。
+Agent 评测把编排、隔离、可见性和打分权威散落在各家 harness 里。换 coding agent 或换环境，分数就不可比。
 
-ageval **统一** lock、开盒、invoke、评测、存证、拆盒；**不统一** 题内部怎么 loop、怎么用 Tool。
+ageval **统一** lock、开环境、invoke、评测、存证、拆环境；**不统一** 题内部怎么 loop、怎么用 Tool。
 
 ## 3. 用户与 Jobs
 
@@ -32,7 +32,7 @@ ageval **统一** lock、开盒、invoke、评测、存证、拆盒；**不统�
 ## 4. 成功标准
 
 1. 打开 `src/ageval/attempt/__init__.py` 能说出相位顺序。
-2. 换盒子只改 job `environment:`，ACP / `run.py` 不见 `container_id`。
+2. 换环境只改 job `environment:`，ACP / `run.py` 不见 `container_id`。
 3. 同一份 `environment/Dockerfile` 可供 docker 与 e2b 使用。
 4. PASS 只来自独立 evaluator；`RunTerminal.completed` 不是 PASS。
 5. 未知 format lock 失败：`invalid_format` 于 `/format`，一个错误，不映射。
@@ -47,7 +47,7 @@ ageval **统一** lock、开盒、invoke、评测、存证、拆盒；**不统�
 
 | 层 | 能力 |
 | --- | --- |
-| **Core** | Config `load_and_lock`；Attempt 五相位；盒子 Protocol；Capability；Evaluator barrier + 结果绑定；可见性投影；Attempt evidence / 轨迹落盘 |
+| **Core** | Config `load_and_lock`；Attempt 五相位；环境 Protocol；Capability；Evaluator barrier + 结果绑定；可见性投影；Attempt evidence / 轨迹落盘 |
 | **SDK** | 可选：`RunContext`、AgentSession、Tool/Guard |
 | **题包** | 业务 workflow、本地 Tool、upstream bridge、`evaluator.py` |
 | **Application** | CLI、Campaign/matrix、内置/插件接线 |
@@ -57,7 +57,7 @@ ageval **统一** lock、开盒、invoke、评测、存证、拆盒；**不统�
 - 不把 Harbor 的全部云厂商一次搬进来。
 - 不把 vendor SDK / alias 缓存写进 Core。Core 只调 `host.start()`。
 - 不保留 Environment Manager。
-- 不把盒子做成 `provide(executor)`。没有第三种 `provide()` 扩展模型。
+- 不把环境做成 `provide(executor)`。没有第三种 `provide()` 扩展模型。
 - 不在每个 task 里复制 Attempt 编排。
 - 不单开 `provision` phase。
 
@@ -74,10 +74,10 @@ ageval **统一** lock、开盒、invoke、评测、存证、拆盒；**不统�
 
 | ID | 一句话 |
 | --- | --- |
-| US1 | 换盒子只改 `environment:` kind |
+| US1 | 换环境只改 `environment:` kind |
 | US2 | 一份 Dockerfile，docker 与 e2b 都能用 |
 | US3 | `setup.sh` 是 environment 末槽 |
-| US4 | ACP 只经 `attach_stdio` 进任意盒子 |
+| US4 | ACP 只经 `attach_stdio` 进任意环境 |
 | US5 | `requires ⊆ capabilities`，否则 lock 失败 |
 | US6 | 无 Environment Manager；侧车 compose / `host.exec(service=)` |
 | US7 | 厂商扩 kind 不改 attempt / ACP / `run.py` |

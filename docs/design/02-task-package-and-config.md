@@ -63,9 +63,9 @@ tasks/<id>/
   run.py                    # async def run(ctx) — 仅 run phase
   evaluator.py              # 仅 evaluate
   environment/
-    Dockerfile              # Agent 盒配方；有则用；docker 与 e2b 同一份
-    evaluate.Dockerfile     # 打分盒配方；仅 job evaluate_host.isolated 时认
-    setup.sh                # 有则 environment_setup 去 exec（只跑在 Agent 盒）
+    Dockerfile              # Agent 环境配方；有则用；docker 与 e2b 同一份
+    evaluate.Dockerfile     # 打分环境配方；仅 job evaluate_host.isolated 时认
+    setup.sh                # 有则 environment_setup 去 exec（只跑在 Agent 环境）
   data/                     # Agent 可见 seed；environment 相位 upload 到 /attempt/workspace
   evaluation/               # gold；agent 不可见；evaluate 开头才 upload 到打分 Host
                             # 禁止把打分 Dockerfile 放这里
@@ -88,7 +88,7 @@ yaml 显式字段覆盖缺省。旧 `harness.entrypoint` 与未知 format **拒�
 
 不要：`provider.kind`、`assurance`、`harness:` 块、角色上的 `executor` / `api_key`（那些在 profiles）。
 
-`run.py` **禁止**：`host.start`、`apt`、装环境、读 `evaluation/`。只做 session / invoke / 业务 Tool。盒子在它被调用前已经就绪。ACP attach 发生在第一次 invoke。
+`run.py` **禁止**：`host.start`、`apt`、装环境、读 `evaluation/`。只做 session / invoke / 业务 Tool。环境在它被调用前已经就绪。ACP attach 发生在第一次 invoke。
 
 多题同构时，循环放 `shared/lib`，成员 `run.py` 只转发。gold 永不进 `shared/`。Runtime 注入 path 前缀是 `[task_dir, dataset_root]`，不会把 `shared/lib` 叶子再塞进 path。docker 镜像 **不会** 由 Core 隐式 COPY `shared/`；容器内要用时在 Dockerfile 里显式 `COPY`，并把 dataset 根放进 `PYTHONPATH`。
 
@@ -100,7 +100,7 @@ environment: local          # 或 docker / e2b / ssh / daytona
 # environment_options:      # docker：image / platform / network / user（`root` 开 root）/ egress
 #                           # ssh：host / user / port / key_env / image
 #                           # daytona：image / snapshot / timeout_seconds
-# evaluate_host:            # 省略 = 同盒 evaluate
+# evaluate_host:            # 省略 = 同一环境 evaluate
 #   isolated: true
 agent_profiles:
   solver:
@@ -114,7 +114,7 @@ agent_profiles:
       - plugin: local
 ```
 
-`environment_options` 给 **run** 盒子；locator 在 preflight 解析，密钥不进 digest。`evaluate_host.isolated: true` 要求成员题有打分配方，且 kind 能再起一盒（Current：docker）；否则 lock 失败。未知顶键一次拒绝。
+`environment_options` 给 **run** 环境；locator 在 preflight 解析，密钥不进 digest。`evaluate_host.isolated: true` 要求成员题有打分配方，且 kind 能再起一份环境（Current：docker）；否则 lock 失败。未知顶键一次拒绝。
 
 `artifacts.publishable[]` 允许键：`id`、`path`、`kind`（`file` \| `tree`，省略 = `file`）、`exclude`（仅 `tree`，字符串列表）。其它键一次错误，不映射。`evaluation.inputs[].target: workspace` 把对应 tree 铺到打分 Host `/attempt/workspace`；省略则 file 产物仍上 `/attempt/artifacts`。
 
@@ -125,8 +125,8 @@ agent_profiles:
 | `parameters` | `ctx.params` |
 | `limits.*` | Runtime 硬顶 |
 | `evaluation/` | evaluate 相位（gold；可含 `docker_image` 供 isolated） |
-| `environment/` | Agent 盒配方；`evaluate.Dockerfile` 仅 isolated 打分盒 |
+| `environment/` | Agent 环境配方；`evaluate.Dockerfile` 仅 isolated 打分环境 |
 | `data/` | Agent 可见 seed |
-| `profiles.yaml` | 选盒子 / executor / entry；可选 `evaluate_host` / `egress` |
+| `profiles.yaml` | 选环境 / executor / entry；可选 `evaluate_host` / `egress` |
 
 实现：`src/ageval/config/`（`dataset.py`、`profiles.py`、`load_and_lock.py`、`validate.py`、`digest.py`）。

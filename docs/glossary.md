@@ -18,18 +18,18 @@
 | **phase** | attempt 上的一大步（environment / run / evaluate / record / cleanup） |
 | **独占槽** | 每个 resolved graph 一个赢家；登记为同名 service。`environment` 是 Attempt 级一份；`executor` 按 profile 各绑一份 |
 | **链槽** | phase 内钩子，handler `(ctx, value, nxt)` |
-| **environment**（槽） | 盒子赢家：`local` / `docker` / `e2b` / `ssh` / `daytona`，同一 Protocol |
-| **executor**（槽） | 该 `agent_profiles` 行的 Agent 后端赢家。coding-agent 默认 `acp`（parent client + `attach_stdio`）；`acp-oneshot` 是盒内一次性 client + `exec`。同一 Attempt 上不同 profile 可选不同机制 |
-| **acp-oneshot** | 外置 executor 插件：parent 一次 `host.exec` 跑盒内 ACP server+client；不要求 `attach_stdio` |
+| **environment**（槽） | 环境赢家：`local` / `docker` / `e2b` / `ssh` / `daytona`，同一 Protocol |
+| **executor**（槽） | 该 `agent_profiles` 行的 Agent 后端赢家。coding-agent 默认 `acp`（parent client + `attach_stdio`）；`acp-oneshot` 是环境内一次性 client + `exec`。同一 Attempt 上不同 profile 可选不同机制 |
+| **acp-oneshot** | 外置 executor 插件：parent 一次 `host.exec` 跑环境内 ACP server+client；不要求 `attach_stdio` |
 | **service / inject** | 按名取能力：独占赢家以槽名 export；调用方 inject 服务名 + capabilities；lock 期解析。`exec` 是 Protocol 方法，不是独立 service |
-| **attach_stdio** | host 在已开盒里起前台进程并交回 stdin/stdout |
+| **attach_stdio** | host 在已开环境里起前台进程并交回 stdin/stdout |
 | **ACP entry** | `options.entry`：`pi` / `codex` / `claude-code` / `opencode` / `grok-build` |
-| **BYOK** | 声明过的 API key env 投影进盒；缺则 fail-closed |
+| **BYOK** | 声明过的 API key env 投影进环境；缺则 fail-closed |
 | **BYOA** | `keyless_auth`；allowlist copy 本机 auth 文件进 attempt HOME |
 | **capabilities** | kind 声明能兑现什么；lock 期 `requires ⊆ capabilities` |
 | **path_views** | 同时多角色不同盘（mount+UID），仅 docker 类能兑现。gold 隔离不靠它 |
 | **environment_setup** | environment 末槽；有 `setup.sh` 才 exec |
-| **ssh A / ssh B** | A 盒子=整机；B 盒子=远端已有容器。同一 kind 的两种 options |
+| **ssh A / ssh B** | A 环境=整机；B 环境=远端已有容器。同一 kind 的两种 options |
 | **gold** | `tasks/*/evaluation/`。evaluate 开头再 upload |
 | **composition root** | `application/composition.py`；CLI 只 import 它 |
 | **LockedTaskConfig** | lock 产物与其 digest（含 `extension_bindings`） |

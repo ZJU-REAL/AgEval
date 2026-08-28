@@ -59,9 +59,9 @@ apps/* / services/* README  ← SPA / 服务开发细节；非产品教程权威
 | 项 | 状态 |
 | --- | --- |
 | 设计 | `docs/`（PRD + design 00–14 + glossary）**自包含**；不要读仓外 BRIEF |
-| production 源码 | Config → `attempt.run_attempt` 五相位 → 盒子 kind → ACP `attach_stdio` → 盒内 evaluate → evidence；`src/ageval/plugins/` 注册表 + contrib；外置 `plugins/` |
+| production 源码 | Config → `attempt.run_attempt` 五相位 → 环境 kind → ACP `attach_stdio` → 环境内 evaluate → evidence；`src/ageval/plugins/` 注册表 + contrib；外置 `plugins/` |
 | 公开 entrypoint | `ageval lock` / `run` / `campaign` / `view` / `evidence` / `plugin` / `jobs` / `results` 等（以 `ageval --help` 为准；`ageval run` 输出 `logs` locator） |
-| 盒子 | `local` / `docker` 有公开真 run；`e2b` / `ssh` / `daytona` 代码在，缺钥 `--probe` fail-closed，**不得**标完成 |
+| 环境 | `local` / `docker` 有公开真 run；`e2b` / `ssh` / `daytona` 代码在，缺钥 `--probe` fail-closed，**不得**标完成 |
 | 证据等级 | **限定 `runnable-mvp`**（core local/docker ACP、journeys 点名题）；见 [examples/README.md](examples/README.md)；**不得**扩写全 suite `isolated` |
 | 交付跟踪 | **GitHub Issues** |
 | 文档站 | [`website/`](website/) 读者向 Fumadocs；机制权威仍在 `docs/` |
@@ -95,7 +95,7 @@ apps/* / services/* README  ← SPA / 服务开发细节；非产品教程权威
 
 | 允许 | 禁止 |
 | --- | --- |
-| `environment: local`（真文件系统） | `FakeHost`、内存盒子当验收 |
+| `environment: local`（真文件系统） | `FakeHost`、内存环境当验收 |
 | `environment: docker`（真容器） | mock docker SDK 当该面完成 |
 | 真 ACP CLI + `attach_stdio` | stub Agent Service、进程内假 worker |
 | 凭证没有时 **跳过** 该 job | 用假 agent 把测试标绿再标完成 |
@@ -116,10 +116,10 @@ apps/* / services/* README  ← SPA / 服务开发细节；非产品教程权威
 
 ### 架构与所有权
 
-- **Core：** Config `load_and_lock`；Attempt 五相位；盒子 Protocol；Capability；Evaluator barrier 与结果绑定。
+- **Core：** Config `load_and_lock`；Attempt 五相位；环境 Protocol；Capability；Evaluator barrier 与结果绑定。
 - **可见性投影**是一等能力；gold 靠 **不 mount + 评测前 upload**，禁止只靠「配置里删字段」。
 - **题包 `run.py`** 拥有 Attempt 内业务 workflow（loop、角色、本地 Tool、handoff）。
-- **SDK** 可选；可被 upstream Framework 替代；**不**拥有 Run identity、盒子控制、credential、final PASS。
+- **SDK** 可选；可被 upstream Framework 替代；**不**拥有 Run identity、环境控制、credential、final PASS。
 - Control Plane **不** import/execute 题包 `run.py` 或 evaluator **模块**；经进程/适配器边界调用。
 - 具体平台对象只在 **production composition root**（`application/composition.py` 的 `build_*`）连接。
 - 第三方 Agent/workflow SDK 不得成为 Core identity / effect / verdict authority。
@@ -134,9 +134,9 @@ apps/* / services/* README  ← SPA / 服务开发细节；非产品教程权威
 
 1. `attempt/` 是深模块。打开 `attempt/__init__.py` 能说出相位。禁止再摊成按隔离档分叉的生命周期文件。
 2. 测试面 = **真实 kind + 公开 CLI**。docker / e2b 的 seam 成立条件是两个真实赢家，不是 FakeHost。
-3. **禁止文案 grep 测试。** 不要 `read_text` 落地页 / `website/` snippet / README，再 `assert "某字符串" in/not in text`。那不证明 invoke、lock 或 Protocol，改一句宣传就假红。读者向对了就改文档；行为对了就测 `ageval lock` / `run` / 盒子方法。架构测试只钉运行时红线（import、slot、composition root）。
+3. **禁止文案 grep 测试。** 不要 `read_text` 落地页 / `website/` snippet / README，再 `assert "某字符串" in/not in text`。那不证明 invoke、lock 或 Protocol，改一句宣传就假红。读者向对了就改文档；行为对了就测 `ageval lock` / `run` / 环境方法。架构测试只钉运行时红线（import、slot、composition root）。
 4. locality：`docker exec` 只在 docker contrib。ACP / `attempt` / `run.py` 不见 `container_id`、不见 `if kind == e2b`。
-5. 一条路径：选盒子 / executor 只经独占槽。禁止第二套 resolve。
+5. 一条路径：选环境 / executor 只经独占槽。禁止第二套 resolve。
 6. 平台对象只在 `application/composition.py` 的 `build_*` 接线。
 7. 控制面不 import 题包模块。
 8. PASS / 身份 / cleanup 不是插件服务。cleanup 在 `try/finally`。
@@ -173,7 +173,7 @@ apps/* / services/* README  ← SPA / 服务开发细节；非产品教程权威
 - 规范交付单位为 **dataset**（根 `ageval.yaml` / `ageval.dataset/1`）；每 task 为成员 `task.yaml`；Config Core 是唯一规范读取者。
 - `parameters` 给 `run.py`（`ctx.params`）；envelope / profiles / limits 给 Runtime；禁止 `run.py` 再读第二份「真配置」覆盖 lock。
 - 环境变量只作 locator，不能代替生产机制来源。
-- job 选盒子：`profiles.yaml` 的 `environment:`，不是 `provider.kind`。
+- job 选环境：`profiles.yaml` 的 `environment:`，不是 `provider.kind`。
 
 ### 交付与证据
 
@@ -278,7 +278,7 @@ uv run pytest tests/registry -q
 | [README.md](README.md) | 人类入口与状态 |
 | [website/](website/) | 读者向产品文档（中/英） |
 | [docs/design/00-overview-and-product.md](docs/design/00-overview-and-product.md) | 产品模型、US1–US12、命名 |
-| [docs/design/01-ageval-core.md](docs/design/01-ageval-core.md) | Core：lock + 五相位 + 盒子 |
+| [docs/design/01-ageval-core.md](docs/design/01-ageval-core.md) | Core：lock + 五相位 + 环境 |
 | [docs/design/09-owner-matrix-and-structure.md](docs/design/09-owner-matrix-and-structure.md) | Owner 矩阵 |
 | [ARCHITECTURE.md](ARCHITECTURE.md) | 源码树、依赖、生命周期图 |
 | [GitHub Issues](https://github.com/ZJU-REAL/ageval/issues) | 增量交付与验收跟踪 |

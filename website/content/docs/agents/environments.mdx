@@ -25,4 +25,4 @@ uv run ageval run examples/journeys --task terminal-jsonl-agg \
 
 **ssh A 不支持 live ACP stdio。** 该面上的 journeys profiles 走 dsh / nooa 的 `host.exec`，不是 ACP 长会话。
 
-`environment/setup.sh` 是 environment 末槽，不是独立 phase。gold（`evaluation/`）在 evaluate 才进打分 Host。`profiles.yaml` 可写 `evaluate_host.isolated: true`（Current：`docker`）：另起打分配方盒，gold 只上第二盒；省略 = 同盒。`--agent` 与 `--profiles` 互斥。`--model` 须配合 `--agent`。
+`environment/setup.sh` 是 environment 末槽，不是独立 phase。gold（`evaluation/`）在 evaluate 才进打分 Host。`profiles.yaml` 可写 `evaluate_host.isolated: true`（Current：`docker`）：另起打分配方环境，gold 只上第二环境；省略 = 同一环境。`--agent` 与 `--profiles` 互斥。`--model` 须配合 `--agent`。

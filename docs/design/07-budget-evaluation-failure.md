@@ -14,7 +14,7 @@
 | --- | --- | --- |
 | 未知 format | `invalid_format` `/format` | Config |
 | 缺 cap / inject | lock 失败 | Config / plugins |
-| 缺钥 | preflight 一次失败，`started: false` | 盒子 / executor |
+| 缺钥 | preflight 一次失败，`started: false` | 环境 / executor |
 | 评测低分 | FAIL + score | Evaluation |
 | Evaluator 崩 | `error.phase = evaluate` | Evaluation |
 | Cleanup 失败 | warning | 不改已 bind 的分 |

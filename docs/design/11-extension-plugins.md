@@ -21,11 +21,11 @@
 | **inject** | 「我需要什么」：按**服务名**声明依赖，并列出要用的 **capabilities** | `inject: {plugin_id: e2b}`；在 invoke 里 `if kind ==` |
 | **调用** | 只打该服务的 Protocol 方法（`attach_stdio` / `exec` / `upload`） | 本机 POSIX `cwd`、vendor HTTPS、自己拼 `docker exec` |
 
-效果是 **interface / implementation 分离**：ACP 的稳定接口是「名为 `environment`、且声明了 `attach_stdio` 的盒子」；docker 把 `exec -i` 收在自己的 `attach_stdio` 里，e2b 把 SDK stdin 流收在同一方法里。换一种 kind，ACP 源码与 lock 里的 inject 行都不改。盒子内部怎么实现，对 executor **不可见**（locality）。
+效果是 **interface / implementation 分离**：ACP 的稳定接口是「名为 `environment`、且声明了 `attach_stdio` 的环境」；docker 把 `exec -i` 收在自己的 `attach_stdio` 里，e2b 把 SDK stdin 流收在同一方法里。换一种 kind，ACP 源码与 lock 里的 inject 行都不改。环境内部怎么实现，对 executor **不可见**（locality）。
 
 `exec` 与 `attach_stdio` 是同一服务上的不同 capability，不是两个 service。缺 cap 在 **lock** 失败，不在 invoke 中途探测。PASS / identity / cleanup 不准 export。
 
-笛卡尔积成立的条件：每个 executor 的 `invoke` 只通过已 inject 的 `environment` 服务碰盒子。本机 SDK + 碰巧能看见的 bind-mount **不算** 满足这条。dsh / nooa 必须走盒内 worker + `host.exec`，与 ACP 同一 seam。
+笛卡尔积成立的条件：每个 executor 的 `invoke` 只通过已 inject 的 `environment` 服务碰环境。本机 SDK + 碰巧能看见的 bind-mount **不算** 满足这条。dsh / nooa 必须走环境内 worker + `host.exec`，与 ACP 同一 seam。
 
 | 槽 | 语义 | 例子 |
 | --- | --- | --- |
@@ -102,13 +102,13 @@ profiles.environment / agent_profiles.<id>.executor / extensions
   → lock.extension_bindings 按 profile id 进 digest
 ```
 
-inject 用 `service: environment`，不写死 `plugin_id: e2b`。`executor: acp` 要 `attach_stdio`；盒内 worker（dsh / nooa / `acp-oneshot`）要 `exec`（dsh / nooa 另要 `upload`）。缺则 lock 失败。盒子没有 `attach_stdio` 不是把 oneshot 折进 ACP 插件的理由。
+inject 用 `service: environment`，不写死 `plugin_id: e2b`。`executor: acp` 要 `attach_stdio`；环境内 worker（dsh / nooa / `acp-oneshot`）要 `exec`（dsh / nooa 另要 `upload`）。缺则 lock 失败。环境没有 `attach_stdio` 不是把 oneshot 折进 ACP 插件的理由。
 
 Resolve：显式 binding > 更低 priority 赢；并列且无显式挑选 → fail closed。`DEFAULT_PRIORITY = 1000`。**数字更小的先跑（链）/ 先赢（独占）。**
 
 ## 包
 
-manifest：`ageval.plugin/1`。first-party：`src/ageval/plugins/contrib/{acp,docker,local,e2b,daytona,ssh,openai_http}`。引擎默认：`plugins/defaults`（`environment_setup`、`evaluation_runtime`、`trajectory_seal`）。外置包在仓库根 `plugins/`（nooa、dsh、miniswe、acp-oneshot、home-files、agent-skills）。`acp-oneshot` 是第二条 coding inlet（盒内 oneshot client + `exec`），不是 first-party `acp` 的运输开关。
+manifest：`ageval.plugin/1`。first-party：`src/ageval/plugins/contrib/{acp,docker,local,e2b,daytona,ssh,openai_http}`。引擎默认：`plugins/defaults`（`environment_setup`、`evaluation_runtime`、`trajectory_seal`）。外置包在仓库根 `plugins/`（nooa、dsh、miniswe、acp-oneshot、home-files、agent-skills）。`acp-oneshot` 是第二条 coding inlet（环境内 oneshot client + `exec`），不是 first-party `acp` 的运输开关。
 
 Recognition（list/lock 认得）≠ 本机能跑 ≠ 镜像已 bake。缺 extra / 钥 → skip，不要假绿。
 

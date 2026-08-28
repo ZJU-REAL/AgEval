@@ -1,12 +1,12 @@
 # 06 — 能力与可见性
 
-盒子报 `capabilities`。task `requires.environment` 非空则必须是子集，否则 lock 失败。Result 记 `kind` + `capabilities_used`。
+环境报 `capabilities`。task `requires.environment` 非空则必须是子集，否则 lock 失败。Result 记 `kind` + `capabilities_used`。
 
 常见 cap：`exec`、`upload`、`download`、`attach_stdio`、`uid_gid`、`path_views`、`compose`。四 kind 矩阵见 [05-runtime/environment.md](05-runtime/environment.md)。e2b/ssh 不报 compose / uid_gid。契约：`src/ageval/environments/protocol.py`。不能兑现的 cap 不许报 yes。
 
 ## gold
 
-默认隔离是时间切：environment / run 不 upload `evaluation/`。evaluate 开头再 upload，然后盒内 exec evaluator。不要只靠 YAML 删字段。
+默认隔离是时间切：environment / run 不 upload `evaluation/`。evaluate 开头再 upload，然后环境内 exec evaluator。不要只靠 YAML 删字段。
 
 ```text
 environment/run     /attempt/evaluation  不存在

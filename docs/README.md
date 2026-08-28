@@ -27,10 +27,10 @@
 | 文档 | 内容 |
 | --- | --- |
 | [design/00-overview-and-product.md](design/00-overview-and-product.md) | 产品、更名、dataset、目标/非目标、US1–US12、命名、红线 |
-| [design/01-ageval-core.md](design/01-ageval-core.md) | Core：lock、Attempt 五相位、phase/slot、盒子 Protocol |
+| [design/01-ageval-core.md](design/01-ageval-core.md) | Core：lock、Attempt 五相位、phase/slot、环境 Protocol |
 | [design/02-task-package-and-config.md](design/02-task-package-and-config.md) | dataset / task / profiles；缺省有文件就认 |
 | [design/03-task-run-and-sdk.md](design/03-task-run-and-sdk.md) | 题包 `run.py` 与 `ageval_sdk` |
-| [design/05-runtime/](design/05-runtime/) | 盒子 kind、ACP、evaluate、evidence、campaign |
+| [design/05-runtime/](design/05-runtime/) | 环境 kind、ACP、evaluate、evidence、campaign |
 | [design/06-capability-adapter-visibility.md](design/06-capability-adapter-visibility.md) | 能力、可见性、gold |
 | [design/07-budget-evaluation-failure.md](design/07-budget-evaluation-failure.md) | 硬顶、失败语义 |
 | [design/08-conversion-security-testing.md](design/08-conversion-security-testing.md) | 转换、安全、测试 |

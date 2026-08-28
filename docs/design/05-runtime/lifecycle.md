@@ -22,7 +22,7 @@ created
 
 1. **environment** — `host.start`，upload `data/`，链 `after_environment_ready`（ACP 探测再装；齐了跳过）、`environment_setup`（`setup.sh`，末槽，不是 provision phase）。
 2. **run** — 子进程调 `run.py`。Agent invoke 走 parent socket。结束时停 Agent Service 并 `mark_writers_stopped`。
-3. **evaluate** — 停 writer 之后 upload `evaluation/`，盒内跑 `evaluator.py`，`bind_evaluation`。
+3. **evaluate** — 停 writer 之后 upload `evaluation/`，环境内跑 `evaluator.py`，`bind_evaluation`。
 4. **record** — collect/enrich → 引擎写 `trajectory.jsonl`。
 5. **cleanup** — `try/finally` 里 `host.stop`。失败记 warning，不改已绑定分数。
 

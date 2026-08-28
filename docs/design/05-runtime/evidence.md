@@ -12,7 +12,7 @@
 | `evaluation/observation.jsonl` | 层 C（**evaluate 相位** SDK invoke，opt-in）；无则 Verifier 仍是文件树 |
 | `summary.json` | 相位事实 / timing；可选根字段 `extra`（Attempt 级观察袋，空则省略） |
 | `agent/` | run 相位 invoke 级观察 |
-| `evaluation/` | gold 不在此树的 Attempt 侧；盒内 gold 是时间切开。`evaluator_raw.json` 默认不留 |
+| `evaluation/` | gold 不在此树的 Attempt 侧；环境内 gold 是时间切开。`evaluator_raw.json` 默认不留 |
 
 `Result.logs` / `evidence_path` 指向该树。
 

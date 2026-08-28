@@ -1,6 +1,6 @@
 # 00 — 产品与红线
 
-ageval 把一次评测收成可见的 Attempt：锁定 **dataset**，打开一个 **盒子**，跑题包 `run.py`，再由独立 `evaluator.py` 出分。编排始终在本机 `ageval run`；盒子可以在本机、本机 Docker、E2B、SSH 或 Daytona 上。
+ageval 把一次评测收成可见的 Attempt：锁定 **dataset**，打开一个 **环境**，跑题包 `run.py`，再由独立 `evaluator.py` 出分。编排始终在本机 `ageval run`；环境可以在本机、本机 Docker、E2B、SSH 或 Daytona 上。
 
 未发版硬切，不留别名。题包根叫 **dataset**，不是 SQL，也不是侧车 Postgres。
 
@@ -56,9 +56,9 @@ ageval.yaml (ageval.dataset/1)
 
 | 层 | 文件 | 干什么 |
 | --- | --- | --- |
-| 产品 | `src/ageval/attempt/` + `attempt/phases/*.py` | 开盒 → run → eval → 归档 → 拆盒 |
+| 产品 | `src/ageval/attempt/` + `attempt/phases/*.py` | 开环境 → run → eval → 归档 → 拆环境 |
 | Job | `profiles.yaml` / `extensions` | 选独占槽赢家（`environment` / `executor`）、列 extensions |
-| Task | `run.py` / `evaluator.py` / `environment/` | 这一题的业务、打分、盒子配方 |
+| Task | `run.py` / `evaluator.py` / `environment/` | 这一题的业务、打分、环境配方 |
 
 要换整条链：换 job 用的 attempt 模块或默认插件图。**不要**在 50 个 task 里复制编排。
 
@@ -69,14 +69,14 @@ ageval.yaml (ageval.dataset/1)
 | 产品里串 phase | **`src/ageval/attempt/__init__.py`**（`run_attempt`） |
 | task 里只做 run | **`run.py`**（`async def run(ctx)`） |
 | 打分 | `evaluator.py` |
-| 盒子运输面 | 独占槽 **`environment`**；`ctx.host` / `ctx.services.require("environment")` |
+| 环境运输面 | 独占槽 **`environment`**；`ctx.host` / `ctx.services.require("environment")` |
 | Agent 后端 | 独占槽 **`executor`**（赢家常是 acp） |
 
 ## 目标
 
 1. 一次 Attempt 的链写在产品包 `attempt/`：串行调 phase；每个 phase 文件内串行 `emit(slot)`。打开就能看见。
 2. **phase**（提供默认实现，可换独占赢家）与 **slot**（链）分开。插件改绑定，不改 `run_attempt` 的默认顺序。
-3. 盒子一张口：独占槽 `environment`（`local` / `docker` / `e2b` / `ssh` / `daytona`）。能力 `requires ⊆ capabilities`，缺则 lock 失败。
+3. 环境一张口：独占槽 `environment`（`local` / `docker` / `e2b` / `ssh` / `daytona`）。能力 `requires ⊆ capabilities`，缺则 lock 失败。
 4. `environment/Dockerfile`（或 `docker_image`）对 docker 与 e2b 同一配方。`setup.sh` 是 environment 的末槽，不是单独 phase。
 5. **Task 不包含流水线文件。** 业务只在 `run.py`，打分在 `evaluator.py`。`task.yaml` **缺省有文件就认**。
 6. Agent 仍是 `executor: acp` + `options.entry`。附着 `host.attach_stdio`。PASS 只来自独立 evaluate。
@@ -87,7 +87,7 @@ ageval.yaml (ageval.dataset/1)
 - 不把 Harbor 的全部云厂商一次搬进来。
 - 不把 vendor SDK、alias 缓存写进 Core。Core 只调 `host.start()`。
 - 不保留 Environment Manager。
-- 不把盒子做成 `provide(executor)`。没有第三种叫 `provide()` 的扩展模型。
+- 不把环境做成 `provide(executor)`。没有第三种叫 `provide()` 的扩展模型。
 - **不在每个 task 里复制 `attempt.py` / phase 文件。**
 - 不单开 `provision` phase，不要 `before/after_provision`。
 - 插件不能取消 cleanup、不能发明 PASS、不能重排「先打分再跑 agent」。
@@ -101,11 +101,11 @@ ageval.yaml (ageval.dataset/1)
 
 这些故事是产品约束，不是进度勾选。实现是否兑现看代码与公开 smoke（见 [ARCHITECTURE.md](../../ARCHITECTURE.md) Current / Target）。
 
-### US1 — 换盒子只改 kind
+### US1 — 换环境只改 kind
 
 `ageval run` 选独占槽 `environment: e2b`（或 `local` / `docker` / `ssh`）。`run_attempt` 调用串不变。缺 `E2B_API_KEY` 在 preflight/lock 失败。
 
-### US2 — 一份 Dockerfile，两种盒子
+### US2 — 一份 Dockerfile，两种环境
 
 `environment/Dockerfile`（或 `docker_image`）。docker 本机编；e2b `Template.from_dockerfile`。要 compose 而 kind 没有该 cap → lock 失败。
 
@@ -113,7 +113,7 @@ ageval.yaml (ageval.dataset/1)
 
 有 `environment/setup.sh` 则 environment phase 最后 `emit("environment_setup")` → `host.exec`。无文件则默认 no-op。失败是 environment 相位失败，不是 Agent 轨迹。重依赖进 Dockerfile。
 
-### US4 — ACP 进任意盒子
+### US4 — ACP 进任意环境
 
 ACP `inject: [service: environment]`，`host.attach_stdio`。Placement 无 `container_id`。ACP 禁止 import docker/e2b/ssh。
 
@@ -143,11 +143,11 @@ ACP `inject: [service: environment]`，`host.attach_stdio`。Placement 无 `cont
 
 ### US11 — gold 进 evaluate 再上传
 
-Agent / `run.py` 阶段 **不得** `upload` `evaluation/`。evaluate phase 开头再 `host.upload` gold/测例，然后 exec evaluator。同盒即可。这是默认隔离，**不**等于 `path_views`。
+Agent / `run.py` 阶段 **不得** `upload` `evaluation/`。evaluate phase 开头再 `host.upload` gold/测例，然后 exec evaluator。同一环境即可。这是默认隔离，**不**等于 `path_views`。
 
 ### US12 — 云上已有 image：连上 + 探测再装 agent
 
-`environment: ssh`。**A** 无 `image`：盒子=整机，`attach_stdio` = `ssh -T -- argv`。**B** 有已有 tag：`start` 远端 `docker run`，`attach_stdio` = `ssh -- docker exec -i`。两种 agent 都在云上。ACP 挂 `after_environment_ready`：名字 + 钉死包版本 + stdio `initialize`，不对再按 entry `install_command` 装。
+`environment: ssh`。**A** 无 `image`：环境=整机，`attach_stdio` = `ssh -T -- argv`。**B** 有已有 tag：`start` 远端 `docker run`，`attach_stdio` = `ssh -- docker exec -i`。两种 agent 都在云上。ACP 挂 `after_environment_ready`：名字 + 钉死包版本 + stdio `initialize`，不对再按 entry `install_command` 装。
 
 ## 红线
 
@@ -166,13 +166,13 @@ Agent / `run.py` 阶段 **不得** `upload` `evaluation/`。evaluate phase 开�
 
 ## 可见性
 
-gold 隔离是**时间切**：不 mount，evaluate 再 upload。这是默认，不等于 `path_views`。`path_views` 只有盒子真能兑现时才报 yes（当前：docker）。
+gold 隔离是**时间切**：不 mount，evaluate 再 upload。这是默认，不等于 `path_views`。`path_views` 只有环境真能兑现时才报 yes（当前：docker）。
 
 ## Harbor 对照（实现事实，不是产品名）
 
 对照 Harbor 只取运输形状，不 import、不抄 20 个 vendor adapter：
 
-- 盒子五个动词：`start` / `exec` / `upload_*` / `download_*` / `stop`。ageval 再加 `attach_stdio` 与 `preflight`。
+- 环境五个动词：`start` / `exec` / `upload_*` / `download_*` / `stop`。ageval 再加 `attach_stdio` 与 `preflight`。
 - 编排器和 parent ACP client 在本机；远程的是 workspace。
 - **Dockerfile 不是 docker 私货。** e2b 云上也可从同一配方编 template。多数 cloud 厂商不认 compose。
 - 模板缓存（内容 SHA → alias）若存在，只活在 e2b contrib。**ageval Core 不实现这套缓存**——只调 `host.start()`。
@@ -180,13 +180,13 @@ gold 隔离是**时间切**：不 mount，evaluate 再 upload。这是默认，�
 
 ## 说法
 
-- 盒子：`environment: local | docker | e2b | ssh | daytona`。能力记在 `kind` + `capabilities_used`。
+- 环境：`environment: local | docker | e2b | ssh | daytona`。能力记在 `kind` + `capabilities_used`。
 - 题包入口：`run.py` / `RunContext`。编排：`attempt/__init__.py` 的 `run_attempt`。
 - 装依赖：environment 末槽 `environment_setup`（`setup.sh`），不是单独 phase。
 - 侧车：compose 或 `host.exec(service=)`。
-- Agent 后端：独占槽 `executor`。盒子：独占槽 `environment`。扩展只有 exclusive 与 chain。
+- Agent 后端：独占槽 `executor`。环境：独占槽 `environment`。扩展只有 exclusive 与 chain。
 - 题包根：**dataset**，format `ageval.dataset/1`。CLI：`ageval lock` / `ageval.yaml`。
-- gold：同盒；evaluate 开头再 upload。
+- gold：同一环境；evaluate 开头再 upload。
 - ACP：`after_environment_ready` 探名字 + 钉死包版本 + stdio `initialize`，不对再按 entry `install_command` 装。
 - ssh：A 整机 / B 远端已有容器。inject：`service: environment`。
 

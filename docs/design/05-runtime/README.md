@@ -1,6 +1,6 @@
 # 05 — 执行链
 
-Runtime 在这里指：**盒子、ACP、evaluate、evidence、campaign**。结构总图见 [ARCHITECTURE.md](../../../ARCHITECTURE.md)。产品故事 US1–US12 见 [00](../00-overview-and-product.md)。
+Runtime 在这里指：**环境、ACP、evaluate、evidence、campaign**。结构总图见 [ARCHITECTURE.md](../../../ARCHITECTURE.md)。产品故事 US1–US12 见 [00](../00-overview-and-product.md)。
 
 | 文件 | 内容 |
 | --- | --- |

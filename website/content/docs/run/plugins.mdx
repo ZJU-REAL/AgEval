@@ -23,7 +23,7 @@ description: 安装 ageval.plugin/1、绑定 executor、Recognition 与本机能
 uv run ageval plugin install plugins/nooa
 # 或：uv run ageval plugin install plugins/dsh
 # 或：uv run ageval plugin install plugins/miniswe   # host-loop；bash 走 environment.exec
-# 或：uv run ageval plugin install plugins/acp-oneshot  # 盒内一次性 ACP client+server，只要 exec
+# 或：uv run ageval plugin install plugins/acp-oneshot  # 环境内一次性 ACP client+server，只要 exec
 uv run ageval plugin list
 ```
 
@@ -85,7 +85,7 @@ uv run ageval run examples/journeys --task terminal-jsonl-agg \
 
 ## 与 ACP 的关系
 
-默认 coding-agent 路径仍是 `executor: acp` + `options.entry`（parent JSON-RPC，要 `attach_stdio`）。`acp-oneshot` 是另一条 coding inlet：盒内一次性 client+server，只要 `exec`。插件是 **可选** 机制；同一 `run.py` 只靠 profiles 切换。miniswe 是 host-loop：LLM 留在 parent，bash 只经 `host.exec`；缺 `exec` 在 lock 失败。
+默认 coding-agent 路径仍是 `executor: acp` + `options.entry`（parent JSON-RPC，要 `attach_stdio`）。`acp-oneshot` 是另一条 coding inlet：环境内一次性 client+server，只要 `exec`。插件是 **可选** 机制；同一 `run.py` 只靠 profiles 切换。miniswe 是 host-loop：LLM 留在 parent，bash 只经 `host.exec`；缺 `exec` 在 lock 失败。
 
 环境内 `evaluator.py` 与层 C 轨迹写入是独占槽 `evaluation_runtime` / `trajectory_seal`（引擎 default 赢，没有 job 字段糖）。PASS 仍只经引擎 bind。
 
