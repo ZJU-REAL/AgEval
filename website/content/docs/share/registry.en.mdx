@@ -42,6 +42,9 @@ Owners or admins add / remove members by GitHub login (`ageval registry org-add-
 uv run ageval registry set-visibility 'my-org/dataset@0.1.0' --visibility public
 # uv run ageval registry delete 'my-org/dataset@0.1.0' --yes
 
+# Package: description (owner override, no republish; empty string clears back to the manifest description)
+uv run ageval registry set-description my-org/dataset --description 'One-line description'
+
 # Results: visibility / unshare / delete
 uv run ageval results set-visibility <run_or_suite_id> --kind attempt|suite --visibility private
 uv run ageval results unshare <id> --kind attempt --share-org my-lab
