@@ -266,9 +266,7 @@ def _resolve_scoring_env(raw: object) -> dict[str, str]:
         token = str(value).strip()
         if token.startswith("${") and token.endswith("}") and len(token) > 3:
             loc = token[2:-1]
-        elif token.isidentifier() or (
-            token.replace("_", "").isalnum() and token.upper() == token
-        ):
+        elif token.isidentifier() or (token.replace("_", "").isalnum() and token.upper() == token):
             loc = token
         else:
             raise ValueError(f"exec env {name} must be a locator, not a literal")
