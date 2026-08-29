@@ -103,13 +103,15 @@ UPDATE_ORG_DISPLAY_AND_DESCRIPTION = (
 
 UPSERT_PACKAGE_TASK_SUMMARY = """
 INSERT INTO package_task_summaries(
-    package_digest, has_shared, tasks_json, overlay_prefixes_json, created_at
+    package_digest, has_shared, tasks_json, overlay_prefixes_json, description,
+    created_at
 )
-VALUES (?, ?, ?, ?, ?)
+VALUES (?, ?, ?, ?, ?, ?)
 ON CONFLICT(package_digest) DO UPDATE SET
     has_shared=excluded.has_shared,
     tasks_json=excluded.tasks_json,
-    overlay_prefixes_json=excluded.overlay_prefixes_json
+    overlay_prefixes_json=excluded.overlay_prefixes_json,
+    description=excluded.description
 """
 
 SELECT_PACKAGE_TASK_SUMMARY = (
@@ -142,6 +144,20 @@ ON CONFLICT(dataset_id) DO UPDATE SET
 SELECT_PACKAGE_DISPLAY_NAME = "SELECT display_name FROM package_display_names WHERE dataset_id=?"
 
 SELECT_PACKAGE_DISPLAY_NAMES = "SELECT dataset_id, display_name FROM package_display_names"
+
+UPSERT_PACKAGE_DESCRIPTION = """
+INSERT INTO package_descriptions(dataset_id, description, updated_at)
+VALUES (?, ?, ?)
+ON CONFLICT(dataset_id) DO UPDATE SET
+    description=excluded.description,
+    updated_at=excluded.updated_at
+"""
+
+SELECT_PACKAGE_DESCRIPTION = "SELECT description FROM package_descriptions WHERE dataset_id=?"
+
+SELECT_PACKAGE_DESCRIPTIONS = "SELECT dataset_id, description FROM package_descriptions"
+
+DELETE_PACKAGE_DESCRIPTION = "DELETE FROM package_descriptions WHERE dataset_id=?"
 
 UPSERT_PACKAGE_ICON = """
 INSERT INTO package_icons(dataset_id, icon_key, icon_github, updated_at)
@@ -306,6 +322,13 @@ SCHEMA_STATEMENTS: tuple[str, ...] = (
     )
     """,
     """
+    CREATE TABLE IF NOT EXISTS package_descriptions (
+        dataset_id TEXT PRIMARY KEY,
+        description TEXT NOT NULL DEFAULT '',
+        updated_at REAL NOT NULL
+    )
+    """,
+    """
     CREATE TABLE IF NOT EXISTS package_download_counts (
         dataset_id TEXT PRIMARY KEY,
         download_count INTEGER NOT NULL DEFAULT 0
@@ -371,6 +394,7 @@ SCHEMA_STATEMENTS: tuple[str, ...] = (
         has_shared INTEGER NOT NULL,
         tasks_json TEXT NOT NULL,
         overlay_prefixes_json TEXT,
+        description TEXT NOT NULL DEFAULT '',
         created_at REAL NOT NULL
     )
     """,
@@ -464,6 +488,7 @@ SCHEMA_MIGRATIONS: tuple[tuple[str, str, str], ...] = (
     ("organizations", "description", "TEXT NOT NULL DEFAULT ''"),
     ("user_profiles", "description", "TEXT NOT NULL DEFAULT ''"),
     ("package_task_summaries", "overlay_prefixes_json", "TEXT"),
+    ("package_task_summaries", "description", "TEXT NOT NULL DEFAULT ''"),
     ("resource_requests", "canonical_model", "TEXT NOT NULL DEFAULT ''"),
 )
 

@@ -109,6 +109,66 @@ def test_publish_happy_path(tmp_path: Path) -> None:
     assert payload["download_count"] == 0
 
 
+def test_list_packages_attaches_dataset_description(tmp_path: Path) -> None:
+    svc = _service(tmp_path)
+    svc.meta.create_org(name="acme", owner_user_id="alice", display_name="Acme")
+    meta, archive, _raw = _meta_archive(tmp_path)
+    auth = TokenInfo(scopes=frozenset({"registry:publish"}), user_id="alice")
+    svc.publish(meta=meta, archive=archive, auth=auth)
+    listed = svc.list_packages(
+        auth=auth,
+        prefix=None,
+        visibility=None,
+        version=None,
+        package_kind="dataset",
+    )
+    row = next(i for i in listed["items"] if i["dataset_id"] == "test/publish-min")
+    assert row["description"] == "Minimal Dataset for registry publish e2e"
+
+
+def test_patch_description_overrides_and_clears(tmp_path: Path) -> None:
+    svc = _service(tmp_path)
+    svc.meta.create_org(name="acme", owner_user_id="alice", display_name="Acme")
+    meta, archive, _raw = _meta_archive(tmp_path)
+    auth = TokenInfo(scopes=frozenset({"registry:publish"}), user_id="alice")
+    svc.publish(meta=meta, archive=archive, auth=auth)
+
+    patched = svc.patch_marketplace(
+        dataset_id="test/publish-min",
+        auth=auth,
+        description="  Owner-set copy  ",
+        has_description=True,
+    )
+    assert patched["description"] == "Owner-set copy"
+
+    listed = svc.list_packages(
+        auth=auth,
+        prefix=None,
+        visibility=None,
+        version=None,
+        package_kind="dataset",
+    )
+    row = next(i for i in listed["items"] if i["dataset_id"] == "test/publish-min")
+    assert row["description"] == "Owner-set copy"
+
+    cleared = svc.patch_marketplace(
+        dataset_id="test/publish-min",
+        auth=auth,
+        description="",
+        has_description=True,
+    )
+    assert cleared["description"] == "Minimal Dataset for registry publish e2e"
+
+    with pytest.raises(RegistryAppError) as ei:
+        svc.patch_marketplace(
+            dataset_id="test/publish-min",
+            auth=auth,
+            description="x" * 501,
+            has_description=True,
+        )
+    assert ei.value.error == "invalid_request"
+
+
 def test_content_increments_download_count_files_do_not(tmp_path: Path) -> None:
     svc = _service(tmp_path)
     svc.meta.create_org(name="acme", owner_user_id="alice", display_name="Acme")

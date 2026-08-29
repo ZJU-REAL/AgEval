@@ -880,18 +880,23 @@ class RegistryHttpApi:
         body = self._read_json_body()
         if isinstance(body, HttpResult):
             return body
-        unknown = [key for key in body if key not in {"display_name", "icon_key", "icon_github"}]
+        unknown = [
+            key
+            for key in body
+            if key not in {"display_name", "icon_key", "icon_github", "description"}
+        ]
         if unknown:
             return json_result(400, {"error": "invalid_request", "message": "unknown keys"})
         has_display_name = "display_name" in body
         has_icon_key = "icon_key" in body
         has_icon_github = "icon_github" in body
-        if not has_display_name and not has_icon_key and not has_icon_github:
+        has_description = "description" in body
+        if not any([has_display_name, has_icon_key, has_icon_github, has_description]):
             return json_result(
                 400,
                 {
                     "error": "invalid_request",
-                    "message": "display_name or icon_key or icon_github required",
+                    "message": "display_name or icon_key or icon_github or description required",
                 },
             )
         try:
@@ -900,9 +905,11 @@ class RegistryHttpApi:
                 display_name=body.get("display_name"),
                 icon_key=body.get("icon_key"),
                 icon_github=body.get("icon_github"),
+                description=body.get("description"),
                 has_display_name=has_display_name,
                 has_icon_key=has_icon_key,
                 has_icon_github=has_icon_github,
+                has_description=has_description,
                 auth=auth,
             )
         except RegistryAppError as exc:

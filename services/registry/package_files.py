@@ -23,6 +23,21 @@ _OVERLAY_ITEM = re.compile(r"""^\s*-\s+["']?(overlays/\S+?)["']?\s*$""")
 # Hard cap for single-file body (Hub preview). Oversize → HTTP 413.
 MAX_FILE_BYTES = 2 * 1024 * 1024  # 2 MiB
 
+DATASET_MANIFEST_PATH = "ageval.yaml"
+
+
+def _dataset_description(text: str) -> str:
+    """`/description` from the dataset root manifest (`ageval.dataset/1`)."""
+    import yaml
+
+    from ageval.config.dataset import DATASET_FORMAT
+
+    doc = yaml.safe_load(text)
+    if not isinstance(doc, dict) or doc.get("format") != DATASET_FORMAT:
+        return ""
+    desc = doc.get("description")
+    return desc.strip() if isinstance(desc, str) else ""
+
 # Process-local LRU of tar member indexes by package_digest.
 _INDEX_LRU_MAX = 64
 _index_lock = threading.Lock()
@@ -107,6 +122,7 @@ class PackageFileIndex:
     # path → (size, is_dir) for O(1) lookup; files only store size
     _by_path: dict[str, FileEntry]
     overlay_prefixes: list[str] = field(default_factory=list)
+    description: str = ""
 
     def list_items(self) -> list[dict[str, Any]]:
         return [
@@ -153,6 +169,7 @@ def build_index_from_archive(archive: bytes, *, package_digest: str) -> PackageF
     by_path: dict[str, FileEntry] = {}
     overlay_prefixes: list[str] = []
     overlay_seen: set[str] = set()
+    description = ""
     with (
         gzip.GzipFile(fileobj=io.BytesIO(archive), mode="rb") as gz,
         tarfile.open(fileobj=gz, mode="r:") as tar,
@@ -170,6 +187,12 @@ def build_index_from_archive(archive: bytes, *, package_digest: str) -> PackageF
                 entry = FileEntry(path=path, type="dir", size=0)
             elif info.isfile():
                 entry = FileEntry(path=path, type="file", size=int(info.size))
+                if path == DATASET_MANIFEST_PATH and not description:
+                    handle = tar.extractfile(info)
+                    if handle is not None:
+                        description = _dataset_description(
+                            handle.read(MAX_FILE_BYTES).decode("utf-8")
+                        )
                 if is_profiles_document(path):
                     handle = tar.extractfile(info)
                     if handle is not None:
@@ -202,6 +225,7 @@ def build_index_from_archive(archive: bytes, *, package_digest: str) -> PackageF
         entries=entries,
         _by_path=by_path,
         overlay_prefixes=overlay_prefixes,
+        description=description,
     )
 
 

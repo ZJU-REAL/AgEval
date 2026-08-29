@@ -84,3 +84,11 @@ Owner `PATCH /v1/packages/{id}` 可改写（与 `display_name` 同权，不进 b
 闭包目录是 **彩色真实标**（官方 kit / Lobe static SVG / Simple Icons 路径 + 官方 hex）。禁止自造厂商 logo。黑标（ink，如 OpenAI）固定白底；白标（paper，如 Kimi）固定黑底。底板不跟主题反相。改标是包级写，不在列表卡上开 picker。Viewer 本轮不做。
 
 机制标（Leaderboard Environment 的 `docker` / `e2b` 等）仍走闭包精确 id，不是 uploader 头像。
+
+## 市场描述
+
+Dataset 描述来源是包根 `ageval.yaml` 的 `/description`（`ageval.dataset/1`）。上传 / 发布建 task summary 时一并提取（按 `package_digest` 存储，不进 blob 重写）；`GET /v1/packages`、`GET /v1/packages/{id}/versions` 与 by-digest meta 都带 `description`（无则为空，不给假文案）。
+
+Owner `PATCH /v1/packages/{id}` 另认 `description` 键（与 `display_name` 同权，不进 blob，不按 version）：字符串、trim 后 ≤500 字符，空字符串清除。`description` 是 owner 覆写，与 manifest 描述分层：**覆写 > manifest**，清除后回到 manifest 值。未知键拒绝不变。
+
+CLI：`ageval registry set-description <dataset_id> --description "…"`（`--description ""` 清除覆写）。Hub 端展示：datasets 首页 Description 列在 Dataset 列右侧、最多两行截断；Dataset 详情页标题区用与 org 详情同一套 DescriptionEditor，org owner 可编辑并同步该覆写。plugin / agent 卡仍用各自 manifest 的 preview description，不走此覆写。

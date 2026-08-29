@@ -91,6 +91,27 @@ def _normalize_plugin_name_segment(dataset_id: str, raw: object) -> str:
     return name
 
 
+MARKETPLACE_DESCRIPTION_MAX = 500
+
+
+def _normalize_marketplace_description(raw: object) -> str:
+    """Owner-set description override; empty string clears."""
+    if raw is None:
+        return ""
+    if not isinstance(raw, str):
+        raise RegistryAppError(
+            "invalid_request", "description must be a string", http_status=400
+        )
+    text = raw.strip()
+    if len(text) > MARKETPLACE_DESCRIPTION_MAX:
+        raise RegistryAppError(
+            "invalid_request",
+            f"description exceeds {MARKETPLACE_DESCRIPTION_MAX} characters",
+            http_status=400,
+        )
+    return text
+
+
 class PackageService:
     def __init__(
         self,
@@ -438,6 +459,7 @@ class PackageService:
         self._apply_icons(items)
         self._with_download_counts(items, auth=auth)
         self._attach_task_counts(items)
+        self._apply_description_overrides(items)
         if favorited:
             items = [i for i in items if i.get("favorited")]
         explore = not mine and not orgs and not favorited and visibility != "private"
@@ -454,11 +476,31 @@ class PackageService:
             if item.get("package_kind") == "dataset"
         ]
         counts = self.meta.package_task_counts(digests)
+        descriptions = self.meta.package_manifest_descriptions(digests)
         for item in items:
             if item.get("package_kind") != "dataset":
                 continue
             digest = str(item.get("package_digest") or "")
             item["task_count"] = counts.get(digest, 0)
+            description = descriptions.get(digest)
+            if description:
+                item["description"] = description
+
+    def _apply_description_overrides(self, items: list[dict[str, Any]]) -> None:
+        overrides = self.meta.package_descriptions()
+        if not overrides:
+            return
+        for item in items:
+            override = overrides.get(str(item.get("dataset_id") or ""))
+            if override:
+                item["description"] = override
+
+    def _effective_description(self, dataset_id: str, package_digest: str) -> str:
+        override = self.meta.get_package_description(dataset_id)
+        if override:
+            return override
+        manifest = self.meta.package_manifest_descriptions([package_digest])
+        return manifest.get(package_digest, "")
 
     def _filter_orgs(self, items: list[dict[str, Any]], auth: TokenInfo) -> list[dict[str, Any]]:
         """Keep packages published by organizations the caller belongs to."""
@@ -512,6 +554,8 @@ class PackageService:
                 item["display_name"] = label
         self._apply_icons(items)
         self._with_download_counts(items, auth=auth)
+        self._attach_task_counts(items)
+        self._apply_description_overrides(items)
         return {"dataset_id": dataset_id, "items": items}
 
     def serve_meta(
@@ -543,6 +587,11 @@ class PackageService:
         if label:
             payload["display_name"] = label
         self._apply_icons([payload])
+        description_value = self._effective_description(
+            dataset_id, str(row.package_digest)
+        )
+        if description_value:
+            payload["description"] = description_value
         try:
             kind = package_kind_for_media_type(row.media_type)
         except ValueError as exc:
@@ -753,20 +802,25 @@ class PackageService:
         display_name: object = None,
         icon_key: object = None,
         icon_github: object = None,
+        description: object = None,
         has_display_name: bool = False,
         has_icon_key: bool = False,
         has_icon_github: bool = False,
+        has_description: bool = False,
     ) -> dict[str, Any]:
         row = self._latest_managed_release(dataset_id, auth)
         next_name: str | None = None
         next_key: str | None = None
         next_github: str | None = None
+        next_description: str | None = None
         if has_display_name:
             next_name = _normalize_plugin_name_segment(dataset_id, display_name)
         if has_icon_key:
             next_key = normalize_icon_key(icon_key)
         if has_icon_github:
             next_github = normalize_icon_github(icon_github)
+        if has_description:
+            next_description = _normalize_marketplace_description(description)
         stored_name = None
         if next_name is not None:
             stored_name = self.meta.set_package_display_name(dataset_id, next_name)
@@ -777,6 +831,8 @@ class PackageService:
             if has_icon_key and has_icon_github:
                 key, github = next_key or "", next_github or ""
             self.meta.set_package_icon(dataset_id, icon_key=key or "", icon_github=github or "")
+        if has_description:
+            self.meta.set_package_description(dataset_id, next_description or "")
         payload = self._with_download_count(release_to_dict(row), auth)
         label = (
             stored_name
@@ -786,6 +842,11 @@ class PackageService:
         if label:
             payload["display_name"] = label
         self._apply_icons([payload])
+        description_value = self._effective_description(
+            dataset_id, str(payload.get("package_digest") or "")
+        )
+        if description_value:
+            payload["description"] = description_value
         return payload
 
     def _latest_managed_release(self, dataset_id: str, auth: TokenInfo) -> Any:
@@ -933,6 +994,7 @@ class PackageService:
             has_shared=has_shared,
             tasks=tasks,
             overlay_prefixes=index.overlay_prefixes,
+            description=index.description,
         )
 
     def _backfill_task_summary(
@@ -957,6 +1019,7 @@ class PackageService:
             has_shared=has_shared,
             tasks=tasks,
             overlay_prefixes=index.overlay_prefixes,
+            description=index.description,
         )
         return tasks, has_shared, index.overlay_prefixes
 

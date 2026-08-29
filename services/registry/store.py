@@ -1160,6 +1160,7 @@ class MetadataStore(MetadataStoreProtocol):
         has_shared: bool,
         tasks: list[dict[str, Any]],
         overlay_prefixes: list[str],
+        description: str = "",
     ) -> None:
         with self._connect() as conn:
             self._exec(
@@ -1170,6 +1171,7 @@ class MetadataStore(MetadataStoreProtocol):
                     1 if has_shared else 0,
                     json.dumps(tasks),
                     json.dumps(overlay_prefixes),
+                    description,
                     now(),
                 ),
             )
@@ -1197,6 +1199,21 @@ class MetadataStore(MetadataStoreProtocol):
                 continue
             out[str(row["package_digest"])] = sum(1 for item in tasks if isinstance(item, dict))
         return out
+
+    def package_manifest_descriptions(self, digests: list[str]) -> dict[str, str]:
+        unique = [digest for digest in dict.fromkeys(digests) if digest]
+        if not unique:
+            return {}
+        placeholders = ",".join("?" * len(unique))
+        sql = (
+            "SELECT package_digest, description FROM package_task_summaries "
+            f"WHERE package_digest IN ({placeholders}) "
+            "AND description != ''"
+        )
+        with self._connect() as conn:
+            cur = self._exec(conn, sql, tuple(unique))
+            rows = cur.fetchall()
+        return {str(row["package_digest"]): str(row["description"]) for row in rows}
 
     def get_package_task_summary(
         self, package_digest: str
@@ -1558,6 +1575,36 @@ class MetadataStore(MetadataStoreProtocol):
                 str(r["dataset_id"]): str(r["display_name"] or "")
                 for r in cur.fetchall()
                 if r["display_name"]
+            }
+
+    def set_package_description(self, dataset_id: str, description: str) -> str:
+        with self._connect() as conn:
+            if description:
+                self._exec(
+                    conn,
+                    Q.UPSERT_PACKAGE_DESCRIPTION,
+                    (dataset_id, description, now()),
+                )
+            else:
+                self._exec(conn, Q.DELETE_PACKAGE_DESCRIPTION, (dataset_id,))
+            conn.commit()
+        return description
+
+    def get_package_description(self, dataset_id: str) -> str:
+        with self._connect() as conn:
+            cur = self._exec(conn, Q.SELECT_PACKAGE_DESCRIPTION, (dataset_id,))
+            row = cur.fetchone()
+        if row is None:
+            return ""
+        return str(row["description"] or "")
+
+    def package_descriptions(self) -> dict[str, str]:
+        with self._connect() as conn:
+            cur = self._exec(conn, Q.SELECT_PACKAGE_DESCRIPTIONS)
+            return {
+                str(r["dataset_id"]): str(r["description"] or "")
+                for r in cur.fetchall()
+                if r["description"]
             }
 
     def set_package_icon(
