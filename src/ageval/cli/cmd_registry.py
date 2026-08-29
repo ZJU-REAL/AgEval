@@ -305,4 +305,39 @@ def register(app: typer.Typer) -> None:
             raise typer.Exit(code=2) from exc
         emit(summary)
 
+    @sub.command("set-description")
+    def registry_set_description_command(
+        dataset_id: Annotated[
+            str,
+            typer.Argument(help="Package dataset_id (org/name)."),
+        ],
+        description: Annotated[
+            str,
+            typer.Option(
+                "--description",
+                help="Marketplace description (empty string clears the override).",
+            ),
+        ],
+        registry_url: Annotated[
+            str | None,
+            typer.Option("--registry-url", help="Override registry URL."),
+        ] = None,
+    ) -> None:
+        """Set the marketplace description without re-uploading. Org owner (or admin) only."""
+        from ageval.application.composition import build_registry_list_commands
+
+        set_package_description = build_registry_list_commands().set_package_description
+        from ageval.config.errors import ConfigError
+
+        try:
+            summary = set_package_description(
+                dataset_id,
+                description=description,
+                registry_url=registry_url,
+            )
+        except ConfigError as exc:
+            typer.echo(str(exc), err=True)
+            raise typer.Exit(code=2) from exc
+        emit(summary)
+
     app.add_typer(sub, name="registry")

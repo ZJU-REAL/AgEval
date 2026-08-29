@@ -144,6 +144,35 @@ class RegistryListCommands:
             raise ConfigError(exc.code, exc.message, location="registry") from exc
         return {"ok": True, **data}
 
+    def set_package_description(
+        self,
+        dataset_id: str,
+        *,
+        description: str,
+        registry_url: str | None = None,
+    ) -> dict[str, Any]:
+        """Set the marketplace description override (org owner / admin). Empty clears."""
+        text = str(description).strip()
+        if not dataset_id or "/" not in dataset_id:
+            raise ConfigError(
+                "invalid_package",
+                "expected org/name dataset_id",
+                location=dataset_id,
+            )
+        client = self._client_factory(registry_url=registry_url, require_token=False)
+        try:
+            data = client.patch_package_description(
+                dataset_id=dataset_id,
+                description=text,
+            )
+        except RegistryError as exc:
+            raise ConfigError(exc.code, exc.message, location="registry") from exc
+        return {
+            "ok": True,
+            "dataset_id": dataset_id,
+            "description": str(data.get("description") or ""),
+        }
+
     def cache_list(self, *, cache_root: Path | None = None) -> dict[str, Any]:
         root = (cache_root or default_cache_root()).resolve()
         base = root / "datasets"

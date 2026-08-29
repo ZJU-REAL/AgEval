@@ -929,3 +929,17 @@ class RegistryClient:
         if status != 200:
             raise RegistryError("set_visibility_failed", f"status {status}", status=status)
         return json.loads(raw.decode("utf-8"))
+
+    def patch_package_description(self, *, dataset_id: str, description: str) -> dict[str, Any]:
+        if not isinstance(description, str):
+            raise RegistryError("invalid_request", "description must be a string")
+        path = f"/v1/packages/{quote(dataset_id, safe='/')}"
+        status, raw, _ = self._request(
+            "PATCH",
+            path,
+            body=json.dumps({"description": description}, sort_keys=True).encode("utf-8"),
+            headers=self._headers(content_type="application/json"),
+        )
+        if status != 200:
+            raise RegistryError("patch_description_failed", f"status {status}", status=status)
+        return json.loads(raw.decode("utf-8"))

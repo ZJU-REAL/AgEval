@@ -2,6 +2,14 @@
 
 Box kind is `environment:` on the profiles document. `--probe` is `ageval run --probe` (lock + preflight). Dataset root. `submit` does not exist. Trust `uv run ageval --help`.
 
+## `ageval registry`
+
+- `list` / `show <id@version|@sha256:…>`: visible releases; `show` prints digest / size / visibility
+- Org ops (`org-create` / `org-add-member` / `org-set-role` / `org-transfer` / `org-remove-member`): owner or admin; the last owner cannot leave or be demoted
+- `set-visibility <id@version> --visibility public|private`: owner or admin
+- `set-description <org/name> --description '…'`: marketplace description override, no republish; empty string clears the override (falls back to the package manifest description). Server enforces org owner
+- `delete <id@version> --yes`: owner or admin
+
 ## `ageval executors`
 
 Two product facts (+ ACP entry inventory):
