@@ -44,6 +44,8 @@ const DATASET_OPTIONAL_COLUMNS = [
 const DATASET_OPTIONAL_IDS = DATASET_OPTIONAL_COLUMNS.map((col) => col.id);
 const DATASET_OPTIONAL_DEFAULT: typeof DATASET_OPTIONAL_IDS = ["updated"];
 
+const STICKY_TH = "sticky top-0 z-10";
+
 export function DatasetsPage() {
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
@@ -153,25 +155,31 @@ export function DatasetsPage() {
         }
       />
 
-      <CatalogScopeBar
-        scope={scope}
-        onScope={setScope}
-        items={DATASET_SCOPE_ITEMS}
-        query={query}
-        onQuery={setQuery}
-        searchLabel="Search datasets"
-        searchPlaceholder="Search datasets…"
-        end={
-          <TableColumnPicker
-            options={DATASET_OPTIONAL_COLUMNS}
-            value={columns}
-            onChange={setColumns}
-            ariaLabel="Optional dataset columns"
+      <div className="flex min-h-0 flex-1 flex-col">
+        <div className="shrink-0 pb-3">
+          <CatalogScopeBar
+            variant="select"
+            scope={scope}
+            onScope={setScope}
+            items={DATASET_SCOPE_ITEMS}
+            query={query}
+            onQuery={setQuery}
+            searchLabel="Search datasets"
+            searchPlaceholder="Search datasets…"
+            end={
+              <TableColumnPicker
+                options={DATASET_OPTIONAL_COLUMNS}
+                value={columns}
+                onChange={setColumns}
+                ariaLabel="Optional dataset columns"
+              />
+            }
+            className="mb-0"
           />
-        }
-      />
+        </div>
 
-      {scope === "orgs" && !token ? (
+        <div className="min-h-0 flex-1 overflow-y-auto">
+          {scope === "orgs" && !token ? (
         <CatalogEmpty
           kind="dataset"
           scope={scope}
@@ -197,22 +205,33 @@ export function DatasetsPage() {
           onClearSearch={() => setQuery("")}
         />
       ) : (
-        <>
-          <div className="blob-panel overflow-hidden">
-              <Table>
+          <>
+            <div className="blob-panel">
+              <Table
+                wrapClassName="overflow-visible"
+                className="border-separate border-spacing-0"
+              >
                 <TableHeader>
                   <TableRow className="hover:bg-transparent">
-                    <TableHead>{sort.head("dataset", "Dataset")}</TableHead>
-                    <TableHead>{sort.head("org", "Org")}</TableHead>
-                    <TableHead>{sort.head("version", "Version")}</TableHead>
-                    <TableHead>
+                    <TableHead className={STICKY_TH}>
+                      {sort.head("dataset", "Dataset")}
+                    </TableHead>
+                    <TableHead className={STICKY_TH}>
+                      {sort.head("org", "Org")}
+                    </TableHead>
+                    <TableHead className={STICKY_TH}>
+                      {sort.head("version", "Version")}
+                    </TableHead>
+                    <TableHead className={STICKY_TH}>
                       {sort.head("visibility", "Visibility")}
                     </TableHead>
-                    <TableHead className="tabular-nums">
+                    <TableHead className={`${STICKY_TH} tabular-nums`}>
                       {sort.head("tasks", "Tasks")}
                     </TableHead>
                     {columns.includes("updated") ? (
-                      <TableHead>{sort.head("updated", "Updated")}</TableHead>
+                      <TableHead className={STICKY_TH}>
+                        {sort.head("updated", "Updated")}
+                      </TableHead>
                     ) : null}
                   </TableRow>
                 </TableHeader>
@@ -269,12 +288,14 @@ export function DatasetsPage() {
                   ))}
                 </TableBody>
               </Table>
-          </div>
-          <p className="text-xs text-mute mt-3 tabular-nums">
-            {datasets.length} dataset{datasets.length === 1 ? "" : "s"}
-          </p>
-        </>
-      )}
+            </div>
+            <p className="text-xs text-mute mt-3 tabular-nums">
+              {datasets.length} dataset{datasets.length === 1 ? "" : "s"}
+            </p>
+          </>
+        )}
+        </div>
+      </div>
     </>
   );
 }

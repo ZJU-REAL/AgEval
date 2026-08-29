@@ -68,17 +68,23 @@ export function PluginsPage() {
         }
       />
 
-      <CatalogScopeBar
-        scope={scope}
-        onScope={setScope}
-        items={MARKETPLACE_SCOPE_ITEMS}
-        query={query}
-        onQuery={setQuery}
-        searchLabel="Search plugins"
-        searchPlaceholder="Search plugins…"
-      />
+      <div className="flex min-h-0 flex-1 flex-col">
+        <div className="shrink-0 pb-3">
+          <CatalogScopeBar
+            variant="select"
+            scope={scope}
+            onScope={setScope}
+            items={MARKETPLACE_SCOPE_ITEMS}
+            query={query}
+            onQuery={setQuery}
+            searchLabel="Search plugins"
+            searchPlaceholder="Search plugins…"
+            className="mb-0"
+          />
+        </div>
 
-      {signedOut || loading || error || plugins.length === 0 ? (
+        <div className="min-h-0 flex-1 overflow-y-auto">
+          {signedOut || loading || error || plugins.length === 0 ? (
         signedOut ? (
           <CatalogEmpty
             kind="plugin"
@@ -116,7 +122,9 @@ export function PluginsPage() {
             {plugins.length} plugin{plugins.length === 1 ? "" : "s"}
           </p>
         </>
-      )}
+        )}
+        </div>
+      </div>
     </>
   );
 }

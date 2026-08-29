@@ -60,26 +60,30 @@ export function AgentsPage() {
         title="Agent hub"
         sub={
           <>
-            Mechanism cards ship with ageval. Custom overlay packs are uploaded{" "}
-            <code className="font-mono text-xs">org/name@version</code>.{" "}
-            <code className="font-mono text-xs">binding.model</code> is the
-            default; override a run with{" "}
-            <code className="font-mono text-xs">--model</code>.
+            Mechanism cards ship with ageval. Custom overlay packs are
+            uploaded{" "}
+            <code className="font-mono text-xs">org/name@version</code>.
           </>
         }
       />
 
-      <CatalogScopeBar
-        scope={scope}
-        onScope={setScope}
-        items={MARKETPLACE_SCOPE_ITEMS}
-        query={query}
-        onQuery={setQuery}
-        searchLabel="Search agents"
-        searchPlaceholder="Search agents…"
-      />
+      <div className="flex min-h-0 flex-1 flex-col">
+        <div className="shrink-0 pb-3">
+          <CatalogScopeBar
+            variant="select"
+            scope={scope}
+            onScope={setScope}
+            items={MARKETPLACE_SCOPE_ITEMS}
+            query={query}
+            onQuery={setQuery}
+            searchLabel="Search agents"
+            searchPlaceholder="Search agents…"
+            className="mb-0"
+          />
+        </div>
 
-      {signedOut || loading || error || agents.length === 0 ? (
+        <div className="min-h-0 flex-1 overflow-y-auto">
+          {signedOut || loading || error || agents.length === 0 ? (
         signedOut ? (
           <CatalogEmpty
             kind="agent"
@@ -113,7 +117,9 @@ export function AgentsPage() {
             {agents.length} agent{agents.length === 1 ? "" : "s"}
           </p>
         </>
-      )}
+        )}
+        </div>
+      </div>
     </>
   );
 }
