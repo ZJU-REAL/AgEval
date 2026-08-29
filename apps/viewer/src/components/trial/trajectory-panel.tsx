@@ -26,17 +26,63 @@ import {
 } from "lucide-react";
 
 import { HoverTip } from "@/components/hover-tip";
+import { MarkdownBody } from "@/components/markdown";
 import type { TrajectoryStep } from "@/lib/api";
+import { CodeHighlight } from "@/lib/code-highlight";
 import { cn } from "@/lib/utils";
 
 import { actorLabel, type ActorRow } from "./types";
 
 type IconComp = ComponentType<{ className?: string; "aria-hidden"?: boolean }>;
 
-function bodyOverflowsOneLine(el: HTMLElement): boolean {
-  const lh = parseFloat(getComputedStyle(el).lineHeight);
+type StepMajor =
+  | "user"
+  | "agent"
+  | "thought"
+  | "tool_call"
+  | "observation"
+  | "terminal"
+  | "permission"
+  | "message";
+
+type BodyKind = "markdown" | "json" | "text";
+
+/* Per-major-type icon tone; reuses the shared categorical token palette. */
+const STEP_TONE: Record<StepMajor, string> = {
+  user: "text-link",
+  agent: "text-nav-agents",
+  thought: "text-warning",
+  tool_call: "text-nav-plugins",
+  observation: "text-nav-datasets",
+  terminal: "text-nav-home",
+  permission: "text-nav-inbox",
+  message: "text-mute",
+};
+
+/* Collapsed preview height: one line of the body's own typography. */
+const PREVIEW_MAX_H: Record<BodyKind, string> = {
+  json: "max-h-5",
+  markdown: "max-h-6",
+  text: "max-h-5",
+};
+
+function overflowsOneLine(el: HTMLElement): boolean {
+  const probe =
+    el.firstElementChild instanceof HTMLElement ? el.firstElementChild : el;
+  const lh = parseFloat(getComputedStyle(probe).lineHeight);
   const line = Number.isFinite(lh) && lh > 0 ? lh : 20;
   return el.scrollHeight > line + 1;
+}
+
+function parsesAsJson(text: string): boolean {
+  const t = text.trim();
+  if (!t.startsWith("{") && !t.startsWith("[")) return false;
+  try {
+    const v: unknown = JSON.parse(t);
+    return typeof v === "object" && v !== null;
+  } catch {
+    return false;
+  }
 }
 
 function asFiniteNumber(value: unknown): number | null {
@@ -99,26 +145,29 @@ function CopyBodyButton({ text }: { text: string }) {
 
 function StepBody({
   body,
+  kind,
   expandAll,
   expandGen,
 }: {
   body: string;
+  kind: BodyKind;
   expandAll: boolean;
   expandGen: number;
 }) {
-  const measureRef = useRef<HTMLPreElement>(null);
+  const contentRef = useRef<HTMLDivElement>(null);
   const [overflows, setOverflows] = useState(false);
   const [open, setOpen] = useState(false);
 
   useLayoutEffect(() => {
-    const el = measureRef.current;
+    const el = contentRef.current;
     if (!el) return;
-    const check = () => setOverflows(bodyOverflowsOneLine(el));
+    const check = () => setOverflows(overflowsOneLine(el));
     check();
     const ro = new ResizeObserver(check);
     ro.observe(el);
     return () => ro.disconnect();
-  }, [body]);
+    // Re-bind to the live element when the branch (and node) changes.
+  }, [body, kind, overflows]);
 
   useEffect(() => {
     if (!overflows || expandGen === 0) return;
@@ -131,66 +180,55 @@ function StepBody({
     setOpen((v) => !v);
   }
 
-  return (
-    <div className="relative">
-      <pre
-        ref={measureRef}
-        aria-hidden
-        className="pointer-events-none invisible absolute left-3 right-3 top-0 m-0 whitespace-pre-wrap break-words font-mono text-[13px] leading-5"
-      >
-        {body}
-      </pre>
-      {overflows ? (
-        <button
-          type="button"
-          onClick={toggle}
-          aria-expanded={open}
-          className="group flex w-full cursor-pointer items-start gap-3 px-3 py-2.5 text-left hover:bg-row-hover"
-        >
-          <div className="relative min-h-5 min-w-0 flex-1">
-            <div
-              className={cn(
-                "grid",
-                "motion-safe:transition-[grid-template-rows] motion-safe:duration-200 motion-safe:ease-smooth",
-                open ? "grid-rows-[1fr]" : "grid-rows-[0fr]",
-              )}
-            >
-              <div className="overflow-hidden">
-                <pre className="m-0 whitespace-pre-wrap break-words font-mono text-[13px] leading-5 text-body">
-                  {body}
-                </pre>
-              </div>
-            </div>
-            <pre
-              aria-hidden
-              className={cn(
-                "pointer-events-none absolute inset-x-0 top-0 m-0 truncate text-[13px] leading-5 text-mute",
-                "motion-safe:transition-opacity motion-safe:duration-200 motion-safe:ease-smooth",
-                open ? "opacity-0" : "opacity-100",
-              )}
-            >
-              {body}
-            </pre>
-          </div>
-          <HoverTip content={open ? "Collapse" : "Expand"}>
-            <span className="shrink-0 rounded-[4px] p-0.5 text-mute group-hover:text-ink">
-              <ChevronDown
-                className={cn(
-                  "h-3.5 w-3.5",
-                  "motion-safe:transition-transform motion-safe:duration-200 motion-safe:ease-smooth",
-                  open && "rotate-180",
-                )}
-                aria-hidden
-              />
-            </span>
-          </HoverTip>
-        </button>
+  const content = (
+    <div ref={contentRef}>
+      {kind === "json" ? (
+        <pre className="m-0 overflow-x-auto font-mono text-[12px] leading-5">
+          <CodeHighlight content={body} />
+        </pre>
+      ) : kind === "markdown" ? (
+        <MarkdownBody source={body} />
       ) : (
-        <pre className="m-0 px-3 pb-2.5 whitespace-pre-wrap break-words font-mono text-[13px] leading-5 text-body">
+        <pre className="m-0 whitespace-pre-wrap break-words font-mono text-[13px] leading-5 text-body">
           {body}
         </pre>
       )}
     </div>
+  );
+
+  if (!overflows) {
+    return <div className="px-3 pb-2.5">{content}</div>;
+  }
+
+  return (
+    <button
+      type="button"
+      onClick={toggle}
+      aria-expanded={open}
+      className="group flex w-full cursor-pointer items-start gap-3 px-3 py-2.5 text-left hover:bg-row-hover"
+    >
+      <div
+        className={cn(
+          "min-w-0 flex-1",
+          !open && "overflow-hidden",
+          !open && PREVIEW_MAX_H[kind],
+        )}
+      >
+        {content}
+      </div>
+      <HoverTip content={open ? "Collapse" : "Expand"}>
+        <span className="shrink-0 rounded-[4px] p-0.5 text-mute group-hover:text-ink">
+          <ChevronDown
+            className={cn(
+              "h-3.5 w-3.5",
+              "motion-safe:transition-transform motion-safe:duration-200 motion-safe:ease-smooth",
+              open && "rotate-180",
+            )}
+            aria-hidden
+          />
+        </span>
+      </HoverTip>
+    </button>
   );
 }
 
@@ -314,6 +352,21 @@ export function TrajectoryPanel({
           const isThought = (s.part || "").toString() === "thought";
           const isAsst = role === "assistant" && !isThought;
           const isTerminal = stepType === "terminal";
+          const major: StepMajor = isUser
+            ? "user"
+            : isThought
+              ? "thought"
+              : isAsst
+                ? "agent"
+                : isObservation
+                  ? "observation"
+                  : isTerminal
+                    ? "terminal"
+                    : isPermission
+                      ? "permission"
+                      : isToolCall
+                        ? "tool_call"
+                        : "message";
           const label = isToolCall
             ? s.function_name || s.kind || s.title || "tool_call"
             : isObservation
@@ -387,6 +440,18 @@ export function TrajectoryPanel({
             }
             body = bits.length ? bits.join(" · ") : null;
           }
+          // Text bodies render as markdown; structured tool/observation
+          // payloads render as highlighted JSON code blocks; the synthesized
+          // permission/terminal summaries stay plain.
+          const bodyKind: BodyKind = !body
+            ? "text"
+            : isTerminal || isPermission
+              ? "text"
+              : isToolCall || isObservation
+                ? parsesAsJson(body)
+                  ? "json"
+                  : "text"
+                : "markdown";
           // Success is the common case for folded tool/observation rows; only
           // surface non-success status (failed / error / cancelled / …).
           const statusRaw =
@@ -410,7 +475,7 @@ export function TrajectoryPanel({
                 <div className="flex flex-wrap items-center gap-2 min-w-0">
                   <span className="inline-flex items-center gap-1.5 font-semibold uppercase tracking-wide text-ink">
                     <Icon
-                      className="h-3.5 w-3.5 shrink-0 opacity-80"
+                      className={cn("h-3.5 w-3.5 shrink-0", STEP_TONE[major])}
                       aria-hidden
                     />
                     {label}
@@ -458,6 +523,7 @@ export function TrajectoryPanel({
               {body ? (
                 <StepBody
                   body={body}
+                  kind={bodyKind}
                   expandAll={allExpanded}
                   expandGen={expandGen}
                 />
