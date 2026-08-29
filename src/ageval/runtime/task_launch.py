@@ -250,6 +250,34 @@ def _clamp_timeout_sec(requested: float | None, remaining: float | None) -> floa
     return min(float(requested), remaining)
 
 
+def _resolve_scoring_env(raw: object) -> dict[str, str]:
+    """Only names the evaluator listed; values are parent locators, not literals.
+
+    Accept ``${LOCATOR}`` or a bare locator name (task.yaml cannot use ``${}``).
+    No vendor allowlist. Missing locators are omitted; the stage fails on its own.
+    """
+    if raw is None:
+        return {}
+    if not isinstance(raw, dict):
+        raise ValueError("exec env must be a mapping of name -> locator")
+    out: dict[str, str] = {}
+    for key, value in raw.items():
+        name = str(key)
+        token = str(value).strip()
+        if token.startswith("${") and token.endswith("}") and len(token) > 3:
+            loc = token[2:-1]
+        elif token.isidentifier() or (
+            token.replace("_", "").isalnum() and token.upper() == token
+        ):
+            loc = token
+        else:
+            raise ValueError(f"exec env {name} must be a locator, not a literal")
+        found = os.environ.get(loc)
+        if found:
+            out[name] = found
+    return out
+
+
 async def _handle_eval_exec(ctx: Any, frame: dict[str, Any]) -> dict[str, Any]:
     from ageval.attempt.phases.evaluate import UNKNOWN_EVALUATE_ENVIRONMENT, ensure_named_host
 
@@ -272,7 +300,8 @@ async def _handle_eval_exec(ctx: Any, frame: dict[str, Any]) -> dict[str, Any]:
         if leftover is not None and leftover <= 0:
             return {"op": "exec_result", "id": req_id, "error": "task_run_timeout"}
         timeout_sec = _clamp_timeout_sec(requested, leftover if leftover is not None else remaining)
-        result = await host.exec(argv, timeout_sec=timeout_sec)
+        env = _resolve_scoring_env(frame.get("env"))
+        result = await host.exec(argv, timeout_sec=timeout_sec, env=env or None)
     except TimeoutError:
         return {"op": "exec_result", "id": req_id, "error": "task_run_timeout"}
     except Exception as exc:  # noqa: BLE001 — worker gets one error, no retry

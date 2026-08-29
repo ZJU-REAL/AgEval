@@ -48,6 +48,7 @@ class ScoringFacade:
         name: str,
         argv: list[str],
         timeout_sec: float | None = None,
+        env: dict[str, str] | None = None,
     ) -> ScoringExecResult:
         if not isinstance(name, str) or not name.strip():
             raise RuntimeError("unknown_evaluate_environment")
@@ -62,6 +63,8 @@ class ScoringFacade:
         }
         if timeout_sec is not None:
             payload["timeout_sec"] = timeout_sec
+        if env:
+            payload["env"] = {str(k): str(v) for k, v in env.items()}
         self._frames.send(payload)
         resp = self._frames.recv()
         error = resp.get("error")
