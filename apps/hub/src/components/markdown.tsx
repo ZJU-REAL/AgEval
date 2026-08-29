@@ -229,6 +229,23 @@ export function InlineMarkdown({
   );
 }
 
+/** Markdown render without the panel chrome; shared by docs and step bodies. */
+export function MarkdownBody({
+  source,
+  className,
+}: {
+  source: string;
+  className?: string;
+}) {
+  return (
+    <div className={cn("min-w-0 max-w-none", className)}>
+      <ReactMarkdown remarkPlugins={[remarkGfm]} components={components}>
+        {source}
+      </ReactMarkdown>
+    </div>
+  );
+}
+
 export function Markdown({
   source,
   className,
@@ -245,11 +262,7 @@ export function Markdown({
       )}
     >
       <FrontmatterTable fields={fields} />
-      {body.trim() ? (
-        <ReactMarkdown remarkPlugins={[remarkGfm]} components={components}>
-          {body}
-        </ReactMarkdown>
-      ) : null}
+      {body.trim() ? <MarkdownBody source={body} /> : null}
     </div>
   );
 }
