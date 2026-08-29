@@ -59,19 +59,23 @@ const STEP_TONE: Record<StepMajor, string> = {
   message: "text-mute",
 };
 
-/* Collapsed preview height: one line of the body's own typography. */
-const PREVIEW_MAX_H: Record<BodyKind, string> = {
-  json: "max-h-5",
-  markdown: "max-h-6",
-  text: "max-h-5",
+/* Folded steps preview ~this many lines; the next half-line fades as a hint. */
+const PREVIEW_LINES = 2.5;
+
+/* Folded preview: height + a fade-out over the final half-line. */
+const PREVIEW_FOLD: Record<BodyKind, string> = {
+  json: "max-h-[50px] [mask-image:linear-gradient(to_bottom,black_40px,transparent_50px)]",
+  markdown:
+    "max-h-[60px] [mask-image:linear-gradient(to_bottom,black_48px,transparent_60px)]",
+  text: "max-h-[50px] [mask-image:linear-gradient(to_bottom,black_40px,transparent_50px)]",
 };
 
-function overflowsOneLine(el: HTMLElement): boolean {
+function overflowsPreview(el: HTMLElement): boolean {
   const probe =
     el.firstElementChild instanceof HTMLElement ? el.firstElementChild : el;
   const lh = parseFloat(getComputedStyle(probe).lineHeight);
   const line = Number.isFinite(lh) && lh > 0 ? lh : 20;
-  return el.scrollHeight > line + 1;
+  return el.scrollHeight > PREVIEW_LINES * line + 1;
 }
 
 function parsesAsJson(text: string): boolean {
@@ -83,6 +87,16 @@ function parsesAsJson(text: string): boolean {
   } catch {
     return false;
   }
+}
+
+function findScrollParent(el: HTMLElement): HTMLElement | null {
+  let p = el.parentElement;
+  while (p) {
+    const oy = getComputedStyle(p).overflowY;
+    if (oy === "auto" || oy === "scroll") return p;
+    p = p.parentElement;
+  }
+  return null;
 }
 
 function asFiniteNumber(value: unknown): number | null {
@@ -143,92 +157,21 @@ function CopyBodyButton({ text }: { text: string }) {
   );
 }
 
-function StepBody({
-  body,
-  kind,
-  expandAll,
-  expandGen,
-}: {
-  body: string;
-  kind: BodyKind;
-  expandAll: boolean;
-  expandGen: number;
-}) {
-  const contentRef = useRef<HTMLDivElement>(null);
-  const [overflows, setOverflows] = useState(false);
-  const [open, setOpen] = useState(false);
-
-  useLayoutEffect(() => {
-    const el = contentRef.current;
-    if (!el) return;
-    const check = () => setOverflows(overflowsOneLine(el));
-    check();
-    const ro = new ResizeObserver(check);
-    ro.observe(el);
-    return () => ro.disconnect();
-    // Re-bind to the live element when the branch (and node) changes.
-  }, [body, kind, overflows]);
-
-  useEffect(() => {
-    if (!overflows || expandGen === 0) return;
-    setOpen(expandAll);
-  }, [overflows, expandAll, expandGen]);
-
-  function toggle() {
-    const sel = window.getSelection();
-    if (sel && !sel.isCollapsed && sel.toString()) return;
-    setOpen((v) => !v);
+function stepBodyContent(body: string, kind: BodyKind) {
+  if (kind === "json") {
+    return (
+      <pre className="m-0 overflow-x-auto font-mono text-[12px] leading-5">
+        <CodeHighlight content={body} />
+      </pre>
+    );
   }
-
-  const content = (
-    <div ref={contentRef}>
-      {kind === "json" ? (
-        <pre className="m-0 overflow-x-auto font-mono text-[12px] leading-5">
-          <CodeHighlight content={body} />
-        </pre>
-      ) : kind === "markdown" ? (
-        <MarkdownBody source={body} />
-      ) : (
-        <pre className="m-0 whitespace-pre-wrap break-words font-mono text-[13px] leading-5 text-body">
-          {body}
-        </pre>
-      )}
-    </div>
-  );
-
-  if (!overflows) {
-    return <div className="px-3 pb-2.5">{content}</div>;
+  if (kind === "markdown") {
+    return <MarkdownBody source={body} />;
   }
-
   return (
-    <button
-      type="button"
-      onClick={toggle}
-      aria-expanded={open}
-      className="group flex w-full cursor-pointer items-start gap-3 px-3 py-2.5 text-left hover:bg-row-hover"
-    >
-      <div
-        className={cn(
-          "min-w-0 flex-1",
-          !open && "overflow-hidden",
-          !open && PREVIEW_MAX_H[kind],
-        )}
-      >
-        {content}
-      </div>
-      <HoverTip content={open ? "Collapse" : "Expand"}>
-        <span className="shrink-0 rounded-[4px] p-0.5 text-mute group-hover:text-ink">
-          <ChevronDown
-            className={cn(
-              "h-3.5 w-3.5",
-              "motion-safe:transition-transform motion-safe:duration-200 motion-safe:ease-smooth",
-              open && "rotate-180",
-            )}
-            aria-hidden
-          />
-        </span>
-      </HoverTip>
-    </button>
+    <pre className="m-0 whitespace-pre-wrap break-words font-mono text-[13px] leading-5 text-body">
+      {body}
+    </pre>
   );
 }
 
@@ -258,6 +201,307 @@ function stepIcon(opts: {
     return Wrench;
   }
   return MessageSquare;
+}
+
+function StepItem({
+  s,
+  hideTurnIndex,
+  allExpanded,
+  expandGen,
+}: {
+  s: TrajectoryStep;
+  hideTurnIndex: boolean;
+  allExpanded: boolean;
+  expandGen: number;
+}) {
+  const liRef = useRef<HTMLLIElement>(null);
+  const contentRef = useRef<HTMLDivElement>(null);
+  const repositionRef = useRef(false);
+  const [overflows, setOverflows] = useState(false);
+  const [open, setOpen] = useState(true);
+
+  const stepType = (s.type || "").toString();
+  const isToolCall = stepType === "tool_call";
+  const isObservation = stepType === "observation";
+  const isPermission = stepType === "permission_decision";
+  const role = (
+    s.role ||
+    (isToolCall
+      ? "tool_call"
+      : isObservation
+        ? "observation"
+        : isPermission
+          ? "permission"
+          : stepType || "event")
+  ).toString();
+  const isUser = role === "user";
+  const isThought = (s.part || "").toString() === "thought";
+  const isAsst = role === "assistant" && !isThought;
+  const isTerminal = stepType === "terminal";
+  const major: StepMajor = isUser
+    ? "user"
+    : isThought
+      ? "thought"
+      : isAsst
+        ? "agent"
+        : isObservation
+          ? "observation"
+          : isTerminal
+            ? "terminal"
+            : isPermission
+              ? "permission"
+              : isToolCall
+                ? "tool_call"
+                : "message";
+  const label = isToolCall
+    ? s.function_name || s.kind || s.title || "tool_call"
+    : isObservation
+      ? "observation"
+      : isThought
+        ? "thought"
+        : isAsst
+          ? "agent"
+          : role;
+  const Icon = stepIcon({
+    isUser,
+    isAsst,
+    isThought,
+    isToolCall,
+    isObservation,
+    isTerminal,
+    isPermission,
+    kind: s.kind,
+    functionName: s.function_name,
+  });
+  const toolArgsEmpty =
+    s.args == null ||
+    (typeof s.args === "object" &&
+      !Array.isArray(s.args) &&
+      Object.keys(s.args).length === 0);
+  let body: string | null =
+    s.content ||
+    (isToolCall && !toolArgsEmpty
+      ? typeof s.args === "string"
+        ? s.args
+        : JSON.stringify(s.args, null, 2)
+      : null) ||
+    (isToolCall && s.title ? s.title : null) ||
+    (isObservation && s.raw_output != null
+      ? typeof s.raw_output === "string"
+        ? s.raw_output
+        : JSON.stringify(s.raw_output, null, 2)
+      : null);
+
+  // permission / terminal: synthesize body from structured fields when needed
+  if (!body && isPermission) {
+    const bits = [
+      s.policy != null && s.policy !== "" ? `policy=${s.policy}` : null,
+      s.outcome != null && s.outcome !== "" ? `outcome=${s.outcome}` : null,
+      s.option_id != null && s.option_id !== ""
+        ? `option_id=${s.option_id}`
+        : null,
+    ].filter(Boolean) as string[];
+    body = bits.length ? bits.join(" · ") : null;
+  }
+  if (!body && isTerminal) {
+    const bits: string[] = [];
+    if (s.ok === true) bits.push("ok");
+    else if (s.ok === false) bits.push("not ok");
+    if (s.stop_reason) bits.push(`stop=${s.stop_reason}`);
+    if (s.error) bits.push(`error=${String(s.error)}`);
+    if (s.metadata && typeof s.metadata === "object") {
+      const meta = s.metadata;
+      const metaBits = (
+        [
+          "executor_kind",
+          "acp_entry_id",
+          "actual_model",
+          "locked_model",
+          "protocol_version",
+        ] as const
+      )
+        .filter((k) => meta[k] != null && meta[k] !== "")
+        .map((k) => `${k}=${String(meta[k])}`);
+      if (metaBits.length) bits.push(metaBits.join(" "));
+    }
+    body = bits.length ? bits.join(" · ") : null;
+  }
+  // Text bodies render as markdown; structured tool/observation
+  // payloads render as highlighted JSON code blocks; the synthesized
+  // permission/terminal summaries stay plain.
+  const bodyKind: BodyKind = !body
+    ? "text"
+    : isTerminal || isPermission
+      ? "text"
+      : isToolCall || isObservation
+        ? parsesAsJson(body)
+          ? "json"
+          : "text"
+        : "markdown";
+  // Success is the common case for folded tool/observation rows; only
+  // surface non-success status (failed / error / cancelled / …).
+  const statusRaw = typeof s.status === "string" ? s.status.trim() : "";
+  const statusLower = statusRaw.toLowerCase();
+  const showStatus =
+    Boolean(statusRaw) &&
+    !["completed", "complete", "success", "ok", "done"].includes(statusLower);
+
+  useLayoutEffect(() => {
+    const el = contentRef.current;
+    if (!el) return;
+    const check = () => setOverflows(overflowsPreview(el));
+    check();
+    const ro = new ResizeObserver(check);
+    ro.observe(el);
+    return () => ro.disconnect();
+    // Re-check when the fold branch swaps so the observer re-measures.
+  }, [body, bodyKind, overflows]);
+
+  useEffect(() => {
+    if (!overflows || expandGen === 0) return;
+    setOpen(allExpanded);
+  }, [overflows, allExpanded, expandGen]);
+
+  // Collapse/expand while this header is stuck: after the DOM shrinks (or the
+  // body grows above the viewport), put the block's top back at the top of
+  // the scrollport so the view stays on the block being operated on.
+  function toggleOpen() {
+    const li = liRef.current;
+    const scroller = li ? findScrollParent(li) : null;
+    if (li && scroller) {
+      const offset =
+        parseFloat(getComputedStyle(scroller).getPropertyValue("--traj-invoke-h")) ||
+        0;
+      const delta =
+        li.getBoundingClientRect().top - scroller.getBoundingClientRect().top;
+      if (delta < offset - 1) repositionRef.current = true;
+    }
+    setOpen((v) => !v);
+  }
+
+  useLayoutEffect(() => {
+    if (!repositionRef.current) return;
+    repositionRef.current = false;
+    const li = liRef.current;
+    const scroller = li ? findScrollParent(li) : null;
+    if (!li || !scroller) return;
+    const offset =
+      parseFloat(getComputedStyle(scroller).getPropertyValue("--traj-invoke-h")) ||
+      0;
+    const target =
+      li.getBoundingClientRect().top -
+      scroller.getBoundingClientRect().top +
+      scroller.scrollTop -
+      offset;
+    scroller.scrollTop = Math.max(0, target);
+  }, [open]);
+
+  const collapsed = overflows && !open;
+
+  return (
+    <li
+      ref={liRef}
+      className={cn("blob-panel overflow-clip", isObservation && "bg-canvas-soft/40")}
+    >
+      <div
+        className={cn(
+          "sticky top-[var(--traj-invoke-h,0px)] z-10 rounded-t-lg border-b border-hairline bg-canvas px-3 pt-3 pb-1.5 text-xs",
+        )}
+      >
+        <div className="flex items-start gap-3">
+          <div className="flex flex-wrap items-center gap-2 min-w-0">
+            <span className="inline-flex items-center gap-1.5 font-semibold uppercase tracking-wide text-ink">
+              <Icon
+                className={cn("h-3.5 w-3.5 shrink-0", STEP_TONE[major])}
+                aria-hidden
+              />
+              {label}
+            </span>
+            {!hideTurnIndex && s.turn_index != null ? (
+              <span className="text-mute font-normal normal-case tracking-normal">
+                turn {s.turn_index}
+              </span>
+            ) : null}
+            {s.kind && isToolCall && s.kind !== label ? (
+              <span className="rounded bg-canvas-soft border border-hairline px-1.5 py-0 text-[11px] text-mute font-normal normal-case tracking-normal">
+                {s.kind}
+              </span>
+            ) : null}
+          </div>
+          <div className="ml-auto flex flex-col items-end gap-0.5 min-w-0 max-w-[min(100%,36rem)] text-right text-mute font-normal normal-case tracking-normal">
+            {showStatus ? (
+              <span
+                className={cn(
+                  statusLower.includes("fail") ||
+                    statusLower.includes("error") ||
+                    statusLower.includes("cancel")
+                    ? "text-error"
+                    : undefined,
+                )}
+              >
+                {statusRaw}
+              </span>
+            ) : null}
+            {s.stop_reason ? <span>{s.stop_reason}</span> : null}
+            {s.ok === false ? <span className="text-error">not ok</span> : null}
+            {(() => {
+              const elapsed = stepElapsedMs(s);
+              return elapsed != null ? (
+                <HoverTip content="duration (observational)">
+                  <span>{formatElapsedMs(elapsed)}</span>
+                </HoverTip>
+              ) : null;
+            })()}
+          </div>
+          {body && overflows ? (
+            <HoverTip content={open ? "Collapse" : "Expand"}>
+              <button
+                type="button"
+                onClick={toggleOpen}
+                aria-expanded={open}
+                aria-label={open ? "Collapse step" : "Expand step"}
+                className="shrink-0 rounded-[4px] p-0.5 text-mute hover:bg-row-hover hover:text-ink"
+              >
+                <ChevronDown
+                  className={cn(
+                    "h-3.5 w-3.5",
+                    "motion-safe:transition-transform motion-safe:duration-200 motion-safe:ease-smooth",
+                    open && "rotate-180",
+                  )}
+                  aria-hidden
+                />
+              </button>
+            </HoverTip>
+          ) : null}
+          {body ? <CopyBodyButton text={body} /> : null}
+        </div>
+      </div>
+      {body ? (
+        <div className="px-4 py-2">
+          <div
+            className={cn(
+              collapsed && "overflow-hidden",
+              collapsed && PREVIEW_FOLD[bodyKind],
+            )}
+          >
+            <div ref={contentRef}>{stepBodyContent(body, bodyKind)}</div>
+          </div>
+        </div>
+      ) : !isTerminal ? (
+        s.error ? (
+          <p className="px-4 py-2 text-sm text-error">{String(s.error)}</p>
+        ) : isPermission ? (
+          <p className="px-4 py-2 text-sm text-mute">
+            permission (no decision fields)
+          </p>
+        ) : isToolCall || isObservation ? (
+          <p className="px-4 py-2 text-sm text-mute">
+            {isToolCall ? "tool call (no args)" : "observation (empty)"}
+          </p>
+        ) : null
+      ) : null}
+    </li>
+  );
 }
 
 export function TrajectoryPanel({
@@ -313,8 +557,27 @@ export function TrajectoryPanel({
     return blocks;
   }, [steps]);
   const showInvokeHeaders = multiRole && invokes.length >= 2;
-  const [allExpanded, setAllExpanded] = useState(false);
+  const [allExpanded, setAllExpanded] = useState(true);
   const [expandGen, setExpandGen] = useState(0);
+  const invokeHeaderRef = useRef<HTMLHeadingElement>(null);
+  const trajScrollRef = useRef<HTMLDivElement>(null);
+
+  // Models-page pattern: measure the sticky chrome and expose its height as
+  // a CSS variable so sub-headers stick flush beneath it at any wrap width.
+  useLayoutEffect(() => {
+    const header = invokeHeaderRef.current;
+    const container = trajScrollRef.current;
+    if (!showInvokeHeaders || !header || !container) return;
+    const apply = () =>
+      container.style.setProperty("--traj-invoke-h", `${header.offsetHeight}px`);
+    const ro = new ResizeObserver(apply);
+    ro.observe(header);
+    apply();
+    return () => {
+      ro.disconnect();
+      container.style.removeProperty("--traj-invoke-h");
+    };
+  }, [showInvokeHeaders, invokes]);
 
   if (loading) return <p className="text-sm text-mute">Loading trajectory…</p>;
   if (!steps.length) {
@@ -333,215 +596,15 @@ export function TrajectoryPanel({
   function renderSteps(list: TrajectoryStep[], hideTurnIndex = false) {
     return (
       <ol className="space-y-2">
-        {list.map((s, i) => {
-          const stepType = (s.type || "").toString();
-          const isToolCall = stepType === "tool_call";
-          const isObservation = stepType === "observation";
-          const isPermission = stepType === "permission_decision";
-          const role = (
-            s.role ||
-            (isToolCall
-              ? "tool_call"
-              : isObservation
-                ? "observation"
-                : isPermission
-                  ? "permission"
-                  : stepType || "event")
-          ).toString();
-          const isUser = role === "user";
-          const isThought = (s.part || "").toString() === "thought";
-          const isAsst = role === "assistant" && !isThought;
-          const isTerminal = stepType === "terminal";
-          const major: StepMajor = isUser
-            ? "user"
-            : isThought
-              ? "thought"
-              : isAsst
-                ? "agent"
-                : isObservation
-                  ? "observation"
-                  : isTerminal
-                    ? "terminal"
-                    : isPermission
-                      ? "permission"
-                      : isToolCall
-                        ? "tool_call"
-                        : "message";
-          const label = isToolCall
-            ? s.function_name || s.kind || s.title || "tool_call"
-            : isObservation
-              ? "observation"
-              : isThought
-                ? "thought"
-                : isAsst
-                  ? "agent"
-                  : role;
-          const Icon = stepIcon({
-            isUser,
-            isAsst,
-            isThought,
-            isToolCall,
-            isObservation,
-            isTerminal,
-            isPermission,
-            kind: s.kind,
-            functionName: s.function_name,
-          });
-          const toolArgsEmpty =
-            s.args == null ||
-            (typeof s.args === "object" &&
-              !Array.isArray(s.args) &&
-              Object.keys(s.args).length === 0);
-          let body: string | null =
-            s.content ||
-            (isToolCall && !toolArgsEmpty
-              ? typeof s.args === "string"
-                ? s.args
-                : JSON.stringify(s.args, null, 2)
-              : null) ||
-            (isToolCall && s.title ? s.title : null) ||
-            (isObservation && s.raw_output != null
-              ? typeof s.raw_output === "string"
-                ? s.raw_output
-                : JSON.stringify(s.raw_output, null, 2)
-              : null);
-
-          // permission / terminal: synthesize body from structured fields when needed
-          if (!body && isPermission) {
-            const bits = [
-              s.policy != null && s.policy !== "" ? `policy=${s.policy}` : null,
-              s.outcome != null && s.outcome !== "" ? `outcome=${s.outcome}` : null,
-              s.option_id != null && s.option_id !== ""
-                ? `option_id=${s.option_id}`
-                : null,
-            ].filter(Boolean) as string[];
-            body = bits.length ? bits.join(" · ") : null;
-          }
-          if (!body && isTerminal) {
-            const bits: string[] = [];
-            if (s.ok === true) bits.push("ok");
-            else if (s.ok === false) bits.push("not ok");
-            if (s.stop_reason) bits.push(`stop=${s.stop_reason}`);
-            if (s.error) bits.push(`error=${String(s.error)}`);
-            if (s.metadata && typeof s.metadata === "object") {
-              const meta = s.metadata;
-              const metaBits = (
-                [
-                  "executor_kind",
-                  "acp_entry_id",
-                  "actual_model",
-                  "locked_model",
-                  "protocol_version",
-                ] as const
-              )
-                .filter((k) => meta[k] != null && meta[k] !== "")
-                .map((k) => `${k}=${String(meta[k])}`);
-              if (metaBits.length) bits.push(metaBits.join(" "));
-            }
-            body = bits.length ? bits.join(" · ") : null;
-          }
-          // Text bodies render as markdown; structured tool/observation
-          // payloads render as highlighted JSON code blocks; the synthesized
-          // permission/terminal summaries stay plain.
-          const bodyKind: BodyKind = !body
-            ? "text"
-            : isTerminal || isPermission
-              ? "text"
-              : isToolCall || isObservation
-                ? parsesAsJson(body)
-                  ? "json"
-                  : "text"
-                : "markdown";
-          // Success is the common case for folded tool/observation rows; only
-          // surface non-success status (failed / error / cancelled / …).
-          const statusRaw =
-            typeof s.status === "string" ? s.status.trim() : "";
-          const statusLower = statusRaw.toLowerCase();
-          const showStatus =
-            Boolean(statusRaw) &&
-            !["completed", "complete", "success", "ok", "done"].includes(
-              statusLower,
-            );
-
-          return (
-            <li
-              key={`${s.invocation || ""}-${s.line || i}-${i}`}
-              className={cn(
-                "blob-panel overflow-hidden",
-                isObservation && "bg-canvas-soft/40",
-              )}
-            >
-              <div className="flex items-start gap-3 px-3 pt-2.5 pb-1 text-xs">
-                <div className="flex flex-wrap items-center gap-2 min-w-0">
-                  <span className="inline-flex items-center gap-1.5 font-semibold uppercase tracking-wide text-ink">
-                    <Icon
-                      className={cn("h-3.5 w-3.5 shrink-0", STEP_TONE[major])}
-                      aria-hidden
-                    />
-                    {label}
-                  </span>
-                  {!hideTurnIndex && s.turn_index != null ? (
-                    <span className="text-mute font-normal normal-case tracking-normal">
-                      turn {s.turn_index}
-                    </span>
-                  ) : null}
-                  {s.kind && isToolCall && s.kind !== label ? (
-                    <span className="rounded bg-canvas-soft border border-hairline px-1.5 py-0 text-[11px] text-mute font-normal normal-case tracking-normal">
-                      {s.kind}
-                    </span>
-                  ) : null}
-                </div>
-                <div className="ml-auto flex flex-col items-end gap-0.5 min-w-0 max-w-[min(100%,36rem)] text-right text-mute font-normal normal-case tracking-normal">
-                  {showStatus ? (
-                    <span
-                      className={cn(
-                        statusLower.includes("fail") ||
-                          statusLower.includes("error") ||
-                          statusLower.includes("cancel")
-                          ? "text-error"
-                          : undefined,
-                      )}
-                    >
-                      {statusRaw}
-                    </span>
-                  ) : null}
-                  {s.stop_reason ? <span>{s.stop_reason}</span> : null}
-                  {s.ok === false ? (
-                    <span className="text-error">not ok</span>
-                  ) : null}
-                  {(() => {
-                    const elapsed = stepElapsedMs(s);
-                    return elapsed != null ? (
-                    <HoverTip content="duration (observational)">
-                      <span>{formatElapsedMs(elapsed)}</span>
-                    </HoverTip>
-                    ) : null;
-                  })()}
-                </div>
-                {body ? <CopyBodyButton text={body} /> : null}
-              </div>
-              {body ? (
-                <StepBody
-                  body={body}
-                  kind={bodyKind}
-                  expandAll={allExpanded}
-                  expandGen={expandGen}
-                />
-              ) : null}
-              {!body && !isTerminal ? (
-                s.error ? (
-                  <p className="px-3 pb-2.5 text-sm text-error">{String(s.error)}</p>
-                ) : isPermission ? (
-                  <p className="px-3 pb-2.5 text-sm text-mute">permission (no decision fields)</p>
-                ) : isToolCall || isObservation ? (
-                  <p className="px-3 pb-2.5 text-sm text-mute">
-                    {isToolCall ? "tool call (no args)" : "observation (empty)"}
-                  </p>
-                ) : null
-              ) : null}
-            </li>
-          );
-        })}
+        {list.map((s, i) => (
+          <StepItem
+            key={`${s.invocation || ""}-${s.line || i}-${i}`}
+            s={s}
+            hideTurnIndex={hideTurnIndex}
+            allExpanded={allExpanded}
+            expandGen={expandGen}
+          />
+        ))}
       </ol>
     );
   }
@@ -572,7 +635,10 @@ export function TrajectoryPanel({
         </HoverTip>
       </div>
       {showInvokeHeaders ? (
-        <div className="space-y-4 max-h-[70vh] overflow-y-auto pr-1">
+        <div
+          ref={trajScrollRef}
+          className="space-y-4 max-h-[70vh] overflow-y-auto pr-1 [overflow-anchor:none]"
+        >
           {invokes.map((block, i) => {
             const actor = block.profileId
               ? actorByPid.get(block.profileId)
@@ -588,7 +654,10 @@ export function TrajectoryPanel({
                 : who || "invoke";
             return (
               <section key={`${block.turn ?? "x"}-${i}`} className="space-y-2">
-                <h3 className="text-xs font-medium text-ink sticky top-0 bg-canvas/95 backdrop-blur-sm py-1 border-b border-hairline">
+                <h3
+                  ref={i === 0 ? invokeHeaderRef : undefined}
+                  className="relative sticky top-0 z-20 bg-canvas py-1 text-xs font-medium text-ink"
+                >
                   {title}
                   <span className="text-mute font-normal ml-2">
                     {block.steps.length} step
@@ -601,7 +670,7 @@ export function TrajectoryPanel({
           })}
         </div>
       ) : (
-        <div className="max-h-[70vh] overflow-y-auto pr-1">
+        <div className="max-h-[70vh] overflow-y-auto pr-1 [overflow-anchor:none]">
           {renderSteps(steps)}
         </div>
       )}
