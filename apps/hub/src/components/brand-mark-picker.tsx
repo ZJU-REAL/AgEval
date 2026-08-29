@@ -3,6 +3,7 @@ import { useEffect, useMemo, useState } from "react";
 import { BrandMark } from "@/components/brand-mark";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { Input } from "@/components/ui/input";
+import { buttonVariants } from "@/components/ui/button";
 import {
   BRAND_MARKS,
   githubAvatarUrl,
@@ -19,6 +20,7 @@ export function BrandMarkPicker({
   open,
   current,
   uploadedBy,
+  defaultLetter,
   busy = false,
   onCancel,
   onSave,
@@ -26,6 +28,7 @@ export function BrandMarkPicker({
   open: boolean;
   current: MarkDraft;
   uploadedBy?: string | null;
+  defaultLetter?: string;
   busy?: boolean;
   onCancel: () => void;
   onSave: (draft: MarkDraft) => void;
@@ -86,10 +89,9 @@ export function BrandMarkPicker({
           type="button"
           onClick={() => setSelected({ mode: "default" })}
           className={cn(
-            "flex flex-col items-center gap-1 rounded-[12px] px-2 py-2 text-center",
-            selected.mode === "default"
-              ? "bg-canvas shadow-[var(--viewer-shadow-pop)]"
-              : "hover:bg-canvas-soft",
+            buttonVariants({ variant: "secondary" }),
+            "h-auto flex-col gap-1 rounded-[12px] px-2 py-2 text-center",
+            selected.mode === "default" && "bg-canvas-soft-2 shadow-[var(--viewer-shadow-pop)]",
           )}
         >
           <BrandMark
@@ -100,7 +102,7 @@ export function BrandMarkPicker({
                     login: uploader,
                     src: githubAvatarUrl(uploader),
                   }
-                : { kind: "letter", letter: "?" }
+                : { kind: "letter", letter: defaultLetter || "?" }
             }
             size={20}
           />
@@ -112,10 +114,11 @@ export function BrandMarkPicker({
             key={row.id}
             onClick={() => setSelected({ mode: "catalog", id: row.id })}
             className={cn(
-              "flex flex-col items-center gap-1 rounded-[12px] px-2 py-2 text-center",
-              selected.mode === "catalog" && selected.id === row.id
-                ? "bg-canvas shadow-[var(--viewer-shadow-pop)]"
-                : "hover:bg-canvas-soft",
+              buttonVariants({ variant: "secondary" }),
+              "h-auto flex-col gap-1 rounded-[12px] px-2 py-2 text-center",
+              selected.mode === "catalog" &&
+                selected.id === row.id &&
+                "bg-canvas-soft-2 shadow-[var(--viewer-shadow-pop)]",
             )}
           >
             <BrandMark mark={{ kind: "catalog", id: row.id }} size={20} />

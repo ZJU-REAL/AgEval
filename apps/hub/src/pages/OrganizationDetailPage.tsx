@@ -8,6 +8,7 @@ import { DescriptionEditor } from "@/components/description-editor";
 import { CatalogHead } from "@/components/page-head";
 import { UnderlineTabs } from "@/components/underline-tabs";
 import { DisplayNameEditor } from "@/components/display-name-editor";
+import { EntityMarkControl } from "@/components/entity-mark-control";
 import { HoverTip, TruncateTip } from "@/components/hover-tip";
 import { OfficialMark } from "@/components/official-mark";
 import { SignInLink } from "@/components/sign-in-button";
@@ -406,16 +407,40 @@ export function OrganizationDetailPage() {
       ) : (
         <>
           <div className="mb-4">
-            <DisplayNameEditor
-              value={title}
-              canEdit={isOwner}
-              headingClassName="text-2xl font-semibold tracking-tight text-ink"
-              afterTitle={org?.official ? <OfficialMark kind="org" /> : null}
-              onSave={async (next) => {
-                const updated = await updateOrgDisplayName(orgId, next, token);
-                setOrg(updated);
-              }}
-            />
+            <div className="flex items-center gap-2">
+              <EntityMarkControl
+                hint={{
+                  iconKey: org?.icon_key,
+                  iconGithub: org?.icon_github,
+                  displayName: title,
+                }}
+                defaultLetter={(title || orgId || "?").slice(0, 1).toUpperCase()}
+                canEdit={Boolean(isOwner && org)}
+                token={token}
+                save={(body) => updateOrg(orgId, body, token)}
+                onUpdated={(patch) =>
+                  setOrg((prev) =>
+                    prev
+                      ? {
+                          ...prev,
+                          icon_key: patch.icon_key || "",
+                          icon_github: patch.icon_github || "",
+                        }
+                      : prev,
+                  )
+                }
+              />
+              <DisplayNameEditor
+                value={title}
+                canEdit={isOwner}
+                headingClassName="text-2xl font-semibold tracking-tight text-ink"
+                afterTitle={org?.official ? <OfficialMark kind="org" /> : null}
+                onSave={async (next) => {
+                  const updated = await updateOrgDisplayName(orgId, next, token);
+                  setOrg(updated);
+                }}
+              />
+            </div>
             <p className="text-xs text-mute mt-1">@{orgId}</p>
             {org ? (
               <div className="mt-3">

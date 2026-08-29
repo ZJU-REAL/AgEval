@@ -92,6 +92,8 @@ export type OrgRow = {
   role?: string;
   /** Upload org is on the Registry official-org allowlist. */
   official?: boolean;
+  icon_key?: string;
+  icon_github?: string;
 };
 
 export type OrgMember = {
@@ -918,7 +920,12 @@ export async function updateOrgDisplayName(
 
 export async function updateOrg(
   orgId: string,
-  body: { display_name?: string; description?: string },
+  body: {
+    display_name?: string;
+    description?: string;
+    icon_key?: string;
+    icon_github?: string;
+  },
   token: string | null,
 ): Promise<OrgRow> {
   return requestJson(`/v1/orgs/${encodeURIComponent(orgId)}`, {

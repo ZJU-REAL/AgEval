@@ -22,6 +22,8 @@ function draftFromHint(hint: EntityMarkHint): MarkDraft {
   return { mode: "default" };
 }
 
+export type IconSaveBody = { icon_key: string; icon_github: string };
+
 export function EntityMarkControl({
   hint,
   packageId,
@@ -29,17 +31,33 @@ export function EntityMarkControl({
   canEdit,
   size = 28,
   onUpdated,
+  save,
+  defaultLetter,
 }: {
   hint: EntityMarkHint;
-  packageId: string;
+  packageId?: string;
   token: string | null;
   canEdit: boolean;
   size?: number;
   onUpdated: (patch: { icon_key?: string; icon_github?: string }) => void;
+  /** Persist the icon patch; defaults to the package icon endpoint. */
+  save?: (body: IconSaveBody) => Promise<{
+    icon_key?: string;
+    icon_github?: string;
+  }>;
+  defaultLetter?: string;
 }) {
   const [open, setOpen] = useState(false);
   const [busy, setBusy] = useState(false);
   const mark = useMemo(() => resolveEntityMark(hint), [hint]);
+  const persist =
+    save ??
+    ((body: IconSaveBody) => {
+      if (!packageId) {
+        return Promise.reject(new Error("no icon target"));
+      }
+      return updatePackageIcon(packageId, body, token);
+    });
 
   if (!canEdit) {
     return <BrandMark mark={mark} size={size} />;
@@ -64,6 +82,7 @@ export function EntityMarkControl({
         open={open}
         current={draftFromHint(hint)}
         uploadedBy={hint.uploadedBy}
+        defaultLetter={defaultLetter}
         busy={busy}
         onCancel={() => {
           if (!busy) setOpen(false);
@@ -76,7 +95,7 @@ export function EntityMarkControl({
                 ? { icon_key: "", icon_github: draft.login }
                 : { icon_key: "", icon_github: "" };
           setBusy(true);
-          void updatePackageIcon(packageId, body, token)
+          void persist(body)
             .then((updated) => {
               onUpdated({
                 icon_key: updated.icon_key || "",
