@@ -24,8 +24,8 @@ import {
 type ModelScope = "explore" | "performance";
 
 const SCOPE_ITEMS = [
-  { id: "explore" as const, label: "Explore" },
-  { id: "performance" as const, label: "Has Performance" },
+  { id: "explore" as const, label: "Explore All" },
+  { id: "performance" as const, label: "With Performance" },
 ];
 
 function scopeFromSearch(params: URLSearchParams): ModelScope {
@@ -117,7 +117,7 @@ export function ModelsPage() {
       <div
         id="models-chrome"
         ref={chromeRef}
-        className="relative sticky top-0 z-20 flex flex-col -mx-4 -mt-5 bg-canvas px-4 pt-5 sm:-mx-6 sm:px-6"
+        className="relative sticky top-0 z-20 flex flex-col -mx-4 -mt-5 bg-canvas px-4 pt-0 sm:-mx-6 sm:px-6"
       >
         <div
           aria-hidden
@@ -131,7 +131,7 @@ export function ModelsPage() {
           onQuery={setQuery}
           searchLabel="Search models"
           searchPlaceholder="Search models…"
-          variant="group"
+          variant="select"
           className="mb-3"
         />
         <UnderlineTabs

@@ -289,197 +289,136 @@ export function InboxPage() {
   }
 
   return (
-    <div className="space-y-6">
+    <>
       <PageHead
         title="Inbox"
         sub="Pending listing and Performance requests you can decide."
       />
 
-      <div className="flex flex-wrap items-center gap-2">
-        <Input
-          value={query}
-          onChange={(event) => setQuery(event.target.value)}
-          placeholder="Search requests"
-          aria-label="Search requests"
-          className="h-8 min-w-0 flex-1 basis-56"
-        />
-        <Select value={kindFilter} onValueChange={setKindFilter}>
-          <SelectTrigger className="h-8 min-w-[8rem]" aria-label="Kind">
-            <SelectValue placeholder="Kind" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all" mono={false}>
-              All kinds
-            </SelectItem>
-            {kindOptions.map((kind) => (
-              <SelectItem key={kind} value={kind} mono={false}>
-                {kindLabel(kind)}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-        <Select value={datasetFilter} onValueChange={setDatasetFilter}>
-          <SelectTrigger className="h-8 min-w-[10rem]" aria-label="Dataset">
-            <SelectValue placeholder="Dataset" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all" mono={false}>
-              All datasets
-            </SelectItem>
-            {datasetOptions.map((datasetId) => (
-              <SelectItem key={datasetId} value={datasetId} mono={false}>
-                {datasetId}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-        <div className="ml-auto flex items-center gap-2">
-          <CanonicalSelect
-            value={approveCanonical}
-            onChange={setApproveCanonical}
-            hits={selectedProposed}
-            allowEmpty={!needsCanonical}
-            includePin
-            disabled={busy || noneSelected}
-            label="Canonical model"
+      <div className="space-y-6">
+        <div className="flex flex-wrap items-center gap-2">
+          <Input
+            value={query}
+            onChange={(event) => setQuery(event.target.value)}
+            placeholder="Search requests"
+            aria-label="Search requests"
+            className="min-w-0 flex-1 basis-56"
           />
-          <Button
-            type="button"
-            size="sm"
-            disabled={
-              busy ||
-              noneSelected ||
-              (needsCanonical && !approveCanonical.trim())
-            }
-            onClick={() => void decide("approve")}
-          >
-            Approve
-          </Button>
-          <Button
-            type="button"
-            size="sm"
-            variant="outline"
-            disabled={busy || noneSelected}
-            onClick={() => void decide("reject")}
-          >
-            Reject
-          </Button>
-        </div>
-      </div>
-
-      {loading ? (
-        <LoadingState label="Loading inbox" />
-      ) : pending.length === 0 ? (
-        <EmptyState
-          icon={Inbox}
-          glyph="inbox"
-          title="No pending requests"
-          caption="Listing and Performance requests show up here."
-          className={history.length > 0 ? "min-h-0 flex-none py-10" : undefined}
-        />
-      ) : (
-        <div className="blob-panel overflow-hidden">
-          <Table className="table-auto">
-            <TableHeader>
-              <TableRow>
-                <TableHead className="w-12 px-3 overflow-visible">
-                  <input
-                    type="checkbox"
-                    aria-label="Select all pending"
-                    checked={
-                      pendingIds.length > 0 &&
-                      pendingIds.every((id) => selected.has(id))
-                    }
-                    onChange={() => {
-                      setSelected((prev) =>
-                        prev.size === pendingIds.length ? new Set() : new Set(pendingIds),
-                      );
-                    }}
-                  />
-                </TableHead>
-                <TableHead>{pendingSort.head("kind", "Kind")}</TableHead>
-                <TableHead>{pendingSort.head("dataset", "Dataset")}</TableHead>
-                <TableHead>{pendingSort.head("suite", "Suite")}</TableHead>
-                <TableHead>
-                  {pendingSort.head("applicant", "Applicant")}
-                </TableHead>
-                <TableHead>{pendingSort.head("agent", "Agent")}</TableHead>
-                <TableHead>Model</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {pending.map((row) => (
-                <TableRow key={row.request_id}>
-                  <TableCell className="w-12 px-3 overflow-visible">
-                    <input
-                      type="checkbox"
-                      aria-label={`Select ${row.request_id}`}
-                      checked={selected.has(row.request_id)}
-                      onChange={() => toggle(row.request_id)}
-                    />
-                  </TableCell>
-                  <TableCell className="text-body">{kindLabel(row.kind)}</TableCell>
-                  <TableCell>
-                    <PeekCell label={row.dataset_id} onPeek={() => peekDataset(row)} />
-                  </TableCell>
-                  <TableCell>
-                    <PeekCell label={row.suite_run_id} onPeek={() => peekSuite(row)} />
-                  </TableCell>
-                  <TableCell>
-                    <PeekCell label={row.applicant} onPeek={() => peekApplicant(row)} />
-                  </TableCell>
-                  <TableCell>
-                    {row.agent_ref || "—"}
-                  </TableCell>
-                  <TableCell className="text-body">
-                    {row.canonical_model || "—"}
-                  </TableCell>
-                </TableRow>
+          <Select value={kindFilter} onValueChange={setKindFilter}>
+            <SelectTrigger className="h-8 min-w-[8rem]" aria-label="Kind">
+              <SelectValue placeholder="Kind" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all" mono={false}>
+                All kinds
+              </SelectItem>
+              {kindOptions.map((kind) => (
+                <SelectItem key={kind} value={kind} mono={false}>
+                  {kindLabel(kind)}
+                </SelectItem>
               ))}
-            </TableBody>
-          </Table>
-        </div>
-      )}
-
-      {history.length > 0 ? (
-        <div className="space-y-2">
-          <div className="flex items-center gap-2">
-            <h2 className="text-sm font-medium text-ink">History</h2>
+            </SelectContent>
+          </Select>
+          <Select value={datasetFilter} onValueChange={setDatasetFilter}>
+            <SelectTrigger className="h-8 min-w-[10rem]" aria-label="Dataset">
+              <SelectValue placeholder="Dataset" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all" mono={false}>
+                All datasets
+              </SelectItem>
+              {datasetOptions.map((datasetId) => (
+                <SelectItem key={datasetId} value={datasetId} mono={false}>
+                  {datasetId}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          <div className="ml-auto flex items-center gap-2">
+            <CanonicalSelect
+              value={approveCanonical}
+              onChange={setApproveCanonical}
+              hits={selectedProposed}
+              allowEmpty={!needsCanonical}
+              includePin
+              disabled={busy || noneSelected}
+              label="Canonical model"
+            />
             <Button
               type="button"
-              variant="ghost"
-              size="icon"
-              className="ml-auto h-8 w-8 text-mute"
-              aria-label="Hide processed requests from your inbox"
-              disabled={busy}
-              onClick={() => setConfirmHide(true)}
+              size="sm"
+              disabled={
+                busy ||
+                noneSelected ||
+                (needsCanonical && !approveCanonical.trim())
+              }
+              onClick={() => void decide("approve")}
             >
-              <Trash2 className="h-4 w-4" aria-hidden />
+              Approve
+            </Button>
+            <Button
+              type="button"
+              size="sm"
+              variant="outline"
+              disabled={busy || noneSelected}
+              onClick={() => void decide("reject")}
+            >
+              Reject
             </Button>
           </div>
+        </div>
+
+        {loading ? (
+          <LoadingState label="Loading inbox" />
+        ) : pending.length === 0 ? (
+          <EmptyState
+            icon={Inbox}
+            glyph="inbox"
+            title="No pending requests"
+            caption="Listing and Performance requests show up here."
+            className={history.length > 0 ? "min-h-0 flex-none py-10" : undefined}
+          />
+        ) : (
           <div className="blob-panel overflow-hidden">
             <Table className="table-auto">
               <TableHeader>
                 <TableRow>
-                  <TableHead>{historySort.head("status", "Status")}</TableHead>
-                  <TableHead>{historySort.head("kind", "Kind")}</TableHead>
-                  <TableHead>
-                    {historySort.head("dataset", "Dataset")}
+                  <TableHead className="w-12 px-3 overflow-visible">
+                    <input
+                      type="checkbox"
+                      aria-label="Select all pending"
+                      checked={
+                        pendingIds.length > 0 &&
+                        pendingIds.every((id) => selected.has(id))
+                      }
+                      onChange={() => {
+                        setSelected((prev) =>
+                          prev.size === pendingIds.length ? new Set() : new Set(pendingIds),
+                        );
+                      }}
+                    />
                   </TableHead>
-                  <TableHead>{historySort.head("suite", "Suite")}</TableHead>
+                  <TableHead>{pendingSort.head("kind", "Kind")}</TableHead>
+                  <TableHead>{pendingSort.head("dataset", "Dataset")}</TableHead>
+                  <TableHead>{pendingSort.head("suite", "Suite")}</TableHead>
                   <TableHead>
-                    {historySort.head("applicant", "Applicant")}
+                    {pendingSort.head("applicant", "Applicant")}
                   </TableHead>
-                  <TableHead>{historySort.head("agent", "Agent")}</TableHead>
-                  <TableHead>
-                    {historySort.head("decided", "Decided")}
-                  </TableHead>
+                  <TableHead>{pendingSort.head("agent", "Agent")}</TableHead>
+                  <TableHead>Model</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {history.map((row) => (
+                {pending.map((row) => (
                   <TableRow key={row.request_id}>
-                    <TableCell className="text-body">{row.status}</TableCell>
+                    <TableCell className="w-12 px-3 overflow-visible">
+                      <input
+                        type="checkbox"
+                        aria-label={`Select ${row.request_id}`}
+                        checked={selected.has(row.request_id)}
+                        onChange={() => toggle(row.request_id)}
+                      />
+                    </TableCell>
                     <TableCell className="text-body">{kindLabel(row.kind)}</TableCell>
                     <TableCell>
                       <PeekCell label={row.dataset_id} onPeek={() => peekDataset(row)} />
@@ -493,29 +432,92 @@ export function InboxPage() {
                     <TableCell>
                       {row.agent_ref || "—"}
                     </TableCell>
-                    <TableCell className="text-mute">
-                      {formatDate(row.decided_at ?? row.created_at)}
+                    <TableCell className="text-body">
+                      {row.canonical_model || "—"}
                     </TableCell>
                   </TableRow>
                 ))}
               </TableBody>
             </Table>
           </div>
-        </div>
-      ) : null}
+        )}
 
-      <ConfirmDialog
-        open={confirmHide}
-        title="Hide History"
-        description="Hide these processed requests from your inbox? Other owners still see them. Listing and attach are unchanged."
-        confirmLabel="Hide"
-        confirmVariant="default"
-        busy={busy}
-        onCancel={() => setConfirmHide(false)}
-        onConfirm={() => void hideHistory()}
-      />
+        {history.length > 0 ? (
+          <div className="space-y-2">
+            <div className="flex items-center gap-2">
+              <h2 className="text-sm font-medium text-ink">History</h2>
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon"
+                className="ml-auto h-8 w-8 text-mute"
+                aria-label="Hide processed requests from your inbox"
+                disabled={busy}
+                onClick={() => setConfirmHide(true)}
+              >
+                <Trash2 className="h-4 w-4" aria-hidden />
+              </Button>
+            </div>
+            <div className="blob-panel overflow-hidden">
+              <Table className="table-auto">
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>{historySort.head("status", "Status")}</TableHead>
+                    <TableHead>{historySort.head("kind", "Kind")}</TableHead>
+                    <TableHead>
+                      {historySort.head("dataset", "Dataset")}
+                    </TableHead>
+                    <TableHead>{historySort.head("suite", "Suite")}</TableHead>
+                    <TableHead>
+                      {historySort.head("applicant", "Applicant")}
+                    </TableHead>
+                    <TableHead>{historySort.head("agent", "Agent")}</TableHead>
+                    <TableHead>
+                      {historySort.head("decided", "Decided")}
+                    </TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {history.map((row) => (
+                    <TableRow key={row.request_id}>
+                      <TableCell className="text-body">{row.status}</TableCell>
+                      <TableCell className="text-body">{kindLabel(row.kind)}</TableCell>
+                      <TableCell>
+                        <PeekCell label={row.dataset_id} onPeek={() => peekDataset(row)} />
+                      </TableCell>
+                      <TableCell>
+                        <PeekCell label={row.suite_run_id} onPeek={() => peekSuite(row)} />
+                      </TableCell>
+                      <TableCell>
+                        <PeekCell label={row.applicant} onPeek={() => peekApplicant(row)} />
+                      </TableCell>
+                      <TableCell>
+                        {row.agent_ref || "—"}
+                      </TableCell>
+                      <TableCell className="text-mute">
+                        {formatDate(row.decided_at ?? row.created_at)}
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </div>
+          </div>
+        ) : null}
 
-      {peek ? <PeekHost peek={peek} onClose={closePeek} /> : null}
-    </div>
+        <ConfirmDialog
+          open={confirmHide}
+          title="Hide History"
+          description="Hide these processed requests from your inbox? Other owners still see them. Listing and attach are unchanged."
+          confirmLabel="Hide"
+          confirmVariant="default"
+          busy={busy}
+          onCancel={() => setConfirmHide(false)}
+          onConfirm={() => void hideHistory()}
+        />
+
+        {peek ? <PeekHost peek={peek} onClose={closePeek} /> : null}
+      </div>
+    </>
   );
 }

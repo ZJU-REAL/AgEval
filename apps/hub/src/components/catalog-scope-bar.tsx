@@ -2,6 +2,13 @@ import type { ReactNode } from "react";
 
 import { UnderlineTabs } from "@/components/underline-tabs";
 import { Input } from "@/components/ui/input";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { cn } from "@/lib/utils";
 
 export type CatalogScope = "orgs" | "explore" | "favorites";
@@ -75,8 +82,8 @@ export function CatalogScopeBar<T extends string>({
   searchPlaceholder: string;
   /** Trailing chrome on the search row. */
   end?: ReactNode;
-  /** tabs = UnderlineTabs row above the search; group = hairline button group right of the search. */
-  variant?: "tabs" | "group";
+  /** tabs = UnderlineTabs row above the search; group = hairline button group right of the search; select = Select right of the search. */
+  variant?: "tabs" | "group" | "select";
   className?: string;
 }) {
   if (variant === "group") {
@@ -113,6 +120,34 @@ export function CatalogScopeBar<T extends string>({
               </button>
             ))}
           </div>
+          {end ? <div className="ml-auto shrink-0">{end}</div> : null}
+        </div>
+      </div>
+    );
+  }
+  if (variant === "select") {
+    return (
+      <div className={cn("mb-4", className)}>
+        <div className="flex items-center gap-2">
+          <Input
+            value={query}
+            onChange={(e) => onQuery(e.target.value)}
+            placeholder={searchPlaceholder}
+            aria-label={searchLabel}
+            className="min-w-0 w-full max-w-sm"
+          />
+          <Select value={scope} onValueChange={(next) => onScope(next as T)}>
+            <SelectTrigger aria-label="Catalog scope" className="shrink-0">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {items.map((item) => (
+                <SelectItem key={item.id} value={item.id} mono={false}>
+                  {item.label}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
           {end ? <div className="ml-auto shrink-0">{end}</div> : null}
         </div>
       </div>
