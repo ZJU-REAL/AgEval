@@ -95,12 +95,12 @@ landing 的 oklch 系(`oklch(15.4% 0.018 264)` 底等)是本表的 oklch 等值�
 | 分段 tab | `UnderlineTabs`:sans `text-sm` + Liquid Move thumb(fill `canvas-soft-2`)。一页一条。不要再画 IKB `border-b-2` 底条。Models plaza 模态过滤是记录例外：搜索栏下第二条 `UnderlineTabs`（All / Text / Image / Video / Transcription / Speech）。选中/hover 只给图标上色，走现有 `nav-*`（text=`nav-models`，image=`nav-agents`，video=`nav-inbox`，transcription=`nav-datasets`，speech=`nav-plugins`），标签走 `body`，不要新 hex 族；thumb 仍是 `canvas-soft-2`。行名右侧可叠多枚徽章（纯 text 才出 text 标）；次底用该色与 canvas 的 `color-mix`，禁止 `/15` 透明度拼色 |
 | 紧凑 pill | `PillTabs`:同上,11px。只用于面板内紧凑分段。同页再出现互斥选择用 `Select` |
 | 按钮组 | 并列选项收进**一个** hairline 容器(8px 圆角)。选中 `canvas-soft-2` + `ink`,hover `canvas-soft`。字号 `body-sm`。不要 IKB 填充 |
-| Chip | 散开的标签用 `Chip`:8px、hairline、选中 `canvas-soft-2`、hover `canvas-soft`。不要 `bg-link/10`。**不要**用 Chip 做模型浏览（harness 目录与 `/models` 走 lab 分组 dense 行） |
+| Chip | 散开的标签用 `Chip`:8px、hairline、选中 `canvas-soft-2`、hover `canvas-soft`。不要 `bg-link/10`。**不要**用 Chip 做模型浏览（`/models` 是 lab 分组表；harness Model 区是 `ModelItem`） |
 | 扫描字段 | 搜索是 stadium,焦点描边保持 `hairline`。不要给新搜索叠 `border-link` |
 | Toast | 底中 Overshoot 进场;只用于没有本地成功态的写操作。Copy / star 等控件自身已有反馈的不要再 toast。实色 `*-soft` 次底 + `--viewer-shadow-pop`,无描边、无第三方面包。图标走对应功能色,正文走 `body` |
 | Select / 下拉 | `Select` / `DropdownMenu` 用 `data-ageval-menu` 进场(220ms smooth, 随 `data-side` 上下),触发器 chevron 旋转 + squish;选项 `data-highlighted` 色过渡,选中勾 `ease-spring` pop。触发器焦点走扫描字段,不是 IKB 描边 |
 | Floating Label | 编辑字段:placeholder 在 focus 或有值时抬成 label;焦点描边走 `link` |
-| Catalog 卡 | 市场实体(plugin / agent)用 `CatalogCard`:14px、四面 hairline + pop 阴影、hover `canvas-soft`、按下 `squish`(0.96)。描述三行。宽屏三列(`xl:grid-cols-3`)。卡上不画 slot / binding tag。star 在卡上是计数不是写入口;写收藏不是卡上的控件,填实用 `star` 金。first-party overlay 走短 id + lucide builtin 标(`link`),不要冒充 OfficialMark。可比行(dataset / jobs / leaderboard / members / 模型 Appearances)用表。模型百科**不是**市场包:按 lab 分组的 dense 行,不要复用 `CatalogCard` |
+| Catalog 卡 | 市场实体(plugin / agent)用 `CatalogCard`:14px、四面 hairline + pop 阴影、hover `canvas-soft`、按下 `squish`(0.96)。描述三行。宽屏三列(`xl:grid-cols-3`)。卡上不画 slot / binding tag。star 在卡上是计数不是写入口;写收藏不是卡上的控件,填实用 `star` 金。first-party overlay 走短 id + lucide builtin 标(`link`),不要冒充 OfficialMark。可比行(dataset / jobs / leaderboard / members / 模型 Appearances)用表。模型百科**不是**市场包:按 lab 分组的表,不要复用 `CatalogCard` |
 | 表 | hairline 表。表头底 `canvas-soft`，表身 `canvas`。列名 `text-sm` / `mute`。不要 zinc 灰表头，也不要表头表身同色 |
 | 页头(PageHead) | h1 + 可选 sub + hairline(无编号 kicker) |
 | 相位/耗时图谱 | `--viewer-phase-1..6` 用 ink / body / mute / hairline 冷灰阶。执行段 `--viewer-phase-1` 为 ink 与 mute 的 `color-mix`（约 55% ink），不用实心 ink，也不用 IKB。IKB 留给链接 / 焦点 / 主 CTA。禁 zinc 等外部灰阶 |

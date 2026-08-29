@@ -361,18 +361,12 @@ export function AgentDetailPage() {
     const pin = loadModelPin();
     return shownModels.map((model) => {
       const related = performances.filter((row) => (row.model || "").trim() === model);
-      const rates = related
-        .map((row) => row.pass_rate)
-        .filter((n): n is number => n != null);
       const stored = related.map((row) => performanceCanonical(row)).find(Boolean);
       return {
         overlay: model,
         canonical: stored || joinOverlay(model, pin).canonical,
         selected: model === selectedModel,
         isDefault: model === defaultModel,
-        suiteCount: new Set(related.map((row) => row.suite_run_id)).size,
-        passRate:
-          rates.length > 0 ? rates.reduce((a, b) => a + b, 0) / rates.length : null,
         href: agentHref({
           model: model === selectedModel ? null : model,
         }),
@@ -690,7 +684,7 @@ export function AgentDetailPage() {
                 No models match “{modelQuery.trim()}”.
               </p>
             ) : (
-              <ModelDirectory linkCanonical rows={directoryRows} />
+              <ModelDirectory rows={directoryRows} />
             )}
           </section>
 
