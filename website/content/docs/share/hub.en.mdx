@@ -24,6 +24,7 @@ Hub (`apps/hub`) is the web UI on top of Registry—browse shared packages and r
 - Signed-in **Home**: jobs you uploaded, orgs, datasets/tasks you can maintain, plugins and agents you uploaded (same official mark and title as the marketplace). Signed-out visitors go to sign-in. No publish / upload / release buttons  
 - List search sits with the scope tabs; file-tree pane height is stable; trajectory tool-call rows collapse; steps follow sealed file order; a step shows duration only when `elapsed_ms` is on the sealed row  
 
+- **Models plaza**: the sidebar **Models** is a model directory grouped by lab (one hairline table per lab: Model / Released / Context / Output / Price per MTok, sortable headers). Data comes from a models.dev snapshot pinned per Hub release; prices are directory prices, not bills and not PASS. Modality tabs (Text / Image / Video / PDF / Transcription / Speech) filter the tables; Cmd/Ctrl+F opens a search palette, Enter opens the encyclopedia. A row name opens `/models/{canonical}`: an Overview spec table plus Performance (the HF mark shows only when the pin has a Hugging Face weights URL). Leaderboard / Share Attach model buckets join to canonical (longest unique; unmatched keeps the overlay text).
 - Agent detail: published package (binding + files, including bundled `overlays/`) plus **Performance** (mechanism cards default-collect official plaza; a Maintainer can turn collection off or include non-official orgs; custom cards still need consented `agent_ref`). Suites run with `--profiles` only stay on the Dataset Leaderboard until attached.
 - **Inbox**: Dataset org owners, Agent org owners, and platform Maintainers batch-approve or reject pending listing and Performance requests. Org join stays invite keys. Kind / Dataset filters; History can hide processed rows for the current user.
 
@@ -55,6 +56,8 @@ Or `docker compose -f services/registry/docker-compose.yml up -d` for Hub at `ht
 | `/agents` | Agent catalog (builtin mechanism cards, then uploads) |
 | `/inbox` | Pending listing and Performance requests the caller can decide |
 | `/agents/:id` | Binding, files, registered models, Performance |
+| `/models` | Models plaza (lab-grouped directory tables · modality filter · Cmd/Ctrl+F search) |
+| `/models/:canonical` | Model encyclopedia (Overview spec · Performance) |
 | `/organizations` | Your orgs · Create / Join · dataset / plugin / agent counts |
 | `/organizations/:orgId` | Overview (members · datasets · plugins · agents) · Settings |
 | `/users/:login` | Public user profile (official orgs and public datasets / plugins / agents; signed-out OK) |
