@@ -6,6 +6,7 @@ import { CatalogHead } from "@/components/page-head";
 import { ListPager } from "@/components/list-pager";
 import { UnderlineTabs } from "@/components/underline-tabs";
 import { CommandStrip } from "@/components/command-strip";
+import { DescriptionEditor } from "@/components/description-editor";
 import { DisplayNameEditor } from "@/components/display-name-editor";
 import { FileSplitPanel } from "@/components/file-split-panel";
 import {
@@ -52,6 +53,7 @@ import {
   isDraftRelease,
   pickPackageVersion,
   splitPackageId,
+  updatePackageDescription,
   updatePackageDisplayName,
   versionLabel,
   TASK_PAGE_SIZE,
@@ -588,6 +590,26 @@ export function DatasetDetailPage() {
                 {release.package_digest.slice(0, 19)}…
               </span>
             </p>
+          ) : null}
+          {release ? (
+            <div className="mt-3">
+              <DescriptionEditor
+                value={release.description || ""}
+                canEdit={Boolean(token && canEditName)}
+                maxLength={500}
+                emptyLabel=""
+                onSave={async (next) => {
+                  const updated = await updatePackageDescription(
+                    datasetId,
+                    next,
+                    token,
+                  );
+                  setRelease((prev) =>
+                    prev ? { ...prev, description: updated.description } : prev,
+                  );
+                }}
+              />
+            </div>
           ) : null}
         </div>
         <div className="flex flex-wrap items-center justify-end gap-2">
