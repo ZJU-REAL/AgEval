@@ -1,11 +1,11 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 
+import { BrandMark } from "@/components/brand-mark";
 import {
   GroupedTables,
   type GroupedTableGroup,
 } from "@/components/grouped-tables";
-import { LetterMark } from "@/components/lab-mark";
 import { OfficialMark } from "@/components/official-mark";
 import {
   SortableHead,
@@ -19,6 +19,7 @@ import {
   TableHead,
   TableRow,
 } from "@/components/ui/table";
+import { resolveEntityMark } from "@/lib/brand-marks";
 import {
   encodeDatasetId,
   splitPackageId,
@@ -59,19 +60,24 @@ const STICKY_TH =
 function DatasetOrgHead({
   orgId,
   name,
-  description,
+  info,
   official,
   count,
 }: {
   orgId: string;
   name: string;
-  description?: string;
-  official?: boolean;
+  info?: OrgRow;
+  official: boolean;
   count: number;
 }) {
+  const mark = resolveEntityMark({
+    iconKey: info?.icon_key,
+    iconGithub: info?.icon_github,
+    displayName: name,
+  });
   return (
     <div className="flex items-center gap-2">
-      <LetterMark letter={name.slice(0, 1).toUpperCase()} size={22} title={name} />
+      <BrandMark mark={mark} size={22} title={name} />
       <h3 className="text-base font-semibold text-ink">
         {orgId ? (
           <Link
@@ -85,9 +91,9 @@ function DatasetOrgHead({
         )}
       </h3>
       {orgId && official ? <OfficialMark kind="org" /> : null}
-      {description ? (
+      {info?.description ? (
         <span className="hidden min-w-0 flex-1 truncate text-sm text-mute sm:block">
-          {description}
+          {info.description}
         </span>
       ) : null}
       <span className="ml-auto text-xs text-mute tabular-nums">{count}</span>
@@ -154,9 +160,15 @@ export function DatasetOrgTables({
     list.push(row);
     byOrg.set(org, list);
   }
-  const orgIds = [...byOrg.keys()].sort((a, b) =>
-    (a ? orgName(a) : "Unmatched").localeCompare(b ? orgName(b) : "Unmatched"),
-  );
+  const orgIds = [...byOrg.keys()].sort((a, b) => {
+    const officialOf = (orgId: string) =>
+      orgs.get(orgId)?.official ||
+      (byOrg.get(orgId) ?? []).some((row) => row.official) ||
+      false;
+    const byOfficial = (officialOf(a) ? 0 : 1) - (officialOf(b) ? 0 : 1);
+    if (byOfficial !== 0) return byOfficial;
+    return (a ? orgName(a) : "Unmatched").localeCompare(b ? orgName(b) : "Unmatched");
+  });
 
   const colgroup = showUpdated ? COLS_4 : COLS_3;
 
@@ -165,6 +177,7 @@ export function DatasetOrgTables({
     const sorted = sortRows(items, sortKey, sortDir, sortValue, fallback);
     const name = orgId ? orgName(orgId) : "Unmatched";
     const info = orgId ? orgs.get(orgId) : undefined;
+    const official = info?.official || items.some((row) => row.official) || false;
     return {
       id: orgId || "unmatched",
       count: sorted.length,
@@ -172,8 +185,8 @@ export function DatasetOrgTables({
         <DatasetOrgHead
           orgId={orgId}
           name={name}
-          description={info?.description}
-          official={info?.official}
+          info={info}
+          official={official}
           count={count}
         />
       ),
