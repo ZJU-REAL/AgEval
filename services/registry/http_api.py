@@ -640,9 +640,7 @@ class RegistryHttpApi:
         agent_raw = body.get("agent")
         agent = str(agent_raw).strip() if isinstance(agent_raw, str) else None
         canonical_raw = body.get("canonical_model")
-        canonical_model = (
-            str(canonical_raw).strip() if isinstance(canonical_raw, str) else None
-        )
+        canonical_model = str(canonical_raw).strip() if isinstance(canonical_raw, str) else None
         try:
             payload = self.state.requests.apply(
                 kind=kind,
@@ -673,9 +671,7 @@ class RegistryHttpApi:
             return json_result(400, {"error": "invalid_request", "message": "ids required"})
         action = str(body.get("action") or "").strip()
         canonical_raw = body.get("canonical_model")
-        canonical_model = (
-            str(canonical_raw).strip() if isinstance(canonical_raw, str) else None
-        )
+        canonical_model = str(canonical_raw).strip() if isinstance(canonical_raw, str) else None
         try:
             payload = self.state.requests.decide(
                 request_ids=[str(i) for i in ids],
@@ -821,7 +817,11 @@ class RegistryHttpApi:
         body = self._read_json_body()
         if isinstance(body, HttpResult):
             return body
-        unknown = [key for key in body if key not in {"display_name", "description"}]
+        unknown = [
+            key
+            for key in body
+            if key not in {"display_name", "description", "icon_key", "icon_github"}
+        ]
         if unknown:
             return json_result(400, {"error": "invalid_request", "message": "unknown keys"})
         try:
@@ -829,6 +829,8 @@ class RegistryHttpApi:
                 org_id=org_id,
                 display_name=body["display_name"] if "display_name" in body else None,  # noqa: SIM401
                 description=body["description"] if "description" in body else None,  # noqa: SIM401
+                icon_key=body.get("icon_key"),
+                icon_github=body.get("icon_github"),
                 auth=auth,
             )
         except RegistryAppError as exc:

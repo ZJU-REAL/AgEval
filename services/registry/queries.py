@@ -95,11 +95,18 @@ VALUES (?, ?, 'owner', ?)
 
 SELECT_ORG = "SELECT * FROM organizations WHERE org_id=?"
 
-UPDATE_ORG_DISPLAY_NAME = "UPDATE organizations SET display_name=? WHERE org_id=?"
-UPDATE_ORG_DESCRIPTION = "UPDATE organizations SET description=? WHERE org_id=?"
-UPDATE_ORG_DISPLAY_AND_DESCRIPTION = (
-    "UPDATE organizations SET display_name=?, description=? WHERE org_id=?"
-)
+
+def update_org_query(*, display_name: bool, description: bool, icons: bool) -> str:
+    sets: list[str] = []
+    if display_name:
+        sets.append("display_name=?")
+    if description:
+        sets.append("description=?")
+    if icons:
+        sets.append("icon_key=?")
+        sets.append("icon_github=?")
+    return f"UPDATE organizations SET {', '.join(sets)} WHERE org_id=?"
+
 
 UPSERT_PACKAGE_TASK_SUMMARY = """
 INSERT INTO package_task_summaries(
@@ -235,6 +242,8 @@ SCHEMA_STATEMENTS: tuple[str, ...] = (
         name TEXT NOT NULL UNIQUE,
         display_name TEXT NOT NULL DEFAULT '',
         description TEXT NOT NULL DEFAULT '',
+        icon_key TEXT NOT NULL DEFAULT '',
+        icon_github TEXT NOT NULL DEFAULT '',
         is_claimable INTEGER NOT NULL DEFAULT 0,
         created_at REAL NOT NULL
     )
@@ -489,6 +498,8 @@ SCHEMA_MIGRATIONS: tuple[tuple[str, str, str], ...] = (
     ("user_profiles", "description", "TEXT NOT NULL DEFAULT ''"),
     ("package_task_summaries", "overlay_prefixes_json", "TEXT"),
     ("package_task_summaries", "description", "TEXT NOT NULL DEFAULT ''"),
+    ("organizations", "icon_key", "TEXT NOT NULL DEFAULT ''"),
+    ("organizations", "icon_github", "TEXT NOT NULL DEFAULT ''"),
     ("resource_requests", "canonical_model", "TEXT NOT NULL DEFAULT ''"),
 )
 

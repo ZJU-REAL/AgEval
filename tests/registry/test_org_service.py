@@ -60,6 +60,32 @@ def test_create_and_patch_org_description(tmp_path: Path) -> None:
     assert named["description"] == "Updated bio"
 
 
+def test_patch_org_icon_key_and_github(tmp_path: Path) -> None:
+    svc = _orgs(tmp_path)
+    svc.create(
+        name="acme",
+        display_name="Acme",
+        is_claimable=False,
+        auth=_user(),
+    )
+    keyed = svc.patch(org_id="acme", icon_key="openai", auth=_user())
+    assert keyed["icon_key"] == "openai"
+    assert "icon_github" not in keyed
+    linked = svc.patch(
+        org_id="acme",
+        icon_github="https://github.com/octocat",
+        auth=_user(),
+    )
+    assert linked["icon_github"] == "octocat"
+    assert linked["icon_key"] == "openai"
+    cleared = svc.patch(org_id="acme", icon_key="", icon_github="", auth=_user())
+    assert "icon_key" not in cleared
+    assert "icon_github" not in cleared
+    with pytest.raises(RegistryAppError) as ei:
+        svc.patch(org_id="acme", icon_key="not-a-brand", auth=_user())
+    assert ei.value.error == "invalid_request"
+
+
 def test_list_members_visible_to_member(tmp_path: Path) -> None:
     svc = _orgs(tmp_path)
     svc.meta.create_org(name="acme", owner_user_id="alice", display_name="Acme")

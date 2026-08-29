@@ -160,6 +160,8 @@ class OrgRow:
     description: str
     is_claimable: bool
     created_at: float
+    icon_key: str = ""
+    icon_github: str = ""
 
 
 @dataclass(frozen=True, slots=True)
@@ -1528,20 +1530,31 @@ class MetadataStore(MetadataStoreProtocol):
         *,
         display_name: str | None = None,
         description: str | None = None,
+        icon_key: str | None = None,
+        icon_github: str | None = None,
     ) -> OrgRow:
-        if display_name is None and description is None:
+        has_name = display_name is not None
+        has_desc = description is not None
+        has_icons = icon_key is not None or icon_github is not None
+        if not (has_name or has_desc or has_icons):
             raise ValueError("nothing to update")
+        params: list[str] = []
+        if has_name:
+            params.append(display_name or "")
+        if has_desc:
+            params.append(description or "")
+        if has_icons:
+            params.append(icon_key or "")
+            params.append(icon_github or "")
+        params.append(org_id)
         with self._connect() as conn:
-            if display_name is not None and description is not None:
-                cur = self._exec(
-                    conn,
-                    Q.UPDATE_ORG_DISPLAY_AND_DESCRIPTION,
-                    (display_name, description, org_id),
-                )
-            elif display_name is not None:
-                cur = self._exec(conn, Q.UPDATE_ORG_DISPLAY_NAME, (display_name, org_id))
-            else:
-                cur = self._exec(conn, Q.UPDATE_ORG_DESCRIPTION, (description, org_id))
+            cur = self._exec(
+                conn,
+                Q.update_org_query(
+                    display_name=has_name, description=has_desc, icons=has_icons
+                ),
+                tuple(params),
+            )
             if getattr(cur, "rowcount", 1) == 0:
                 raise LookupError("org not found")
             conn.commit()
@@ -2123,6 +2136,7 @@ class MetadataStore(MetadataStoreProtocol):
 
     @staticmethod
     def _org_row(r: sqlite3.Row) -> OrgRow:
+        keys = r.keys()
         return OrgRow(
             org_id=str(r["org_id"]),
             name=str(r["name"]),
@@ -2130,6 +2144,8 @@ class MetadataStore(MetadataStoreProtocol):
             description=str(r["description"] or ""),
             is_claimable=bool(int(r["is_claimable"])),
             created_at=float(r["created_at"]),
+            icon_key=str(r["icon_key"]) if "icon_key" in keys else "",
+            icon_github=str(r["icon_github"]) if "icon_github" in keys else "",
         )
 
     def upsert_user_profile(
@@ -2366,7 +2382,7 @@ def attempt_to_dict(row: AttemptResultRow) -> dict[str, Any]:
 def org_to_dict(row: OrgRow) -> dict[str, Any]:
     from services.registry.official import is_official_upload_org
 
-    return {
+    out: dict[str, Any] = {
         "org_id": row.org_id,
         "name": row.name,
         "display_name": row.display_name,
@@ -2375,6 +2391,11 @@ def org_to_dict(row: OrgRow) -> dict[str, Any]:
         "created_at": row.created_at,
         "official": is_official_upload_org(row.org_id),
     }
+    if row.icon_key:
+        out["icon_key"] = row.icon_key
+    if row.icon_github:
+        out["icon_github"] = row.icon_github
+    return out
 
 
 def membership_to_dict(

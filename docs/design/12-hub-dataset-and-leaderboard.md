@@ -20,6 +20,8 @@ Inbox：Registry 一等 request 行（`pending` / `approved` / `rejected`）。�
 
 组织：`display_name` 与可选 `description`。owner `PATCH /v1/orgs/{id}` 可改其中任一；创建时可带 `description`。
 
+组织图标与 plugin / agent 同一套闭包标：owner `PATCH /v1/orgs/{id}` 可带 `icon_key` / `icon_github`（校验与清除语义同包；无 uploader 兜底，默认回字母标）。列表与详情的 org 行都带这两个字段；Hub 组织详情页标题旁用与包详情同一套 Choose icon modal，datasets 首页组头、组织列表等展示处按 icon_key → icon_github → 字母标解析。
+
 未知键拒绝。空 description 表示清除。
 
 ## 市场下载量

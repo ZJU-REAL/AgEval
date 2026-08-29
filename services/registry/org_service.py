@@ -8,6 +8,7 @@ import secrets
 from typing import Any
 
 from services.registry.access import AccessPolicy
+from services.registry.brand_marks import normalize_icon_github, normalize_icon_key
 from services.registry.errors import RegistryAppError
 from services.registry.official import is_official_upload_org
 from services.registry.store import (
@@ -136,13 +137,22 @@ class OrgService:
         auth: TokenInfo,
         display_name: object = None,
         description: object = None,
+        icon_key: object = None,
+        icon_github: object = None,
     ) -> dict[str, Any]:
         org_id = org_id.casefold()
         self._require_owner(org_id, auth)
-        if display_name is None and description is None:
+        has_icon_key = icon_key is not None
+        has_icon_github = icon_github is not None
+        if (
+            display_name is None
+            and description is None
+            and not has_icon_key
+            and not has_icon_github
+        ):
             raise RegistryAppError(
                 "invalid_request",
-                "display_name or description required",
+                "display_name or description or icon required",
                 http_status=400,
             )
         name = None if display_name is None else _normalize_display_name(display_name)
@@ -151,8 +161,24 @@ class OrgService:
             if description is None
             else normalize_description(description, max_len=_DESCRIPTION_MAX)
         )
+        next_key: str | None = None
+        next_github: str | None = None
+        if has_icon_key or has_icon_github:
+            current = self.meta.get_org(org_id)
+            if current is None:
+                raise RegistryAppError("not_found", "org not found", http_status=404)
+            key = normalize_icon_key(icon_key) if has_icon_key else current.icon_key
+            github = normalize_icon_github(icon_github) if has_icon_github else current.icon_github
+            next_key = key or ""
+            next_github = github or ""
         try:
-            org = self.meta.update_org(org_id, display_name=name, description=desc)
+            org = self.meta.update_org(
+                org_id,
+                display_name=name,
+                description=desc,
+                icon_key=next_key,
+                icon_github=next_github,
+            )
         except LookupError as exc:
             raise RegistryAppError("not_found", "org not found", http_status=404) from exc
         payload = org_to_dict(org)
