@@ -20,7 +20,9 @@ import {
 } from "@/components/ui/table";
 import { encodeDatasetId } from "@/lib/api";
 import {
+  compactTokens,
   directoryPrice,
+  fmtPrice,
   loadModelPin,
   modalityBadges,
   modelModalities,
@@ -46,22 +48,6 @@ const COLS = (
 );
 
 const STICKY_TH = "sticky z-10 bg-canvas-soft top-[var(--models-stick-top,0px)]";
-
-function compactTokens(n: number): string {
-  if (n >= 1_000_000) {
-    const m = n / 1_000_000;
-    return `${Number.isInteger(m) ? m : m.toFixed(1)}M`;
-  }
-  if (n >= 1_000) {
-    const k = n / 1_000;
-    return `${Number.isInteger(k) ? k : k.toFixed(0)}K`;
-  }
-  return String(n);
-}
-
-function fmtPrice(n: number): string {
-  return n.toLocaleString("en-US", { maximumFractionDigits: 2 });
-}
 
 export function ModelLabTables({ rows }: { rows: ModelLabRow[] }) {
   const pin = loadModelPin();

@@ -6,6 +6,7 @@ export {
 } from "./join";
 export { LAB_INFO } from "./lab-info";
 export { LAB_BRAND_MARK } from "./lab-marks";
+export { compactTokens, fmtPrice } from "./format";
 export {
   formatModalities,
   matchesModalityTab,

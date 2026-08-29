@@ -6,6 +6,7 @@ import { CatalogScopeBar } from "@/components/catalog-scope-bar";
 import { EmptyState, LoadingState } from "@/components/empty-state";
 import { MODALITY_TAB_META } from "@/components/modality-mark";
 import { ModelLabTables, type ModelLabRow } from "@/components/model-lab-tables";
+import { ModelSearchModal } from "@/components/model-search-modal";
 import { PageHead } from "@/components/page-head";
 import { UnderlineTabs } from "@/components/underline-tabs";
 import { getToken } from "@/lib/auth";
@@ -37,10 +38,22 @@ export function ModelsPage() {
   const scope = scopeFromSearch(searchParams);
   const modality = modalityTabFromSearch(searchParams.get("mod"));
   const [query, setQuery] = useState("");
+  const [searchOpen, setSearchOpen] = useState(false);
   const token = getToken();
   const pin = loadModelPin();
   const [perfCanonicals, setPerfCanonicals] = useState<Set<string> | null>(null);
   const [loadingPerf, setLoadingPerf] = useState(false);
+
+  useEffect(() => {
+    function onKey(event: KeyboardEvent) {
+      if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === "f") {
+        event.preventDefault();
+        setSearchOpen(true);
+      }
+    }
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, []);
 
   function writeFilters(nextScope: ModelScope, nextMod: ModalityTab) {
     const next: Record<string, string> = {};
@@ -184,6 +197,7 @@ export function ModelsPage() {
           </p>
         </>
       )}
+      <ModelSearchModal open={searchOpen} onClose={() => setSearchOpen(false)} />
     </>
   );
 }
