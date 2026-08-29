@@ -68,8 +68,9 @@ If they disagree, fix the copies to match docs/13 + the script.
   vacant band for a single control. Layout: SPA DESIGN.md **Composition**.
 - List / table row text (non-numeric): always default sans. Mono only for
   `<code>` / `<pre>` / command strips, and numeric `tabular-nums` alignment.
-- Plugin / agent marketplace lists are `CatalogCard` grids. Datasets, jobs,
-  leaderboard, and members are hairline tables. Do not put slot/binding tags
+- Plugin / agent marketplace lists are `CatalogCard` grids. Datasets are
+  org-grouped hairline tables; jobs, leaderboard, and members are flat
+  hairline tables. Do not put slot/binding tags
   on cards.
 - Motion is CSS only on hub/viewer, plus two named exceptions in docs/13:
   `ThinkingLogo` canvas and `liquid-gooey` Move (tabs / Hub sidebar). Default

@@ -39,9 +39,10 @@ Same family as Viewer. Role → component map: [DESIGN.md](./DESIGN.md).
    `formatDay` / `formatDate`. `run_id`, sha256, and other identity strings
    stay in the breadcrumb / mono heading, not in the list text.
 5. **Catalog cards for plugins and agents.** Marketplace packages use
-   `CatalogCard` / `CatalogCardGrid`. Datasets, jobs, leaderboard, members,
-   suites, and model Performance stay hairline tables. Model encyclopedia
-   is lab-grouped tables. Harness Model region is a flat `ModelItem` list
+   `CatalogCard` / `CatalogCardGrid`. Datasets are org-grouped hairline
+   tables (`DatasetOrgTables`); jobs, leaderboard, members, suites, and
+   model Performance stay flat hairline tables. Model encyclopedia
+   is lab-grouped tables (`ModelLabTables`). Harness Model region is a flat `ModelItem` list
    (no lab/provider grouping) — not cards, not wrapping `Chip`.
 6. **One language per job.** Section switchers use `UnderlineTabs`.
    Compact in-panel segments use `PillTabs`. A second exclusive choice

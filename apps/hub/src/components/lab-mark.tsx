@@ -5,7 +5,7 @@ import { BRAND_MARK_BY_ID } from "@/lib/brand-marks";
 import { LAB_BRAND_MARK, labLogoSrc, loadModelPin } from "@/lib/model-pin";
 import { cn } from "@/lib/utils";
 
-function LetterMark({
+export function LetterMark({
   letter,
   size,
   className,

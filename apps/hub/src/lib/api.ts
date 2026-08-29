@@ -47,6 +47,8 @@ export type PackageRelease = {
   size: number;
   /** Dataset member task count from the package task summary. */
   task_count?: number;
+  /** Dataset root manifest description (`ageval.dataset/1` /description). */
+  description?: string;
   media_type?: string;
   /** Registry package_kind: dataset | plugin | agent. */
   package_kind?: "dataset" | "plugin" | "agent" | string;
@@ -947,6 +949,18 @@ export async function updatePackageDisplayName(
     token,
     method: "PATCH",
     body: { display_name: displayName },
+  });
+}
+
+export async function updatePackageDescription(
+  packageId: string,
+  description: string,
+  token: string | null,
+): Promise<PackageRelease> {
+  return requestJson(`/v1/packages/${packageIdPath(packageId)}`, {
+    token,
+    method: "PATCH",
+    body: { description },
   });
 }
 
