@@ -20,11 +20,11 @@ SPA 实现对照的**常量清单**在 `apps/viewer/DESIGN.md` 文首 YAML(Hub �
 
 | 令牌 | 浅色 | 深色 | 用途 | hub/viewer(`--viewer-*`) | docs(`--color-fd-*`) |
 | --- | --- | --- | --- | --- | --- |
-| canvas | `#F4F5F8` | `#11141C` | 页面底色 | `canvas` | `background` |
-| canvas-soft | `#EEEFF4` | `#161A24` | 卡片 / 悬浮面 / 行 hover | `canvas-soft`、`row-hover` | `muted`(`fd-card` 为本地近似) |
-| canvas-soft-2 | `#E4E7F0` | `#222738` | 强填充 / 次级底 | `canvas-soft-2` | `secondary` |
-| hairline | `#D5D8E2` | `#2A2F3E` | 分隔线 / ring | `hairline` | `border` |
-| hairline-strong | `#9AA0B4` | `#52586A` | 强分隔 / 相位图中阶 | `hairline-strong` | — |
+| canvas | `#F1F3F5` | `#1B1E26` | 页面底色 | `canvas` | `background` |
+| canvas-soft | `#E9EBED` | `#20242D` | 卡片 / 悬浮面 / 行 hover | `canvas-soft`、`row-hover` | `muted`(`fd-card` 为本地近似) |
+| canvas-soft-2 | `#E1E5ED` | `#2B3041` | 强填充 / 次级底 | `canvas-soft-2` | `secondary` |
+| hairline | `#D2D6DF` | `#343948` | 分隔线 / ring | `hairline` | `border` |
+| hairline-strong | `#979EB1` | `#5C6274` | 强分隔 / 相位图中阶 | `hairline-strong` | — |
 | ink | `#14161F` | `#EEF0F6` | 标题 / 强文字 | `ink` | `foreground` |
 | body | `#4A4E5C` | `#9AA0B4` | 正文 | `body` | `muted-foreground` |
 | mute | `#5E6376` | `#8A90A4` | 次要文字 / 图标 | `mute` | — |
@@ -43,7 +43,7 @@ SPA 实现对照的**常量清单**在 `apps/viewer/DESIGN.md` 文首 YAML(Hub �
 | nav-models | `#5A6B38` | `#B4C47A` | Hub Models 侧栏 lucide,**仅字形** | `nav-models` | — |
 | nav-inbox | `#B34A3C` | `#E08A7A` | Hub Inbox 侧栏 lucide,**仅字形** | `nav-inbox` | — |
 | nav-orgs | `#3E5F7A` | `#8AA8C0` | Hub Organizations 侧栏 lucide,**仅字形** | `nav-orgs` | — |
-| code-bg | `#F4F5F8` | `#0C0E14` | 代码底 | `code-bg` | — |
+| code-bg | `#F1F3F5` | `#16181E` | 代码底 | `code-bg` | — |
 | accent(landing) | `#5B7BFF`(亮)/ `#002FA7`(深) | 同左 | landing `--accent` / `--accent-deep` | — | — |
 
 landing 的 oklch 系(`oklch(15.4% 0.018 264)` 底等)是本表的 oklch 等值表达,视为同一令牌;

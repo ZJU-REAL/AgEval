@@ -23,11 +23,11 @@ SPA_SKIP = {"accent"}  # landing-only; not in Hub/Viewer YAML
 
 # token -> (light, dark)
 CANONICAL: dict[str, tuple[str, str]] = {
-    "canvas": ("#F4F5F8", "#11141C"),
-    "canvas-soft": ("#EEEFF4", "#161A24"),
-    "canvas-soft-2": ("#E4E7F0", "#222738"),
-    "hairline": ("#D5D8E2", "#2A2F3E"),
-    "hairline-strong": ("#9AA0B4", "#52586A"),
+    "canvas": ("#F1F3F5", "#1B1E26"),
+    "canvas-soft": ("#E9EBED", "#20242D"),
+    "canvas-soft-2": ("#E1E5ED", "#2B3041"),
+    "hairline": ("#D2D6DF", "#343948"),
+    "hairline-strong": ("#979EB1", "#5C6274"),
     "ink": ("#14161F", "#EEF0F6"),
     "body": ("#4A4E5C", "#9AA0B4"),
     "mute": ("#5E6376", "#8A90A4"),
@@ -46,7 +46,7 @@ CANONICAL: dict[str, tuple[str, str]] = {
     "nav-models": ("#5A6B38", "#B4C47A"),
     "nav-inbox": ("#B34A3C", "#E08A7A"),
     "nav-orgs": ("#3E5F7A", "#8AA8C0"),
-    "code-bg": ("#F4F5F8", "#0C0E14"),
+    "code-bg": ("#F1F3F5", "#16181E"),
     "accent": ("#5B7BFF", "#002FA7"),
 }
 

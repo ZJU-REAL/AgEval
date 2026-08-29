@@ -29,14 +29,14 @@
 
 | Token | Light | Dark | 用途 |
 | --- | --- | --- | --- |
-| `canvas` | `#f4f5f8` | `#11141c` | 页面底（冷纸 / 冷墨） |
-| `canvas-soft` | `#eeeff4` | `#161a24` | 次级面、表头 |
+| `canvas` | `#f1f3f5` | `#1b1e26` | 页面底（冷纸 / 冷墨） |
+| `canvas-soft` | `#e9ebed` | `#20242d` | 次级面、表头 |
 | `ink` | `#14161f` | `#eef0f6` | 主文字 |
 | `body` | `#4a4e5c` | `#9aa0b4` | 正文与说明 |
-| `hairline` | `#d5d8e2` | 冷白 12% | 1px 边界 |
+| `hairline` | `#d2d6df` | 冷白 12% | 1px 边界 |
 | `accent` | `#002FA7` | `#5B7BFF` | 链接、焦点、主按钮（克莱因蓝） |
 | `accent-deep` | `#001f73` | `#8aa0ff` | hover / active |
-| `dark`（landing 底） | `#11141c` | `#0c0e14` | landing 深色面 |
+| `dark`（landing 底） | `#1b1e26` | `#16181e` | landing 深色面 |
 
 参考：IKB / Klein Blue 主题（#002FA7 / #5B7BFF）；viewer / hub 的冷灰 ink 仅作对比，不把 viewer link 蓝搬进本站。
 
