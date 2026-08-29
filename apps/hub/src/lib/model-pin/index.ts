@@ -23,4 +23,5 @@ export type {
   ModelPrice,
   PinnedLab,
   PinnedModel,
+  ReasoningOption,
 } from "./types";

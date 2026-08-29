@@ -5,6 +5,7 @@ export const MODALITY_TABS = [
   "text",
   "image",
   "video",
+  "pdf",
   "transcription",
   "speech",
 ] as const;
@@ -28,19 +29,21 @@ export function matchesModalityTab(mods: ModelModalities, tab: ModalityTab): boo
   if (tab === "text") return mods.input.includes("text") || mods.output.includes("text");
   if (tab === "image") return mods.input.includes("image") || mods.output.includes("image");
   if (tab === "video") return mods.input.includes("video") || mods.output.includes("video");
+  if (tab === "pdf") return mods.input.includes("pdf") || mods.output.includes("pdf");
   if (tab === "transcription") return mods.input.includes("audio");
   if (tab === "speech") return mods.output.includes("audio");
   return false;
 }
 
 /**
- * Row badges. Extra modalities stack (image / video / transcription / speech).
- * The text badge only appears when the model has no other tab-visible modality.
+ * Row badges. Extra modalities stack (image / video / pdf / transcription / speech).
+ * The text badge only appears when the model has no other listed modality.
  */
 export function modalityBadges(mods: ModelModalities): ModalityKind[] {
   const badges: ModalityKind[] = [];
   if (mods.input.includes("image") || mods.output.includes("image")) badges.push("image");
   if (mods.input.includes("video") || mods.output.includes("video")) badges.push("video");
+  if (mods.input.includes("pdf") || mods.output.includes("pdf")) badges.push("pdf");
   if (mods.input.includes("audio")) badges.push("transcription");
   if (mods.output.includes("audio")) badges.push("speech");
   if (badges.length === 0 && (mods.input.includes("text") || mods.output.includes("text"))) {

@@ -38,6 +38,8 @@
   --color-mod-transcription-soft: color-mix(in oklab, var(--viewer-nav-datasets) 10%, var(--viewer-canvas));
   --color-mod-speech: var(--viewer-nav-plugins);
   --color-mod-speech-soft: color-mix(in oklab, var(--viewer-nav-plugins) 10%, var(--viewer-canvas));
+  --color-mod-pdf: var(--viewer-nav-orgs);
+  --color-mod-pdf-soft: color-mix(in oklab, var(--viewer-nav-orgs) 10%, var(--viewer-canvas));
   --color-row-hover: var(--viewer-row-hover);
   --color-code-bg: var(--viewer-code-bg);
   --color-shell-cmd: var(--viewer-shell-cmd);

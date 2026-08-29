@@ -1,6 +1,7 @@
 import {
   AudioLines,
   ClosedCaption,
+  FileText,
   Image,
   LayoutGrid,
   Type,
@@ -8,6 +9,7 @@ import {
   type LucideIcon,
 } from "lucide-react";
 
+import { HoverTip } from "@/components/hover-tip";
 import type { ModalityKind, ModalityTab } from "@/lib/model-pin/modalities";
 import { cn } from "@/lib/utils";
 
@@ -17,6 +19,7 @@ const ICONS: Record<ModalityKind, LucideIcon> = {
   video: Video,
   transcription: ClosedCaption,
   speech: AudioLines,
+  pdf: FileText,
 };
 
 const TONE: Record<ModalityKind, { fg: string; plate: string }> = {
@@ -25,6 +28,37 @@ const TONE: Record<ModalityKind, { fg: string; plate: string }> = {
   video: { fg: "text-mod-video", plate: "bg-mod-video-soft" },
   transcription: { fg: "text-mod-transcription", plate: "bg-mod-transcription-soft" },
   speech: { fg: "text-mod-speech", plate: "bg-mod-speech-soft" },
+  pdf: { fg: "text-mod-pdf", plate: "bg-mod-pdf-soft" },
+};
+
+export const MODALITY_BADGE_META: Record<
+  ModalityKind,
+  { label: string; hint: string }
+> = {
+  text: {
+    label: "Text",
+    hint: "Text only.",
+  },
+  image: {
+    label: "Image",
+    hint: "Image in input or output.",
+  },
+  video: {
+    label: "Video",
+    hint: "Video in input or output.",
+  },
+  transcription: {
+    label: "Transcription",
+    hint: "Audio in input.",
+  },
+  speech: {
+    label: "Speech",
+    hint: "Audio in output.",
+  },
+  pdf: {
+    label: "PDF",
+    hint: "PDF in input or output.",
+  },
 };
 
 export const MODALITY_TAB_META: {
@@ -58,6 +92,12 @@ export const MODALITY_TAB_META: {
     iconClassName: "text-mute group-hover:text-mod-video group-aria-selected:text-mod-video",
   },
   {
+    id: "pdf",
+    label: "PDF",
+    icon: FileText,
+    iconClassName: "text-mute group-hover:text-mod-pdf group-aria-selected:text-mod-pdf",
+  },
+  {
     id: "transcription",
     label: "Transcription",
     icon: ClosedCaption,
@@ -81,19 +121,20 @@ export function ModalityMark({
 }) {
   const Icon = ICONS[kind];
   const tone = TONE[kind];
-  const label = MODALITY_TAB_META.find((item) => item.id === kind)?.label || kind;
+  const meta = MODALITY_BADGE_META[kind];
   return (
-    <span
-      className={cn(
-        "inline-flex size-6 shrink-0 items-center justify-center rounded-[8px]",
-        tone.plate,
-        className,
-      )}
-      title={label}
-      aria-label={label}
-    >
-      <Icon className={cn("size-3.5", tone.fg)} aria-hidden />
-    </span>
+    <HoverTip content={meta.hint}>
+      <span
+        className={cn(
+          "inline-flex size-6 shrink-0 items-center justify-center rounded-[8px]",
+          tone.plate,
+          className,
+        )}
+        aria-label={meta.label}
+      >
+        <Icon className={cn("size-3.5", tone.fg)} aria-hidden />
+      </span>
+    </HoverTip>
   );
 }
 

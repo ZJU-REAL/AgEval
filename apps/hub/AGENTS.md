@@ -40,7 +40,7 @@ Same family as Viewer. Role → component map: [DESIGN.md](./DESIGN.md).
    stay in the breadcrumb / mono heading, not in the list text.
 5. **Catalog cards for plugins and agents.** Marketplace packages use
    `CatalogCard` / `CatalogCardGrid`. Datasets, jobs, leaderboard, members,
-   suites, and model Appearances stay hairline tables. Model encyclopedia
+   suites, and model Performance stay hairline tables. Model encyclopedia
    is lab-grouped tables. Harness Model region is a flat `ModelItem` list
    (no lab/provider grouping) — not cards, not wrapping `Chip`.
 6. **One language per job.** Section switchers use `UnderlineTabs`.

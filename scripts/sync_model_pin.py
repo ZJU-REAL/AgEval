@@ -4,8 +4,8 @@
 Maintainer/script only. Hub / Registry / CI request paths must not curl these
 hosts. Run: python3 scripts/sync_model_pin.py
 
-Slim rows keep models.dev modalities (input/output: text, image, audio,
-video, pdf) for Hub plaza filters. Logos: --logos-only.
+Slim rows keep models.dev modalities, knowledge, temperature, structured
+output, and unioned api.json reasoning_options. Logos: --logos-only.
 """
 
 from __future__ import annotations
@@ -138,6 +138,46 @@ def _hf_weights(raw: object) -> str | None:
     return None
 
 
+EFFORT_ORDER = ("none", "minimal", "low", "medium", "high", "xhigh", "max")
+
+
+def _merge_reasoning_options(acc: dict[str, set[str]], raw: object) -> None:
+    if not isinstance(raw, list):
+        return
+    for item in raw:
+        if not isinstance(item, dict):
+            continue
+        typ = str(item.get("type") or "").strip()
+        if not typ:
+            continue
+        bucket = acc.setdefault(typ, set())
+        vals = item.get("values")
+        if not isinstance(vals, list):
+            continue
+        for value in vals:
+            if isinstance(value, (str, int, float)):
+                text = str(value).strip()
+                if text:
+                    bucket.add(text)
+
+
+def _finalize_reasoning_options(acc: dict[str, set[str]]) -> list[dict]:
+    out: list[dict] = []
+    for typ in sorted(acc):
+        row: dict = {"type": typ}
+        values = acc[typ]
+        if values:
+            def sort_key(value: str) -> tuple[int, str]:
+                try:
+                    return (0, f"{EFFORT_ORDER.index(value):02d}")
+                except ValueError:
+                    return (1, value)
+
+            row["values"] = sorted(values, key=sort_key)
+        out.append(row)
+    return out
+
+
 def _map_provider_model(
     provider_id: str,
     model_id: str,
@@ -211,6 +251,7 @@ def build_pin(models: dict, api: dict, litellm: dict | None) -> dict:
     slim_models: dict[str, dict] = {}
     lookup: dict[str, list[str]] = {}
     prices: dict[str, dict[str, dict[str, float]]] = {}
+    reasoning_acc: dict[str, dict[str, set[str]]] = {}
 
     for cid in sorted(canonicals):
         row = models.get(cid) or {}
@@ -222,21 +263,29 @@ def build_pin(models: dict, api: dict, litellm: dict | None) -> dict:
             "logo": "",
         }
         limit = row.get("limit") if isinstance(row.get("limit"), dict) else {}
-        slim_models[cid] = {
+        slim: dict = {
             "name": str(row.get("name") or cid.rsplit("/", 1)[-1]),
             "description": str(row.get("description") or ""),
             "family": str(row.get("family") or ""),
             "lab": lab,
             "release_date": str(row.get("release_date") or ""),
+            "last_updated": str(row.get("last_updated") or ""),
+            "knowledge": str(row.get("knowledge") or ""),
             "context": limit.get("context"),
             "output": limit.get("output"),
+            "input_limit": limit.get("input"),
             "open_weights": bool(row.get("open_weights")),
             "reasoning": bool(row.get("reasoning")),
             "tool_call": bool(row.get("tool_call")),
             "attachment": bool(row.get("attachment")),
+            "temperature": bool(row.get("temperature")),
             "modalities": _modalities(row),
             "weights": _hf_weights(row.get("weights")),
+            "reasoning_options": [],
         }
+        if "structured_output" in row:
+            slim["structured_output"] = bool(row.get("structured_output"))
+        slim_models[cid] = slim
         _add_lookup(lookup, cid, cid)
         _add_lookup(lookup, cid.rsplit("/", 1)[-1], cid)
 
@@ -252,6 +301,11 @@ def build_pin(models: dict, api: dict, litellm: dict | None) -> dict:
             if canonical is None:
                 continue
             _add_lookup(lookup, mid, canonical)
+            if isinstance(mrow, dict):
+                _merge_reasoning_options(
+                    reasoning_acc.setdefault(canonical, {}),
+                    mrow.get("reasoning_options"),
+                )
             cost = mrow.get("cost") if isinstance(mrow, dict) else None
             if isinstance(cost, dict) and isinstance(cost.get("input"), (int, float)):
                 bucket = prices.setdefault(canonical, {})
@@ -259,6 +313,11 @@ def build_pin(models: dict, api: dict, litellm: dict | None) -> dict:
                     "input": float(cost["input"]),
                     "output": float(cost["output"]) if isinstance(cost.get("output"), (int, float)) else 0.0,
                 }
+
+    for cid, acc in reasoning_acc.items():
+        model = slim_models.get(cid)
+        if model is not None:
+            model["reasoning_options"] = _finalize_reasoning_options(acc)
 
     if isinstance(litellm, dict):
         for key, row in litellm.items():
