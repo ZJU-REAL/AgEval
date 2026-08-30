@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import asyncio
-from collections.abc import Awaitable, Iterable, Sequence
+from collections.abc import Awaitable, Coroutine, Iterable, Sequence
 from typing import Any
 
 
@@ -36,7 +36,7 @@ async def bounded_gather[T](
     return results
 
 
-async def first_success[T](aws: Iterable[Awaitable[T]]) -> T:
+async def first_success[T](aws: Iterable[Coroutine[Any, Any, T]]) -> T:
     tasks = [asyncio.create_task(aw) for aw in aws]
     try:
         while tasks:
