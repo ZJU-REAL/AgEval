@@ -109,6 +109,29 @@ def test_child_env_projects_api_key_and_base_url(monkeypatch: pytest.MonkeyPatch
     assert env["OPENAI_BASE_URL"] == "https://example.test/v1"
 
 
+def test_child_env_pins_claude_model(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.delenv("AGEVAL_OFFLINE_AGENT", raising=False)
+    monkeypatch.setenv("MY_LOCATOR", "sk-claude")
+    ex = _executor(
+        entry_id="claude-code",
+        model="glm-5.3",
+        api_key_env="MY_LOCATOR",
+        base_url="https://open.bigmodel.cn/api/anthropic",
+    )
+    env = ex._child_env()
+    assert env["ANTHROPIC_API_KEY"] == "sk-claude"
+    assert env["ANTHROPIC_MODEL"] == "glm-5.3"
+    assert env["ANTHROPIC_BASE_URL"] == "https://open.bigmodel.cn/api/anthropic"
+    assert env["ANTHROPIC_DEFAULT_SONNET_MODEL"] == "glm-5.3"
+    assert env["CLAUDE_CODE_SUBAGENT_MODEL"] == "glm-5.3"
+
+
+def test_child_env_codex_full_access_mode(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.delenv("AGEVAL_OFFLINE_AGENT", raising=False)
+    env = _executor(entry_id="codex", model="openrouter/z-ai/glm-4.7")._child_env()
+    assert env["INITIAL_AGENT_MODE"] == "agent-full-access"
+
+
 def _clear_acp_cred_env(monkeypatch: pytest.MonkeyPatch) -> None:
     for name in (
         "ZAI_API_KEY",

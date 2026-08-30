@@ -1,6 +1,6 @@
 """Map ACP session/update events to ``ageval.trajectory.event/1``.
 
-Does not write ``trajectory.jsonl``. Harbor-aligned tool fold lives in the
+Does not write ``trajectory.jsonl``. Tool fold lives in the
 Core writer after this mapping.
 """
 

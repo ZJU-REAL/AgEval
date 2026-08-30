@@ -11,10 +11,14 @@ entry declared, only into this Attempt's box, never into the lock or evidence.
 
 from __future__ import annotations
 
+import json
+import shutil
+import tempfile
 from pathlib import Path
 from typing import Any
 
 from ageval.environments.protocol import HOME_PATH, EnvironmentFailure
+from ageval.plugins.contrib.acp.lock_overlay import OverlayFile
 from ageval.plugins.contrib.acp.registry import AcpEntryDescriptor
 
 # XDG defaults every entry inherits, on top of its declared ``home_dirs``.
@@ -58,6 +62,48 @@ async def prepare_home(
             f"could not create the attempt HOME layout: {result.stderr.strip()[-300:]}",
         )
     return {"dirs": dirs, "auth_files": await _copy_keyless_auth(host, descriptor)}
+
+
+async def write_lock_overlays(
+    host: Any,
+    files: list[OverlayFile],
+    *,
+    timeout_sec: float | None = None,
+) -> list[str]:
+    """Upload generated overlay files into Attempt HOME. Dest paths are relative."""
+    written: list[str] = []
+    for item in files:
+        dest = item.dest.strip().lstrip("/")
+        if not dest or ".." in Path(dest).parts:
+            raise EnvironmentFailure(
+                "acp_lock_overlay_invalid",
+                f"refusing overlay dest {item.dest!r}",
+            )
+        parent = str(Path(dest).parent)
+        if parent not in (".", ""):
+            mkdir = await host.exec(
+                ["mkdir", "-p", parent],
+                cwd=HOME_PATH,
+                timeout_sec=timeout_sec,
+            )
+            if mkdir.exit_code != 0:
+                raise EnvironmentFailure(
+                    "acp_home_prepare_failed",
+                    f"could not create overlay dir {parent}: {mkdir.stderr.strip()[-300:]}",
+                )
+        if item.kind == "json":
+            body = json.dumps(item.payload, indent=2, ensure_ascii=False) + "\n"
+        else:
+            body = str(item.payload)
+        tmp_dir = Path(tempfile.mkdtemp(prefix="ageval-acp-overlay-"))
+        tmp = tmp_dir / Path(dest).name
+        try:
+            tmp.write_text(body, encoding="utf-8")
+            await host.upload(tmp, f"{HOME_PATH}/{dest}")
+        finally:
+            shutil.rmtree(tmp_dir, ignore_errors=True)
+        written.append(dest)
+    return written
 
 
 async def _copy_keyless_auth(host: Any, descriptor: AcpEntryDescriptor) -> list[str]:

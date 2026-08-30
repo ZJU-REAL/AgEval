@@ -30,7 +30,11 @@ from ageval.plugins.contrib.acp.client import (
     _map_stop_reason,
     _offline_result,
 )
-from ageval.plugins.contrib.acp.config_bind import bind_model, bind_reasoning_effort
+from ageval.plugins.contrib.acp.config_bind import (
+    bind_model,
+    bind_reasoning_effort,
+    config_options_from,
+)
 from ageval.plugins.contrib.acp.entry_local import (
     acp_stdio_argv,
     apply_grok_build_bind,
@@ -103,6 +107,7 @@ class AcpExecutor(AgentExecutor):
                 credential_env_names=self.descriptor.credential_env_names,
                 api_key_env=self.api_key_env,
                 base_url=self.base_url,
+                model=self.model,
             )
         )
         for key, value in self.descriptor.fixed_env.items():
@@ -208,13 +213,24 @@ class AcpExecutor(AgentExecutor):
 
     async def _bind_model(self, new_session_resp: Any) -> Any:
         """Bind model. Returns the latest ``configOptions`` (refreshed after set)."""
-        actual, latest = await bind_model(
-            self._conn,
-            session_id=self._acp_session_id,
-            desired=self.model,
-            model_binding=self.descriptor.model_binding,
-            new_session_resp=new_session_resp,
-        )
+        try:
+            actual, latest = await bind_model(
+                self._conn,
+                session_id=self._acp_session_id,
+                desired=self.model,
+                model_binding=self.descriptor.model_binding,
+                new_session_resp=new_session_resp,
+            )
+        except RuntimeError as exc:
+            if (
+                str(exc) == "acp_model_unavailable"
+                and self.entry_id in {"claude-code", "codex"}
+                and self.model.strip() not in ("", "entry-default")
+            ):
+                # Claude: attach env ANTHROPIC_MODEL. Codex: HOME .codex/config.toml.
+                self._actual_model = self.model
+                return config_options_from(new_session_resp)
+            raise
         self._actual_model = actual
         return latest
 

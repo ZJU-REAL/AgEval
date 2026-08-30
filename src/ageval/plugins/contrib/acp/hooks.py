@@ -187,9 +187,14 @@ async def _prepare_attempt_home(
         timeout_sec=home_timeout,
     )
     auth_files = prepared["auth_files"]
+    overlay_files = await _write_lock_overlays(ctx, descriptor, timeout_sec=home_timeout)
     ctx.record_fact(
         "acp_home_prepared",
-        {"entry": descriptor.entry_id, "auth_files": auth_files},
+        {
+            "entry": descriptor.entry_id,
+            "auth_files": auth_files,
+            "lock_overlay_files": overlay_files,
+        },
     )
     if not auth_files and entry_credentials_missing(
         descriptor.credential_env_names,
@@ -200,6 +205,33 @@ async def _prepare_attempt_home(
             f"acp entry {descriptor.entry_id!r} has neither a declared auth file on this "
             f"host nor any of {list(descriptor.credential_env_names)} set",
         )
+
+
+async def _write_lock_overlays(
+    ctx: Any,
+    descriptor: AcpEntryDescriptor,
+    *,
+    timeout_sec: float | None,
+) -> list[str]:
+    """Materialize engine overlays from the locked job. No host HOME copy."""
+    from ageval.plugins.contrib.acp.home import write_lock_overlays
+    from ageval.plugins.contrib.acp.lock_overlay import overlays_for_entry
+
+    lock = getattr(ctx, "lock", None)
+    job_overlay = getattr(lock, "job_overlay", None) if lock is not None else None
+    files = overlays_for_entry(descriptor.entry_id, job_overlay)
+    if not files:
+        return []
+    written = await write_lock_overlays(
+        _box_host(ctx),
+        files,
+        timeout_sec=timeout_sec,
+    )
+    ctx.record_fact(
+        "acp_lock_overlay_written",
+        {"entry": descriptor.entry_id, "files": written},
+    )
+    return written
 
 
 async def _ensure_entry_present(ctx: Any, descriptor: AcpEntryDescriptor) -> None:
