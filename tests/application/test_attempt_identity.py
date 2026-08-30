@@ -10,7 +10,7 @@ from ageval.application.run import run_attempt
 from ageval.runtime.identity import IdentityFactory
 
 REPO = Path(__file__).resolve().parents[2]
-CORE = REPO / "examples" / "journeys"
+CORE = REPO / "examples" / "datasets" / "minimal-demo"
 
 
 class CountingIdentityFactory(IdentityFactory):
@@ -38,7 +38,9 @@ class CountingIdentityFactory(IdentityFactory):
 def test_one_attempt_mints_one_run(tmp_path: Path, monkeypatch) -> None:  # type: ignore[no-untyped-def]
     monkeypatch.setenv("AGEVAL_OFFLINE_AGENT", "1")
     # Evidence lands under the dataset root, so run against a copy.
-    dataset = shutil.copytree(CORE, tmp_path / "journeys", ignore=shutil.ignore_patterns(".ageval"))
+    dataset = shutil.copytree(
+        CORE, tmp_path / "minimal-demo", ignore=shutil.ignore_patterns(".ageval", ".env")
+    )
     factory = CountingIdentityFactory()
 
     code, result = asyncio.run(run_attempt(dataset, "terminal-jsonl-agg", identity_factory=factory))

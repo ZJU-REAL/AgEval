@@ -60,8 +60,8 @@ published set; this plugin still copies only its own `files[].src`.
 
 ```bash
 uv run ageval plugin install plugins/home-files
-uv run ageval lock examples/journeys --task terminal-jsonl-agg \
-  --profiles examples/journeys/acp-profiles/profiles.acp.opencode.glm-5.2.yaml
-uv run ageval run examples/journeys --task terminal-jsonl-agg \
-  --profiles examples/journeys/acp-profiles/profiles.acp.opencode.glm-5.2.yaml
+uv run ageval lock examples/datasets/minimal-demo --task terminal-jsonl-agg \
+  --profiles examples/datasets/minimal-demo/acp-profiles/profiles.acp.opencode.glm-5.2.yaml
+uv run ageval run examples/datasets/minimal-demo --task terminal-jsonl-agg \
+  --profiles examples/datasets/minimal-demo/acp-profiles/profiles.acp.opencode.glm-5.2.yaml
 ```

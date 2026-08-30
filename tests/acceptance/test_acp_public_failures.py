@@ -15,7 +15,7 @@ from ageval.plugins.contrib.acp.registry import get_entry, readiness_for
 from ageval.plugins.errors import ExtensionMaterializeError
 
 REPO = Path(__file__).resolve().parents[2]
-CORE = REPO / "examples" / "journeys"
+CORE = REPO / "examples" / "datasets" / "minimal-demo"
 
 
 def _cli(*args: str, offline: bool = True) -> subprocess.CompletedProcess[str]:

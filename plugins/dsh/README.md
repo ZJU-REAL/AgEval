@@ -46,8 +46,8 @@ A kind that cannot `exec` / `upload` fails at `ageval lock`, not mid-invoke.
 ```bash
 uv sync --extra dsh          # local kind: the box Python is this interpreter
 uv run ageval plugin install plugins/dsh
-uv run ageval lock examples/journeys --task terminal-jsonl-agg \
-  --profiles examples/journeys/profiles.dsh.yaml --probe
+uv run ageval lock examples/datasets/minimal-demo --task terminal-jsonl-agg \
+  --profiles examples/datasets/minimal-demo/profiles.dsh.yaml --probe
 ```
 
 Install updates `$AGEVAL_HOME/plugins` (default `~/.ageval/plugins`) only — **never**
@@ -97,16 +97,16 @@ knob.
 Same `run.py`; switch only via profiles or
 `--set '/bindings/<role>/options/permission="read-only"'`.
 
-## Journeys smoke (real API)
+## minimal-demo smoke (real API)
 
 ```bash
 uv run ageval plugin install plugins/dsh
 unset AGEVAL_OFFLINE_AGENT
-uv run ageval run examples/journeys --task terminal-jsonl-agg \
-  --profiles examples/journeys/profiles.dsh.yaml
+uv run ageval run examples/datasets/minimal-demo --task terminal-jsonl-agg \
+  --profiles examples/datasets/minimal-demo/profiles.dsh.yaml
 # file-effect policy (file-tool writes denied; bash can still write):
-# uv run ageval run examples/journeys --task terminal-jsonl-agg \
-#   --profiles examples/journeys/profiles.dsh.read-only.yaml
+# uv run ageval run examples/datasets/minimal-demo --task terminal-jsonl-agg \
+#   --profiles examples/datasets/minimal-demo/profiles.dsh.read-only.yaml
 ```
 
 Evidence for a successful invoke includes worker metadata

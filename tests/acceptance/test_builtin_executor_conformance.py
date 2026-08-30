@@ -10,13 +10,13 @@ import sys
 from pathlib import Path
 
 REPO = Path(__file__).resolve().parents[2]
-PACKAGE = REPO / "examples" / "journeys"
+PACKAGE = REPO / "examples" / "datasets" / "minimal-demo"
 TASK = "terminal-jsonl-agg"
 
 
 def test_unknown_executor_fail_closed(tmp_path: Path) -> None:
     dataset = Path(
-        shutil.copytree(PACKAGE, tmp_path / "journeys", ignore=shutil.ignore_patterns(".ageval"))
+        shutil.copytree(PACKAGE, tmp_path / "minimal-demo", ignore=shutil.ignore_patterns(".ageval", ".env"))
     )
     env = {**os.environ, "AGEVAL_OFFLINE_AGENT": "1"}
     env.setdefault("ZHIPU_API_KEY", "ci-offline-placeholder")

@@ -1,0 +1,19 @@
+{
+  "providers": {
+    "litellm": {
+      "baseUrl": "${litellm_base_url}",
+      "api": "openai-completions",
+      "apiKey": "$litellm_api_key",
+      "models": [
+        { "id": "dashscope/qwen3.8-max", "name": "qwen3.8-max" },
+        { "id": "dashscope/qwen3-coder-plus", "name": "qwen3-coder-plus" },
+        { "id": "dashscope/kimi-k2.7-code", "name": "kimi-k2.7-code" },
+        { "id": "MiniMax-M2.7", "name": "MiniMax-M2.7" },
+        { "id": "glm-5.3", "name": "glm-5.3" },
+        { "id": "anthropic/claude-sonnet-4-6", "name": "claude-sonnet-4-6" },
+        { "id": "openai/gpt-5.4", "name": "gpt-5.4" },
+        { "id": "dashscope/deepseek-v4-pro", "name": "deepseek-v4-pro" }
+      ]
+    }
+  }
+}

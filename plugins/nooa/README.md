@@ -66,14 +66,14 @@ agent_profiles:
     # base_url: http://127.0.0.1:8000/v1   # optional; else litellm_base_url / OPENAI_BASE_URL
 ```
 
-## Journeys smoke (real API)
+## minimal-demo smoke (real API)
 
 ```bash
 uv sync --extra nooa
 uv run ageval plugin install plugins/nooa
 unset AGEVAL_OFFLINE_AGENT
-uv run ageval run examples/journeys \
-  --profiles examples/journeys/profiles.nooa.yaml
+uv run ageval run examples/datasets/minimal-demo \
+  --profiles examples/datasets/minimal-demo/profiles.nooa.yaml
 ```
 
 Evidence for a successful invoke includes worker metadata

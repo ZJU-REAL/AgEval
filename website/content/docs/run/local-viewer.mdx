@@ -15,17 +15,17 @@ Jobs 表可以删掉本机一行 Job（先 preview 路径，再确认）。删 s
 # 首次构建前端（生产 ageval view）
 cd apps/viewer && pnpm install && pnpm build && cd ../..
 
-uv run ageval view examples/journeys
+uv run ageval view examples/datasets/minimal-demo
 # 或
-uv run ageval view examples/journeys --no-browser --port 8765
+uv run ageval view examples/datasets/minimal-demo --no-browser --port 8765
 # 已缓存的 Hub ref（唯一命中不打 Hub）
 uv run ageval view official/demo@0.1.0
 
 # 开发：一条命令（能起 Vite 就起；否则打印两行 fallback）
-uv run ageval view examples/journeys --dev --port 8765
+uv run ageval view examples/datasets/minimal-demo --dev --port 8765
 
 # 跑完后深链到该 job / task / run
-uv run ageval view examples/journeys --open /jobs/<id>
+uv run ageval view examples/datasets/minimal-demo --open /jobs/<id>
 ```
 
 `--dev` 对着**同一套**本地 API，并尽量自己拉起 Vite。起不了会在终端打印 `pnpm --dir apps/viewer dev`。两进程：API 端口（默认 8765）+ UI 端口（默认 5173）。服务的生产包是 `apps/viewer/dist/`。端口占用就换 `--port`。

@@ -62,7 +62,7 @@ apps/* / services/* README  ← SPA / 服务开发细节；非产品教程权威
 | production 源码 | Config → `attempt.run_attempt` 五相位 → 环境 kind → ACP `attach_stdio` → 环境内 evaluate → evidence；`src/ageval/plugins/` 注册表 + contrib；外置 `plugins/` |
 | 公开 entrypoint | `ageval lock` / `run` / `campaign` / `view` / `evidence` / `plugin` / `jobs` / `results` 等（以 `ageval --help` 为准；`ageval run` 输出 `logs` locator） |
 | 环境 | `local` / `docker` 有公开真 run；`e2b` / `ssh` / `daytona` 代码在，缺钥 `--probe` fail-closed，**不得**标完成 |
-| 证据等级 | **限定 `runnable-mvp`**（core local/docker ACP、journeys 点名题）；见 [examples/README.md](examples/README.md)；**不得**扩写全 suite `isolated` |
+| 证据等级 | **限定 `runnable-mvp`**（core local/docker ACP、`minimal-demo` 点名题）；见 [examples/README.md](examples/README.md)；**不得**扩写全 suite `isolated` |
 | 交付跟踪 | **GitHub Issues** |
 | 文档站 | [`website/`](website/) 读者向 Fumadocs；机制权威仍在 `docs/` |
 | ACP | `executor: acp` + `options.entry`；parent 唯一 JSON-RPC client |
@@ -207,7 +207,7 @@ apps/* / services/* README  ← SPA / 服务开发细节；非产品教程权威
 | `examples/**/README*` 及包内读者向说明 | 实现与 PR 描述里的 `Closes #N` |
 | 产品站、教程、公开 smoke 叙述 | 测试名 / 代码注释若仅开发者可见（仍宜少写） |
 
-**写法：** 用产品语义写边界（例：「monorepo 只收 tau3-airline；更大 bench 只走 Hub」），**不要**用「#66 交付边界」这类交付跟踪编号当章节标题或正文标记。  
+**写法：** 用产品语义写边界（例：「monorepo 只收缩略版 tau3-airline；更大 bench 只走 Hub」），**不要**用「#66 交付边界」这类交付跟踪编号当章节标题或正文标记。  
 改文档时若发现对外文面有 `#数字` Issue 痕迹，**先删再合**；中英文同步。
 
 ## 证据等级

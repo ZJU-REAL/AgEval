@@ -6,7 +6,7 @@
 
 ```yaml
 format: ageval.dataset/1
-dataset_id: example/journeys
+dataset_id: example/minimal-demo
 version: "0.1.0"
 tasks:
   root: tasks
@@ -17,9 +17,9 @@ tasks:
 CLI 路径永远是 dataset 根：
 
 ```bash
-ageval lock examples/journeys --task terminal-jsonl-agg
-ageval run  examples/journeys --task terminal-jsonl-agg
-ageval tasks examples/journeys
+ageval lock examples/datasets/minimal-demo --task terminal-jsonl-agg
+ageval run  examples/datasets/minimal-demo --task terminal-jsonl-agg
+ageval tasks examples/datasets/minimal-demo
 ageval run  official/demo@0.1.0 --dir tmp
 ```
 

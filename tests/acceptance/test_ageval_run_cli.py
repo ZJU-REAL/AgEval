@@ -10,7 +10,7 @@ import sys
 from pathlib import Path
 
 REPO = Path(__file__).resolve().parents[2]
-CORE = REPO / "examples" / "journeys"
+CORE = REPO / "examples" / "datasets" / "minimal-demo"
 TASK = "terminal-jsonl-agg"
 
 
@@ -31,9 +31,9 @@ def _ageval(*args: str, cwd: Path | None = None) -> subprocess.CompletedProcess[
 
 
 def _dataset(tmp_path: Path) -> Path:
-    """A copy of examples/journeys, so evidence never lands in the checkout."""
+    """A copy of examples/datasets/minimal-demo, so evidence never lands in the checkout."""
     return Path(
-        shutil.copytree(CORE, tmp_path / "journeys", ignore=shutil.ignore_patterns(".ageval"))
+        shutil.copytree(CORE, tmp_path / "minimal-demo", ignore=shutil.ignore_patterns(".ageval", ".env"))
     )
 
 

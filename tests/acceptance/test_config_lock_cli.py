@@ -9,8 +9,8 @@ import sys
 from pathlib import Path
 
 REPO = Path(__file__).resolve().parents[2]
-MINIMAL = REPO / "examples" / "journeys"
-INVALID = REPO / "examples" / "journeys"
+MINIMAL = REPO / "examples" / "datasets" / "minimal-demo"
+INVALID = REPO / "examples" / "datasets" / "minimal-demo"
 TASK = "terminal-jsonl-agg"
 
 
@@ -35,7 +35,7 @@ def test_success_smoke() -> None:
     data = json.loads(result.stdout)
     assert data["task_id"] == TASK
     assert data["format"] == "ageval.task/1"
-    assert data["dataset_id"] == "example/journeys"
+    assert data["dataset_id"] == "example/minimal-demo"
     assert data["dataset_version"] == "0.1.3"
     assert data["digest"].startswith("sha256:")
     assert "resolved_references" in data
@@ -107,10 +107,10 @@ def test_unknown_task_cli_fails() -> None:
 
 
 def test_tasks_list_journeys() -> None:
-    result = _run_ageval("tasks", str(REPO / "examples" / "journeys"))
+    result = _run_ageval("tasks", str(REPO / "examples" / "datasets" / "minimal-demo"))
     assert result.returncode == 0, result.stderr
     data = json.loads(result.stdout)
-    assert data["dataset_id"] == "example/journeys"
+    assert data["dataset_id"] == "example/minimal-demo"
     assert data["count"] == 3
     assert "terminal-jsonl-agg" in data["tasks"]
 
@@ -124,7 +124,7 @@ from pathlib import Path
 from ageval.application.composition import build_lock_command
 repo = Path({str(REPO)!r})
 cmd = build_lock_command()
-summary = cmd.run(dataset_root=repo / "examples" / "journeys", task_id="terminal-jsonl-agg")
+summary = cmd.run(dataset_root=repo / "examples" / "datasets" / "minimal-demo", task_id="terminal-jsonl-agg")
 assert summary["task_id"] == "terminal-jsonl-agg"
 assert not any("terminal-jsonl-agg" in m and m.endswith("run") for m in sys.modules)
 print(json.dumps({{"ok": True, "digest": summary["digest"]}}))

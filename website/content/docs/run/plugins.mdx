@@ -59,15 +59,15 @@ agent_profiles:
 运行时用备用 profiles 文件切换，不必改 dataset 默认 ACP 配置：
 
 ```bash
-uv run ageval run examples/journeys --task terminal-jsonl-agg \
-  --profiles examples/journeys/profiles.nooa.yaml
+uv run ageval run examples/datasets/minimal-demo --task terminal-jsonl-agg \
+  --profiles examples/datasets/minimal-demo/profiles.nooa.yaml
 ```
 
 `ageval lock` 会把解析后的扩展图写入摘要中的 `extension_bindings`。
 
 ```bash
-uv run ageval run examples/journeys --task terminal-jsonl-agg \
-  --profiles examples/journeys/profiles.dsh.yaml --probe
+uv run ageval run examples/datasets/minimal-demo --task terminal-jsonl-agg \
+  --profiles examples/datasets/minimal-demo/profiles.dsh.yaml --probe
 ```
 
 `--probe` 按 **`environment`** 检查本机能否开这个环境：`host_requires`、Docker daemon（docker kind）、locator **名**。缺项非零退出。skip ≠ 通过。

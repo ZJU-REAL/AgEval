@@ -5,14 +5,14 @@ description: 锁定配置、执行示例 task，并定位结果目录。
 
 CLI 路径参数始终是 **dataset 根**（含 `ageval.yaml` 的目录），不是 `tasks/<id>/`。
 
-公开示例以 [`examples/journeys`](https://github.com/ZJU-REAL/ageval/tree/main/examples/journeys) 为主。默认 `profiles.yaml` 的环境是 **docker**。
+公开示例以 [`examples/datasets/minimal-demo`](https://github.com/ZJU-REAL/ageval/tree/main/examples/datasets/minimal-demo) 为主。默认 `profiles.yaml` 的环境是 **docker**。
 
 ```bash
-uv run ageval tasks examples/journeys
-uv run ageval lock examples/journeys --task terminal-jsonl-agg
-uv run ageval run  examples/journeys --task terminal-jsonl-agg
-uv run ageval run  examples/journeys --task terminal-jsonl-agg \
-  --profiles examples/journeys/profiles.e2b-acp.yaml --probe
+uv run ageval tasks examples/datasets/minimal-demo
+uv run ageval lock examples/datasets/minimal-demo --task terminal-jsonl-agg
+uv run ageval run  examples/datasets/minimal-demo --task terminal-jsonl-agg
+uv run ageval run  examples/datasets/minimal-demo --task terminal-jsonl-agg \
+  --profiles examples/datasets/minimal-demo/profiles.e2b-acp.yaml --probe
 ```
 
 `ageval run` 在 TTY 下打印短 recap（单题含 `logs` 路径，整包含 `summary` 路径）。管道或 `--json` 仍输出 JSON 文档。证据在 `.ageval/runs/<id>/`。
@@ -25,7 +25,7 @@ uv run ageval run  examples/journeys --task terminal-jsonl-agg \
 
 ```bash
 uv run ageval executors -v
-uv run ageval view examples/journeys --no-browser
+uv run ageval view examples/datasets/minimal-demo --no-browser
 ```
 
 `--probe` 只做 lock + preflight，不 invoke。`--profiles` 整份替换 job 文档。`--agent` 与 `--profiles` 互斥。`--model` 须配合 `--agent`。

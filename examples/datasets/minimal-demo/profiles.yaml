@@ -1,0 +1,15 @@
+format: ageval.profiles/1
+
+# minimal-demo runs in a container: these tasks ship image recipes and sidecars.
+environment: docker
+
+agent_profiles:
+  "*":
+    executor: acp
+    model: zai-coding-cn/glm-5.3
+    api_key: ${ZHIPU_API_KEY}
+    options:
+      entry: pi
+    extensions:
+      - plugin: acp
+      - plugin: docker

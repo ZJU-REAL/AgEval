@@ -1,0 +1,73 @@
+format: ageval.profiles/1
+environment: docker
+
+# Dataset-level overlay for all three tasks. nooa cannot use a "*" row:
+# each role must name its own Agent class in options.agent. A given --task
+# only binds the ids it declares (solver | user+service | specialist+planner+reducer).
+agent_profiles:
+  solver:
+    executor: nooa
+    extensions:
+    - plugin: nooa
+      options:
+        agent: lib.agents:JsonlAggAgent
+        method: run
+    - plugin: docker
+    model: openai/dashscope/qwen3.8-max
+    api_key: ${litellm_api_key}
+    base_url: ${litellm_base_url}
+  user:
+    executor: nooa
+    extensions:
+    - plugin: nooa
+      options:
+        agent: lib.agents:UserSimAgent
+        method: run
+    - plugin: docker
+    model: openai/dashscope/qwen3.8-max
+    api_key: ${litellm_api_key}
+    base_url: ${litellm_base_url}
+  service:
+    executor: nooa
+    extensions:
+    - plugin: nooa
+      options:
+        agent: lib.agents:ServiceAgent
+        method: run
+    - plugin: docker
+    model: openai/dashscope/qwen3.8-max
+    api_key: ${litellm_api_key}
+    base_url: ${litellm_base_url}
+  specialist:
+    executor: nooa
+    extensions:
+    - plugin: nooa
+      options:
+        agent: lib.agents:SpecialistAgent
+        method: run
+    - plugin: docker
+    model: openai/dashscope/qwen3.8-max
+    api_key: ${litellm_api_key}
+    base_url: ${litellm_base_url}
+  planner:
+    executor: nooa
+    extensions:
+    - plugin: nooa
+      options:
+        agent: lib.agents:PlannerAgent
+        method: run
+    - plugin: docker
+    model: openai/dashscope/qwen3.8-max
+    api_key: ${litellm_api_key}
+    base_url: ${litellm_base_url}
+  reducer:
+    executor: nooa
+    extensions:
+    - plugin: nooa
+      options:
+        agent: lib.agents:ReducerAgent
+        method: run
+    - plugin: docker
+    model: openai/dashscope/qwen3.8-max
+    api_key: ${litellm_api_key}
+    base_url: ${litellm_base_url}

@@ -13,7 +13,7 @@ import pytest
 
 ROOT = Path(__file__).resolve().parents[2]
 EXAMPLE_AGENT = ROOT / "examples/agents/pi-default"
-DATABASE = ROOT / "examples/journeys"
+DATABASE = ROOT / "examples/datasets/minimal-demo"
 
 
 @pytest.fixture()

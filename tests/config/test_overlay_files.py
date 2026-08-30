@@ -111,7 +111,7 @@ def test_locator_forms_are_not_secrets() -> None:
 
 
 def test_journeys_litellm_overlays_base_url_are_locators() -> None:
-    root = Path(__file__).resolve().parents[2] / "examples" / "journeys" / "overlays"
+    root = Path(__file__).resolve().parents[2] / "examples" / "datasets" / "minimal-demo" / "overlays"
     pi = (root / "pi.litellm.json").read_text(encoding="utf-8")
     opencode = (root / "opencode.litellm.json").read_text(encoding="utf-8")
     assert "${litellm_base_url}" in pi

@@ -78,7 +78,7 @@ def test_attempt_row_stores_environment(tmp_path: Path) -> None:
     meta = _sqlite(tmp_path)
     row = AttemptResultRow(
         run_id="attempt_env_1",
-        dataset_id="example/journeys",
+        dataset_id="example/minimal-demo",
         dataset_version="0.1.0",
         task_id="terminal-jsonl-agg",
         lock_digest="sha256:abc",
@@ -100,7 +100,7 @@ def test_attempt_row_stores_environment(tmp_path: Path) -> None:
     assert got.model_label == "glm-5.2"
     assert got.score == 1.0
     listed = meta.list_attempts(
-        dataset_id="example/journeys",
+        dataset_id="example/minimal-demo",
         task_id="terminal-jsonl-agg",
         standalone=True,
         include_private=True,

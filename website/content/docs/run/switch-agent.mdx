@@ -36,15 +36,15 @@ ACP 的 `entry` 写在 `- plugin: acp` / `options.entry`。
 `ageval.agent/1` 是 harness 包（executor、entry、overlays）。`binding.model` 是缺省，不是身份。机制卡（`pi`、`opencode`、`codex`、`claude-code`、`grok-build`、`openai-http`、`anthropic-http`）随 ageval 提供，不必 `agent install`。定制 overlays 包仍是 `org/name@version`，先装再绑。`ageval agent install` 会顺带安装 `binding.extensions[].plugin`（contrib 跳过；缺插件或 `host_requires` 不满足则整条 fail-closed）。`--agent` 与 `--profiles` **互斥**。`--model` 改这次 run 已绑角色的模型；省略则用包缺省。不要和 `ageval results upload-suite --model`（上传观测标签）搞混。
 
 ```bash
-uv run ageval run examples/journeys --task terminal-jsonl-agg --agent pi --model glm-4.7
+uv run ageval run examples/datasets/minimal-demo --task terminal-jsonl-agg --agent pi --model glm-4.7
 uv run ageval agent install examples/agents/pi-default
-uv run ageval run examples/journeys --task terminal-jsonl-agg --agent local/pi-default@0.1.0
+uv run ageval run examples/datasets/minimal-demo --task terminal-jsonl-agg --agent local/pi-default@0.1.0
 ```
 
 ## 临时切换（不用改文件）
 
 ```bash
-uv run ageval run examples/journeys --task terminal-jsonl-agg \
+uv run ageval run examples/datasets/minimal-demo --task terminal-jsonl-agg \
   --set '/bindings/solver/options/entry="codex"'
 ```
 

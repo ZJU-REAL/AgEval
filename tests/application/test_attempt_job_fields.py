@@ -15,7 +15,7 @@ def test_attempt_job_fields_reads_lock_environment(tmp_path: Path) -> None:
         json.dumps(
             {
                 "task_id": "terminal-jsonl-agg",
-                "dataset_id": "example/journeys",
+                "dataset_id": "example/minimal-demo",
                 "dataset_version": "0.1.0",
                 "environment": "e2b",
                 "job_overlay": {
@@ -30,7 +30,7 @@ def test_attempt_job_fields_reads_lock_environment(tmp_path: Path) -> None:
     )
     fields = _attempt_job_fields(run, {"kind": "e2b", "score": 1.0, "status": "PASS"})
     assert fields["environment"] == "e2b"
-    assert fields["dataset_id"] == "example/journeys"
+    assert fields["dataset_id"] == "example/minimal-demo"
     assert fields["dataset_version"] == "0.1.0"
     assert fields["task_id"] == "terminal-jsonl-agg"
     assert fields["model_label"] == "glm-5.2"

@@ -15,7 +15,7 @@ GitHub: [`ZJU-REAL/ageval`](https://github.com/ZJU-REAL/ageval). The product nam
 | --- | --- |
 | Product | ageval (agent eval) |
 | Implementation | Attempt five-phase pipeline is wired; box kinds `local` / `docker` / `e2b` / `ssh` / `daytona`; public commands follow `ageval --help` |
-| Evidence grade | **Limited to `runnable-mvp`**: local ACP, docker ACP, and named journeys have public runs. e2b/ssh/daytona **code exists; skip without keys — do not mark isolated** |
+| Evidence grade | **Limited to `runnable-mvp`**: local ACP, docker ACP, and named `minimal-demo` tasks have public runs. e2b/ssh/daytona **code exists; skip without keys — do not mark isolated** |
 | Design authority | [docs/README.md](docs/README.md) |
 | Structure authority | **This document** |
 | Near-term target structure | [docs/design/00](docs/design/00-overview-and-product.md), [docs/design/01](docs/design/01-ageval-core.md), [docs/design/09](docs/design/09-owner-matrix-and-structure.md) |
@@ -73,10 +73,10 @@ Arrows mean **control-flow progress**. Cross-trust-boundary data flow is in [Dat
 | --- | --- |
 | Public entrypoint | `ageval lock` / `run` (including `--probe`) / `tasks` / `campaign` / `view` / `plugin` / `evidence` / `status` / `cancel` / `executors` / `jobs` / `results` / `publish` / `release` / `agent` / `registry` (CLI is authoritative) |
 | Production composition root | `src/ageval/application/composition.py` |
-| Smoke lock | `uv run ageval lock examples/journeys --task terminal-jsonl-agg` (exit 0; summary has `dataset_id`, no `database_id`) |
-| Smoke docker ACP | `uv run ageval run examples/journeys --task terminal-jsonl-agg` (default journeys box is docker) |
-| Smoke local ACP | `uv run ageval lock examples/tau3-airline --task airline-00` (default box is local; run needs credentials + tau2) |
-| Smoke journeys | `uv run ageval run examples/journeys --task terminal-jsonl-agg`; `… --task tau2-dialog-min` |
+| Smoke lock | `uv run ageval lock examples/datasets/minimal-demo --task terminal-jsonl-agg` (exit 0; summary has `dataset_id`, no `database_id`) |
+| Smoke docker ACP | `uv run ageval run examples/datasets/minimal-demo --task terminal-jsonl-agg` (default `minimal-demo` box is docker) |
+| Smoke local ACP | `uv run ageval lock examples/datasets/tau3-airline --task airline-00` (default box is local; run needs credentials + tau2) |
+| Smoke demo | `uv run ageval run examples/datasets/minimal-demo --task terminal-jsonl-agg`; `… --task tau2-dialog-min` |
 | Expected failure | Unknown format → `invalid_format` exit 2; missing `--task` follows CLI; e2b/ssh/daytona without keys `--probe` `ready:false` |
 | Observable result | Secret-free lock summary + digest; Attempt has `lock.json` / `result.json` / `trajectory.jsonl` |
 | Evidence grade | **Limited to `runnable-mvp`** (commands above; do not upgrade from documentation) |
@@ -175,8 +175,9 @@ ageval/                              # GitHub: ZJU-REAL/ageval
 │   ├── queries.py / dataset.py / sql_adapter.py / store.py
 │   └── routes.py                    # ROUTES must declare access
 ├── examples/
-│   ├── journeys/                    # terminal-jsonl-agg / tau2-dialog-min / multiagent-env-min
-│   ├── tau3-airline/                # airline-00 lock
+│   ├── datasets/
+│   │   ├── minimal-demo/            # terminal-jsonl-agg / tau2-dialog-min / multiagent-env-min
+│   │   └── tau3-airline/            # airline-00 … airline-04 lock
 │   └── agents/                      # ageval.agent/1 catalog packages
 ├── plugins/                         # external ageval.plugin/1
 │   ├── nooa/ / dsh/ / miniswe/ / acp-oneshot/
@@ -415,7 +416,7 @@ Privacy: tokens, `CODEX_HOME` contents, DB passwords, and SSH private keys must 
 | Grade | Meaning | When you may claim it |
 | --- | --- | --- |
 | `design-only` | Docs only | Paths not covered by public smoke (including real e2b/ssh runs when keys are absent) |
-| `runnable-mvp` | Real public entrypoint + real Agent | Matching public journey exists (current: core local/docker ACP, named journeys) |
+| `runnable-mvp` | Real public entrypoint + real Agent | Matching public demo exists (current: core local/docker ACP, named `minimal-demo` tasks) |
 | `isolated` | Isolated Attempt + isolation red lines | Matching acceptance evidence; do not infer from one docker PASS |
 | `real-benchmark-verified` | Fixed upstream + bounded public journey | Matching acceptance; do not expand to the full suite |
 

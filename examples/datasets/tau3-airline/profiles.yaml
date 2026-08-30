@@ -1,0 +1,13 @@
+format: ageval.profiles/1
+environment: local
+
+# Dual-role user + service share one openai-http GLM Coding Plan binding.
+agent_profiles:
+  "*":
+    executor: openai-http
+    model: glm-5.3
+    api_key: ${glm_coding_api_key}
+    base_url: https://open.bigmodel.cn/api/coding/paas/v4
+    extensions:
+      - plugin: openai-http
+      - plugin: local

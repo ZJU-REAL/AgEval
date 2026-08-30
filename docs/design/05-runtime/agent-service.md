@@ -118,7 +118,7 @@ kind 名仍是 `openai-http`（api-client，Chat Completions）。**不要**在�
 | `options.reasoning_effort` | 可选。有值则写入 Chat Completions 的 `reasoning_effort`；缺省不发该键。evidence：`locked_reasoning_effort` / `actual_reasoning_effort`（HTTP 200 时二者相同；4xx 时 actual 为 null） |
 | `options.extra_body` | 可选 mapping，原样 merge 进 Chat Completions JSON（在 `reasoning_effort` 之后，撞键 extra_body 赢）。省略 / 空 = 不发。非 mapping fail closed。拒绝 `model` / `api_key` / `messages` / `tools`。Core 不翻译厂商字段。 |
 
-tau2-class harness（journeys `tau2-dialog-min`、`examples/tau3-*`）把域 schema 传入 invoke；收到 `tool_calls` 后走 package `Environment.get_response` / `ToolSet.call`，再 `record_observation` 把回包挂到该 invoke。原生 `tool_calls` 是 **HTTP api-client 的主动作通道**（`openai-http` / `anthropic-http`）；「Return ONLY JSON」只留给没有 `tool_calls` 的文本 executor（ACP）。禁止在 Core 里 scrape vendor stdout 当工具通道。
+tau2-class harness（`minimal-demo` 的 `tau2-dialog-min`、`examples/datasets/tau3-*`）把域 schema 传入 invoke；收到 `tool_calls` 后走 package `Environment.get_response` / `ToolSet.call`，再 `record_observation` 把回包挂到该 invoke。原生 `tool_calls` 是 **HTTP api-client 的主动作通道**（`openai-http` / `anthropic-http`）；「Return ONLY JSON」只留给没有 `tool_calls` 的文本 executor（ACP）。禁止在 Core 里 scrape vendor stdout 当工具通道。
 
 `openai-http` 的 executor events 用 Core 合同：`kind: tool` + `phase: start` + `tool_call_id` / `function_name` / `args`。环境观察是 `phase: update`（source `ageval`），不是 HTTP 响应的一部分。
 

@@ -1,0 +1,39 @@
+format: ageval.task/1
+task_id: multiagent-env-min
+provenance:
+  kind: reimplementation
+  upstream:
+    name: MultiAgentBench (MARBLE)
+    url: https://github.com/ulab-uiuc/MARBLE
+    ref: main
+    paper: https://arxiv.org/abs/2503.01935
+  parity:
+    claims:
+    - protocol
+    known_gaps:
+    - ageval minimal-demo mini-package; not full MultiAgentBench suite
+    - no MultiAgentBenchAdapter; roles via profiles + env tools only
+parameters:
+  harness_timeout_seconds: 900
+  environment_resource: postgresql
+  roles:
+    specialist: specialist
+    planner: planner
+    reducer: reducer
+  models:
+    default: specialist
+agent_profiles:
+- id: specialist
+- id: planner
+- id: reducer
+limits:
+  wall_time_seconds: 900
+  agent_invocations: 16
+artifacts:
+  publishable:
+  - id: reducer-output
+    path: artifacts/reducer-output.json
+evaluation:
+  inputs:
+  - artifact: reducer-output
+    target: artifacts/reducer-output.json

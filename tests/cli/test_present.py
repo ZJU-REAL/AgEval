@@ -23,7 +23,7 @@ def test_tasks_recap_lists_ids() -> None:
 def test_lock_recap_omits_digest() -> None:
     text = humanize(
         {
-            "dataset_id": "example/journeys",
+            "dataset_id": "example/minimal-demo",
             "dataset_version": "0.1.3",
             "task_id": "terminal-jsonl-agg",
             "environment": "docker",

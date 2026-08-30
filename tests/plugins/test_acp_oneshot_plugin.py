@@ -283,7 +283,7 @@ def test_lock_cli_selects_oneshot(tmp_path: Path, monkeypatch: pytest.MonkeyPatc
             "-m",
             "ageval.cli.main",
             "lock",
-            str(ROOT / "examples/journeys"),
+            str(ROOT / "examples/datasets/minimal-demo"),
             "--task",
             "terminal-jsonl-agg",
             "--profiles",

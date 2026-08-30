@@ -120,7 +120,7 @@ def test_dest_file_src_dir_fails(tmp_path: Path) -> None:
 
 def test_journeys_overlay_profile_locks(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     root = Path(__file__).resolve().parents[2]
-    profiles = root / "examples/journeys/acp-profiles/profiles.acp.opencode.qwen3.8-max.yaml"
+    profiles = root / "examples/datasets/minimal-demo/acp-profiles/profiles.acp.opencode.qwen3.8-max.yaml"
     if not profiles.is_file():
         pytest.skip("journeys overlay profiles were removed")
     from ageval.plugins import bootstrap as boot
@@ -146,11 +146,11 @@ def test_journeys_overlay_profile_locks(tmp_path: Path, monkeypatch: pytest.Monk
             "-m",
             "ageval.cli.main",
             "lock",
-            str(root / "examples/journeys"),
+            str(root / "examples/datasets/minimal-demo"),
             "--task",
             "terminal-jsonl-agg",
             "--profiles",
-            str(root / "examples/journeys/acp-profiles/profiles.acp.opencode.qwen3.8-max.yaml"),
+            str(root / "examples/datasets/minimal-demo/acp-profiles/profiles.acp.opencode.qwen3.8-max.yaml"),
         ],
         cwd=root,
         capture_output=True,

@@ -12,16 +12,16 @@ uv run ageval run <dataset> --task <task_id>
 Example:
 
 ```bash
-uv run ageval run examples/journeys --task terminal-jsonl-agg
+uv run ageval run examples/datasets/minimal-demo --task terminal-jsonl-agg
 
 # Always-k: fixed k independent Attempts for one task (CLI only; default k=1)
-uv run ageval run examples/journeys --task terminal-jsonl-agg -k 5
+uv run ageval run examples/datasets/minimal-demo --task terminal-jsonl-agg -k 5
 ```
 
 Config only, no agent:
 
 ```bash
-uv run ageval lock examples/journeys --task terminal-jsonl-agg
+uv run ageval lock examples/datasets/minimal-demo --task terminal-jsonl-agg
 ```
 
 `--task` must match the member directory name and `task_id` in `task.yaml`.  

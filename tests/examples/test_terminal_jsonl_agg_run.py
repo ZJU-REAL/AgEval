@@ -10,7 +10,7 @@ from types import SimpleNamespace
 import pytest
 
 ROOT = Path(__file__).resolve().parents[2]
-TASK = ROOT / "examples" / "journeys" / "tasks" / "terminal-jsonl-agg"
+TASK = ROOT / "examples" / "datasets" / "minimal-demo" / "tasks" / "terminal-jsonl-agg"
 if str(TASK) not in sys.path:
     sys.path.insert(0, str(TASK))
 

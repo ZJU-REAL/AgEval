@@ -20,7 +20,7 @@ from ageval.application.suite.suite_run import execute_suite_run, plan_suite_run
 
 REPO = Path(__file__).resolve().parents[2]
 SUITE = REPO / "tests" / "fixtures" / "datasets" / "suite-min"
-JOURNEYS = REPO / "examples" / "journeys"
+JOURNEYS = REPO / "examples" / "datasets" / "minimal-demo"
 
 
 def test_actors_summary_sorted_and_secret_free() -> None:
@@ -310,7 +310,7 @@ async def test_suite_summary_includes_homogeneous_config() -> None:
 
 
 def test_journeys_profiles_are_suite_homogeneous() -> None:
-    """example/journeys multi-topology package shares one profiles.yaml axis."""
+    """example/minimal-demo multi-topology package shares one profiles.yaml axis."""
     from ageval.application.suite.suite_config_fingerprint import collect_suite_config
 
     # Fake per-task rows without needing a full run

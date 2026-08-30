@@ -26,7 +26,7 @@ def _lock(*args: str, env: dict[str, str] | None = None) -> dict:
             "-m",
             "ageval.cli.main",
             "lock",
-            str(ROOT / "examples/journeys"),
+            str(ROOT / "examples/datasets/minimal-demo"),
             "--task",
             "terminal-jsonl-agg",
             *args,
@@ -93,7 +93,7 @@ def test_lock_dsh_profile_selects_dsh_not_nooa(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     env = _isolated_home(tmp_path, monkeypatch, "dsh", "nooa")
-    data = _lock("--profiles", str(ROOT / "examples/journeys/profiles.dsh.yaml"), env=env)
+    data = _lock("--profiles", str(ROOT / "examples/datasets/minimal-demo/profiles.dsh.yaml"), env=env)
     solver = data["extension_bindings"]["solver"]
     assert solver["slots"]["executor"]["plugin"] == "dsh"
     collect = _chain_plugins(solver, "trajectory_collect")
@@ -112,7 +112,7 @@ def test_lock_dsh_profile_selects_dsh_not_nooa(
 
 def test_lock_nooa_profile_records_inject(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     env = _isolated_home(tmp_path, monkeypatch, "nooa")
-    data = _lock("--profiles", str(ROOT / "examples/journeys/profiles.nooa.yaml"), env=env)
+    data = _lock("--profiles", str(ROOT / "examples/datasets/minimal-demo/profiles.nooa.yaml"), env=env)
     solver = data["extension_bindings"]["solver"]
     assert solver["slots"]["executor"]["plugin"] == "nooa"
     nooa_inject = (solver.get("inject") or {}).get("nooa") or []

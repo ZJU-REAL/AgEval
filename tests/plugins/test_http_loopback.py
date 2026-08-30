@@ -18,7 +18,7 @@ from ageval.plugins.errors import ExtensionMaterializeError
 from ageval.plugins.http_loopback import HTTP_EXECUTORS, is_http_loopback
 
 ROOT = Path(__file__).resolve().parents[2]
-JOURNEYS = ROOT / "examples" / "journeys"
+JOURNEYS = ROOT / "examples" / "datasets" / "minimal-demo"
 _MINISWE_SRC = ROOT / "plugins" / "miniswe" / "src"
 if str(_MINISWE_SRC) not in sys.path:
     sys.path.insert(0, str(_MINISWE_SRC))
@@ -231,7 +231,7 @@ def test_probe_loopback_http_without_key_is_not_credential_missing(
 ) -> None:
     monkeypatch.delenv("OPENAI_API_KEY", raising=False)
     dataset = Path(
-        shutil.copytree(JOURNEYS, tmp_path / "journeys", ignore=shutil.ignore_patterns(".ageval"))
+        shutil.copytree(JOURNEYS, tmp_path / "minimal-demo", ignore=shutil.ignore_patterns(".ageval", ".env"))
     )
     profiles = dataset / "profiles.loopback.yaml"
     _http_profiles(profiles, base_url="http://127.0.0.1:9/v1", api_key=None)
@@ -276,7 +276,7 @@ def test_probe_remote_http_without_key_is_credential_missing(
 ) -> None:
     monkeypatch.delenv("OPENAI_API_KEY", raising=False)
     dataset = Path(
-        shutil.copytree(JOURNEYS, tmp_path / "journeys", ignore=shutil.ignore_patterns(".ageval"))
+        shutil.copytree(JOURNEYS, tmp_path / "minimal-demo", ignore=shutil.ignore_patterns(".ageval", ".env"))
     )
     profiles = dataset / "profiles.remote.yaml"
     _http_profiles(profiles, base_url="https://api.example.invalid/v1", api_key=None)

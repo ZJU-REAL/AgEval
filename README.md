@@ -115,18 +115,18 @@ uv run ageval -V
 ```
 
 ```bash
-uv run ageval tasks examples/journeys
-uv run ageval lock examples/journeys --task terminal-jsonl-agg
-uv run ageval run  examples/journeys --task terminal-jsonl-agg
-uv run ageval run  examples/journeys --task terminal-jsonl-agg \
-  --profiles examples/journeys/profiles.e2b-acp.yaml --probe
+uv run ageval tasks examples/datasets/minimal-demo
+uv run ageval lock examples/datasets/minimal-demo --task terminal-jsonl-agg
+uv run ageval run  examples/datasets/minimal-demo --task terminal-jsonl-agg
+uv run ageval run  examples/datasets/minimal-demo --task terminal-jsonl-agg \
+  --profiles examples/datasets/minimal-demo/profiles.e2b-acp.yaml --probe
 uv run ageval executors -v
-uv run ageval view examples/journeys --no-browser
+uv run ageval view examples/datasets/minimal-demo --no-browser
 ```
 
-Default `examples/journeys` profiles use `environment: docker`. Bind a shipped harness with `--agent pi` (no install). Optional `--model` overrides this run. Custom overlay packs still use `ageval agent install` then `--agent org/name@version`.
+Default `examples/datasets/minimal-demo` profiles use `environment: docker`. Bind a shipped harness with `--agent pi` (no install). Optional `--model` overrides this run. Custom overlay packs still use `ageval agent install` then `--agent org/name@version`.
 
-In-repo examples: [`examples/README.md`](examples/README.md) — journeys, `tau3-airline`, and catalog Agents.
+In-repo examples: [`examples/README.md`](examples/README.md) — `minimal-demo`, a five-task `tau3-airline` cut, and catalog Agents.
 
 ## Architecture
 
@@ -180,8 +180,9 @@ ageval/
 ├── sdk/python/                      # ageval_sdk for run.py (no PASS, no host credentials)
 ├── plugins/                         # external ageval.plugin/1 (nooa, dsh, miniswe, …)
 ├── examples/
-│   ├── journeys/                    # terminal-jsonl-agg · tau2-dialog-min · multiagent-env-min
-│   ├── tau3-airline/
+│   ├── datasets/
+│   │   ├── minimal-demo/            # terminal-jsonl-agg · tau2-dialog-min · multiagent-env-min
+│   │   └── tau3-airline/            # airline-00 … airline-04
 │   └── agents/                      # ageval.agent/1
 ├── apps/viewer                      # ageval view SPA
 ├── apps/hub                         # Hub SPA

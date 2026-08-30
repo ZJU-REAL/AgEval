@@ -46,15 +46,15 @@ default. This is not `ageval results upload-suite --model` (an observational
 upload label).
 
 ```bash
-uv run ageval run examples/journeys --task terminal-jsonl-agg --agent pi --model glm-4.7
+uv run ageval run examples/datasets/minimal-demo --task terminal-jsonl-agg --agent pi --model glm-4.7
 uv run ageval agent install examples/agents/pi-default
-uv run ageval run examples/journeys --task terminal-jsonl-agg --agent local/pi-default@0.1.0
+uv run ageval run examples/datasets/minimal-demo --task terminal-jsonl-agg --agent local/pi-default@0.1.0
 ```
 
 ## Temporary switch
 
 ```bash
-uv run ageval run examples/journeys --task terminal-jsonl-agg \
+uv run ageval run examples/datasets/minimal-demo --task terminal-jsonl-agg \
   --set '/bindings/solver/options/entry="codex"'
 ```
 

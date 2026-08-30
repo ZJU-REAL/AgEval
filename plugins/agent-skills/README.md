@@ -83,8 +83,8 @@ them on this role as `overlays:` (for example `overlays/skills/jsonl-agg` and
 
 ```bash
 uv run ageval plugin install plugins/agent-skills
-uv run ageval lock examples/journeys --task terminal-jsonl-agg \
-  --profiles examples/journeys/acp-profiles/profiles.acp.grok-build.agent-skills.yaml
-uv run ageval run examples/journeys --task terminal-jsonl-agg \
-  --profiles examples/journeys/acp-profiles/profiles.acp.grok-build.agent-skills.yaml
+uv run ageval lock examples/datasets/minimal-demo --task terminal-jsonl-agg \
+  --profiles examples/datasets/minimal-demo/acp-profiles/profiles.acp.grok-build.agent-skills.yaml
+uv run ageval run examples/datasets/minimal-demo --task terminal-jsonl-agg \
+  --profiles examples/datasets/minimal-demo/acp-profiles/profiles.acp.grok-build.agent-skills.yaml
 ```

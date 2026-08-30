@@ -4,7 +4,7 @@ version: "0.1.0"
 label: "NVIDIA OO Agents (JsonlAggAgent)"
 description: >-
   NVIDIA OO Agents in-box worker. Default class is lib.agents:JsonlAggAgent
-  (journeys terminal-jsonl-agg). Install plugins/nooa first.
+  (minimal-demo terminal-jsonl-agg). Install plugins/nooa first.
 tags: [coding, nooa]
 binding:
   executor: nooa

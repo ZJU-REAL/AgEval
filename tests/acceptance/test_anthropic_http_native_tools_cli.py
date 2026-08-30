@@ -13,7 +13,7 @@ from threading import Thread
 from typing import Any
 
 REPO = Path(__file__).resolve().parents[2]
-JOURNEYS = REPO / "examples" / "journeys"
+JOURNEYS = REPO / "examples" / "datasets" / "minimal-demo"
 TASK = "tau2-dialog-min"
 
 _SERVICE_SCRIPT: list[tuple[str, dict[str, Any]]] = [
@@ -102,7 +102,7 @@ def _serve_scripted() -> tuple[ThreadingHTTPServer, str]:
 
 def test_tau2_dialog_min_anthropic_http_native_tools(tmp_path: Path) -> None:
     dataset = Path(
-        shutil.copytree(JOURNEYS, tmp_path / "journeys", ignore=shutil.ignore_patterns(".ageval"))
+        shutil.copytree(JOURNEYS, tmp_path / "minimal-demo", ignore=shutil.ignore_patterns(".ageval", ".env"))
     )
     server, base = _serve_scripted()
     profiles = dataset / "profiles.anthropic-http.yaml"

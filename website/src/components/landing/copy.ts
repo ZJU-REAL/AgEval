@@ -198,7 +198,7 @@ export const landingCopy = {
     },
     cta: {
       title: ["先锁定绑定，", "再比较分数。"],
-      lead: "clone 仓库，跑 examples/journeys。公开入口以 ageval --help 为准。",
+      lead: "clone 仓库，跑 examples/datasets/minimal-demo。公开入口以 ageval --help 为准。",
       primary: "打开仓库",
       hub: "前往 Hub",
       docs: "阅读文档",
@@ -432,7 +432,7 @@ export const landingCopy = {
     },
     cta: {
       title: ["Lock the binding first.", "Then compare the scores."],
-      lead: "Clone the repo. Run examples/journeys. Public entrypoints follow ageval --help.",
+      lead: "Clone the repo. Run examples/datasets/minimal-demo. Public entrypoints follow ageval --help.",
       primary: "Open repo",
       hub: "Go to Hub",
       docs: "Read the docs",
