@@ -647,6 +647,45 @@ def test_acp_mapper_copies_at_onto_text_and_core_derives_thought_elapsed(
     ]
 
 
+def test_codex_read_args_from_locations_and_list_title(tmp_path: Path) -> None:
+    """Codex ACP omits rawInput on read/listFiles; path is locations or title."""
+    events = (
+        {
+            "type": "session_update",
+            "session_id": "s1",
+            "update": {
+                "sessionUpdate": "tool_call",
+                "toolCallId": "call_read",
+                "kind": "read",
+                "title": "Read file '/attempt/workspace/records_1.jsonl'",
+                "status": "completed",
+                "locations": [{"path": "/attempt/workspace/records_1.jsonl"}],
+            },
+        },
+        {
+            "type": "session_update",
+            "session_id": "s1",
+            "update": {
+                "sessionUpdate": "tool_call",
+                "toolCallId": "call_ls",
+                "kind": "read",
+                "title": "List files in 'workspace'",
+                "status": "completed",
+            },
+        },
+    )
+    mapped = acp_session_events_to_ageval(events)
+    tools = [e for e in mapped if e.get("kind") == "tool"]
+    by_id = {e["tool_call_id"]: e for e in tools}
+    assert by_id["call_read"]["args"] == {"path": "/attempt/workspace/records_1.jsonl"}
+    assert by_id["call_ls"]["args"] == {"path": "workspace"}
+    path = _write(tmp_path, events=mapped, prompt="p", final_text="done")
+    folded = [x for x in _read_lines(path) if x["type"] == "tool_call"]
+    args = {x["tool_call_id"]: x["args"] for x in folded}
+    assert args["call_read"] == {"path": "/attempt/workspace/records_1.jsonl"}
+    assert args["call_ls"] == {"path": "workspace"}
+
+
 def test_writer_keeps_explicit_ended_at_over_later_at(tmp_path: Path) -> None:
     events = (
         {

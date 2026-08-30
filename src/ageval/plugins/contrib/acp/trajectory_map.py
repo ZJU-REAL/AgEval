@@ -76,6 +76,7 @@ def acp_session_events_to_ageval(
         status = upd.get("status") if upd.get("status") is not None else raw.get("status")
         raw_input = upd.get("rawInput") if "rawInput" in upd else upd.get("raw_input")
         raw_output = upd.get("rawOutput") if "rawOutput" in upd else upd.get("raw_output")
+        locations = upd.get("locations") if "locations" in upd else raw.get("locations")
         content_text = _stringify_tool_output(raw_output, upd.get("content"))
         term = _terminal_meta_text(upd)
         if term:
@@ -84,6 +85,9 @@ def acp_session_events_to_ageval(
         args: dict[str, Any] | None = None
         if raw_input is not None:
             args = raw_input if isinstance(raw_input, dict) else {"value": raw_input}
+            had_raw_input.add(call_id)
+        elif loc_args := _args_from_locations(locations):
+            args = loc_args
             had_raw_input.add(call_id)
         if isinstance(title, str) and title.strip():
             prev_t = longest_title.get(call_id)
@@ -123,25 +127,24 @@ def acp_session_events_to_ageval(
         _attach_timing(ev, raw, upd)
         out.append(ev)
 
-    # Pi streams the command in title, not rawInput. Fill args on the
-    # existing tool events so Core does not see a late extra update.
+    # Codex READ/list and Pi execute often omit rawInput: path lives in
+    # locations or title (``Read file '/x'``, ``List files in 'workspace'``).
     for ev in out:
         if ev.get("kind") != "tool":
             continue
         call_id = ev.get("tool_call_id")
         if not isinstance(call_id, str) or call_id in had_raw_input:
             continue
-        kind_l = (tool_kind_by_id.get(call_id) or "").lower()
-        if kind_l not in {"execute", "other", ""}:
-            continue
-        title = longest_title.get(call_id)
-        if not isinstance(title, str) or not title.strip():
-            continue
         args = ev.get("args")
         if args not in (None, {}):
             continue
-        ev["args"] = {"command": title}
-        if not ev.get("title"):
+        title = longest_title.get(call_id)
+        kind_l = (tool_kind_by_id.get(call_id) or "").lower()
+        filled = _args_from_title(title if isinstance(title, str) else None, kind_l)
+        if filled is None:
+            continue
+        ev["args"] = filled
+        if not ev.get("title") and isinstance(title, str):
             ev["title"] = title
     return out
 
@@ -205,6 +208,50 @@ def _session_update_name(ev: dict[str, Any], upd: dict[str, Any]) -> str:
         ):
             return "tool_call"
     return ""
+
+
+def _args_from_locations(locations: Any) -> dict[str, Any] | None:
+    if not isinstance(locations, list) or not locations:
+        return None
+    paths: list[str] = []
+    line: int | None = None
+    for loc in locations:
+        if not isinstance(loc, dict):
+            continue
+        path = loc.get("path")
+        if isinstance(path, str) and path.strip():
+            paths.append(path.strip())
+        raw_line = loc.get("line")
+        if isinstance(raw_line, int) and not isinstance(raw_line, bool):
+            line = raw_line
+    if not paths:
+        return None
+    if len(paths) == 1:
+        out: dict[str, Any] = {"path": paths[0]}
+        if line is not None:
+            out["line"] = line
+        return out
+    return {"paths": paths}
+
+
+def _args_from_title(title: str | None, kind: str) -> dict[str, Any] | None:
+    if not isinstance(title, str) or not title.strip():
+        return None
+    text = title.strip()
+    for prefix in ("Read file ", "Edit file ", "Write file ", "Deleted file "):
+        if text.startswith(prefix):
+            path = text[len(prefix) :].strip().strip("'\"")
+            return {"path": path} if path else None
+    if text.startswith("List files in "):
+        path = text[len("List files in ") :].strip().strip("'\"")
+        return {"path": path} if path else None
+    if text == "List files":
+        return {"path": "."}
+    if kind in {"execute", "other", ""}:
+        return {"command": text}
+    if kind == "search":
+        return {"query": text}
+    return None
 
 
 def _tool_call_id(ev: dict[str, Any], upd: dict[str, Any]) -> str | None:
