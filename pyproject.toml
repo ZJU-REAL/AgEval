@@ -53,8 +53,17 @@ build-backend = "hatchling.build"
 path = "VERSION"
 pattern = "(?P<version>\\S+)"
 
+# Viewer SPA enters the wheel at release build: apps/viewer `pnpm build` →
+# copy dist/ to src/ageval/viewer/static/ (gitignored) → `uv build`.
+# The sdist force-include keeps sdist→wheel rebuilds SPA-carrying; building an
+# sdist without apps/viewer/dist fails on purpose (never ship a SPA-less sdist).
 [tool.hatch.build.targets.wheel]
 packages = ["src/ageval", "src/ageval_sdk"]
+# artifacts overrides .gitignore for the release-copied SPA (no-op while absent).
+artifacts = ["src/ageval/viewer/static/**"]
+
+[tool.hatch.build.targets.sdist]
+force-include = { "apps/viewer/dist" = "src/ageval/viewer/static" }
 
 [tool.uv]
 package = true

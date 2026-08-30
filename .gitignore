@@ -18,6 +18,9 @@ build/
 .ageval/
 /tmp
 
+# Viewer SPA copied into the package at release build (apps/viewer: pnpm build → dist/)
+src/ageval/viewer/static/
+
 # Editors / OS
 .DS_Store
 .idea/
