@@ -9,10 +9,13 @@
   <a href="https://www.python.org/downloads/"><img alt="Python" src="https://img.shields.io/badge/python-3.12%2B-blue"></a>
 </p>
 
-> [!IMPORTANT]
-> 大多数 Agent 评测仍停留在**模型**层面：同一套提示、同一套工具约定，比较不同权重或不同 API。这一划分正在失效——可交付的 Agent 是 Model 与 Harness 的组合：同一套权重接到不同的 coding-agent 运行时、工具策略或环境隔离上，行为与成本都会变。因此要把 Harness 作为一等评测维度，与 Model、运行环境一并锁定。
+大多数 Agent 评测仍停留在**模型**层面：同一套提示、同一套工具约定，比较不同权重或不同 API。这一划分正在失效——可交付的 Agent 是 Model 与 Harness 的组合：同一套权重接到不同的 coding-agent 运行时、工具策略或环境隔离上，行为与成本都会变。因此要把 Harness 作为一等评测维度，与 Model、运行环境一并锁定。
 
 **ageval** 把一次 bench 的 runtime 组成拆开：Environment 与 Agent 经插件组合，同一份 `run.py` 在不同绑定下运行。
+
+<p align="center">
+  <img src="docs/assets/why-ageval.jpg" alt="N 种环境 × M 种 harness：逐个组合需要 N·M 份定制脚手架；ageval 经插件组合环境与 harness，一次编写，处处运行。" width="800">
+</p>
 
 ## 目录
 

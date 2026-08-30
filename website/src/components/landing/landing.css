@@ -325,7 +325,6 @@ html:has(.ageval-landing) body {
   position: relative;
   min-height: calc(100dvh - 64px);
   display: flex;
-  align-items: center;
   padding: 80px 0 72px;
   overflow: hidden;
   background:
@@ -361,13 +360,110 @@ html:has(.ageval-landing) body {
   mask-image: radial-gradient(ellipse 62% 58% at 78% 48%, #000 10%, transparent 72%);
 }
 
-.ageval-landing .hero-layout {
+.ageval-landing .hero-stack {
   position: relative;
   z-index: 2;
+  display: flex;
+  flex-direction: column;
+}
+
+.ageval-landing .hero-center {
+  margin-top: clamp(12px, 7vh, 96px);
+  text-align: center;
+}
+
+.ageval-landing .hero-title {
+  font-family: var(--font-cjk);
+  font-size: clamp(30px, 4.6vw, 58px);
+  font-weight: 700;
+  line-height: 1.22;
+  letter-spacing: -0.02em;
+  color: var(--cream);
+}
+
+.ageval-landing .hero-title-a {
+  display: block;
+}
+
+.ageval-landing .hero-title-b {
+  display: block;
+  margin-top: 6px;
+}
+
+.ageval-landing .hero-rotate {
   display: grid;
-  grid-template-columns: minmax(0, 1.02fr) minmax(300px, 0.98fr);
-  gap: 64px;
+  justify-content: center;
+  justify-items: center;
   align-items: center;
+  margin-top: 6px;
+}
+
+.ageval-landing .hero-rotate-layer {
+  grid-area: 1 / 1;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.42em;
+}
+
+.ageval-landing .hero-rotate-layer.is-leaving {
+  pointer-events: none;
+}
+
+.ageval-landing .hero-rotate-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 0.92em;
+  height: 0.92em;
+}
+
+.ageval-landing .hero-rotate-plate {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.06em;
+  height: 1.06em;
+  padding: 0.14em;
+  border-radius: 999px;
+  background: var(--paper);
+}
+
+.ageval-landing .hero-rotate-mark {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  flex-shrink: 0;
+}
+
+.ageval-landing .hero-rotate-name {
+  color: var(--cream);
+}
+
+.ageval-landing .hero-note {
+  margin: 22px auto 0;
+  max-width: 34em;
+  font-size: 16.5px;
+  line-height: 1.75;
+  color: var(--muted);
+}
+
+.ageval-landing .hero-center .hero-ctas {
+  justify-content: center;
+}
+
+.ageval-landing .hero-foot {
+  margin-top: auto;
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 24px;
+  padding-top: 56px;
+  padding-bottom: 28px;
+}
+
+.ageval-landing .hero-foot .stage {
+  width: min(560px, 100%);
 }
 
 .ageval-landing .hero-tag {
@@ -389,38 +485,6 @@ html:has(.ageval-landing) body {
   background: var(--red);
 }
 
-.ageval-landing .hero-brand {
-  font-family: var(--font-display);
-  font-size: clamp(64px, 8.4vw, 96px);
-  font-weight: 400;
-  line-height: 0.9;
-  letter-spacing: 0.04em;
-  color: var(--cream);
-  margin: 0 0 16px;
-}
-
-.ageval-landing .hero-brand span {
-  color: var(--red);
-}
-
-.ageval-landing .hero-sub {
-  font-family: var(--font-cjk);
-  font-size: clamp(20px, 2.4vw, 30px);
-  font-weight: 700;
-  line-height: 1.32;
-  letter-spacing: -0.02em;
-  color: var(--cream);
-  max-width: 18em;
-}
-
-.ageval-landing .hero-lead {
-  margin-top: 20px;
-  max-width: 34em;
-  font-size: 16.5px;
-  line-height: 1.75;
-  color: var(--muted);
-}
-
 .ageval-landing .hero-ctas {
   display: flex;
   flex-wrap: wrap;
@@ -430,7 +494,6 @@ html:has(.ageval-landing) body {
 
 .ageval-landing .stage {
   position: relative;
-  align-self: center;
   background: oklch(11.6% 0.022 264 / 0.42);
   -webkit-backdrop-filter: blur(10px);
   backdrop-filter: blur(10px);
@@ -1436,7 +1499,6 @@ html:has(.ageval-landing) body {
 }
 
 @media (max-width: 1024px) {
-  .ageval-landing .hero-layout,
   .ageval-landing .split,
   .ageval-landing .barrier,
   .ageval-landing .take,
@@ -1505,12 +1567,16 @@ html:has(.ageval-landing) body {
     min-height: 0;
   }
 
-  .ageval-landing .hero-brand {
-    font-size: 56px;
+  .ageval-landing .hero-foot {
+    padding-bottom: 8px;
   }
 
-  .ageval-landing .hero-sub {
-    font-size: 20px;
+  .ageval-landing .hero-title {
+    font-size: 28px;
+  }
+
+  .ageval-landing .hero-note {
+    font-size: 15.5px;
   }
 
   .ageval-landing .stage {
@@ -1589,25 +1655,54 @@ html:has(.ageval-landing) body {
 }
 
 @media (prefers-reduced-motion: no-preference) {
-  .ageval-landing .hero-brand,
-  .ageval-landing .hero-sub,
-  .ageval-landing .hero-lead,
+  .ageval-landing .hero-title,
+  .ageval-landing .hero-title-b,
+  .ageval-landing .hero-note,
   .ageval-landing .hero-ctas,
-  .ageval-landing .stage {
+  .ageval-landing .hero-foot {
     animation: ageval-land-in 400ms var(--ease) both;
   }
 
-  .ageval-landing .hero-sub {
+  .ageval-landing .hero-title-b {
     animation-delay: 40ms;
   }
 
-  .ageval-landing .hero-lead {
+  .ageval-landing .hero-note {
     animation-delay: 80ms;
   }
 
   .ageval-landing .hero-ctas,
-  .ageval-landing .stage {
+  .ageval-landing .hero-foot {
     animation-delay: 120ms;
+  }
+}
+
+@keyframes ageval-rotate-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes ageval-rotate-out {
+  from {
+    opacity: 1;
+  }
+  to {
+    opacity: 0;
+  }
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .ageval-landing .hero-rotate-layer.is-active {
+    /* Linear: --ease settles by ~t=0.2, so a 400ms fade reads as a cut. */
+    animation: ageval-rotate-in 400ms linear both;
+  }
+
+  .ageval-landing .hero-rotate-layer.is-leaving {
+    animation: ageval-rotate-out 400ms linear both;
   }
 }
 
@@ -1649,11 +1744,12 @@ html:has(.ageval-landing) body {
     transition: none;
   }
 
-  .ageval-landing .hero-brand,
-  .ageval-landing .hero-sub,
-  .ageval-landing .hero-lead,
+  .ageval-landing .hero-title,
+  .ageval-landing .hero-title-b,
+  .ageval-landing .hero-note,
+  .ageval-landing .hero-rotate-layer,
   .ageval-landing .hero-ctas,
-  .ageval-landing .stage,
+  .ageval-landing .hero-foot,
   .ageval-landing .pact,
   .ageval-landing .block,
   .ageval-landing .take,

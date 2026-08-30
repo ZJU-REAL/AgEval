@@ -5,6 +5,7 @@ import { DshWhale } from "@/components/landing/dsh-whale";
 import { landingCopy } from "@/components/landing/copy";
 import { LandingNav } from "@/components/landing/landing-nav";
 import { HeroSignal } from "@/components/landing/hero-signal";
+import { HeroRotate } from "@/components/landing/hero-rotate";
 import { OwlPixelMark } from "@/components/landing/owl-pixel";
 import { StartCode } from "@/components/landing/start-code";
 import { isSiteLocale } from "@/lib/i18n";
@@ -93,18 +94,14 @@ export default async function HomePage({ params }: { params: Promise<HomeParams>
           <HeroSignal />
           <div className="hero-grid" aria-hidden="true" />
           <OwlPixelMark className="owl-wash" />
-          <div className="wrap-wide hero-layout">
-            <div>
-              <h1 className="hero-brand">
-                {text.hero.brand}
-                <span>.</span>
+          <div className="wrap-wide hero-stack">
+            <div className="hero-center">
+              <h1 className="hero-title">
+                <span className="hero-title-a">{text.hero.titleA}</span>
+                <span className="hero-title-b">{text.hero.titleB}</span>
+                <HeroRotate />
               </h1>
-              <p className="hero-sub">
-                {text.hero.title[0]}
-                <br />
-                {text.hero.title[1]}
-              </p>
-              <p className="hero-lead">{text.hero.lead}</p>
+              <p className="hero-note">{text.hero.note}</p>
               <HeroCtas
                 repoLabel={text.hero.primary}
                 hubLabel={text.hero.hub}
@@ -112,15 +109,17 @@ export default async function HomePage({ params }: { params: Promise<HomeParams>
                 docsHref={`/${lang}/docs`}
               />
             </div>
-            <aside className="stage" aria-label={text.hero.startAria}>
-              <span className="cross tl" aria-hidden="true" />
-              <span className="cross br" aria-hidden="true" />
-              <StartCode
-                label={text.hero.startLabel}
-                copyLabel={text.hero.copy}
-                copiedLabel={text.hero.copied}
-              />
-            </aside>
+            <div className="hero-foot">
+              <aside className="stage" aria-label={text.hero.startAria}>
+                <span className="cross tl" aria-hidden="true" />
+                <span className="cross br" aria-hidden="true" />
+                <StartCode
+                  label={text.hero.startLabel}
+                  copyLabel={text.hero.copy}
+                  copiedLabel={text.hero.copied}
+                />
+              </aside>
+            </div>
           </div>
         </section>
 

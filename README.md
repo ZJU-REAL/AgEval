@@ -14,6 +14,10 @@
 
 **ageval** decouples the runtime of a bench run. Environment and Agent combine through plugins, so one `run.py` runs under each binding.
 
+<p align="center">
+  <img src="docs/assets/why-ageval.jpg" alt="N environments × M harnesses: each combination would need its own scaffold; ageval composes environment and harness through plugins, so one eval runs anywhere." width="800">
+</p>
+
 ## Contents
 
 - [What it is](#what-it-is)
