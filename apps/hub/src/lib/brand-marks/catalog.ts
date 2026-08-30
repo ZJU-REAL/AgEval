@@ -33,6 +33,7 @@ export const BRAND_MARKS: readonly BrandMarkEntry[] = [
   { id: "meta", label: "Meta", file: "meta.svg", tone: "color" },
   { id: "microsoft", label: "Microsoft", file: "microsoft.svg", tone: "color" },
   { id: "minimax", label: "MiniMax", file: "minimax.svg", tone: "color" },
+  { id: "miniswe", label: "mini-SWE-agent", file: "miniswe.svg", tone: "color" },
   { id: "mistral", label: "Mistral", file: "mistral.svg", tone: "color" },
   { id: "nvidia", label: "NVIDIA", file: "nvidia.svg", tone: "color" },
   { id: "openai", label: "OpenAI", file: "openai.svg", tone: "ink" },
