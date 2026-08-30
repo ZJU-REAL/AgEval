@@ -1,6 +1,6 @@
 # 03 — 题包 `run.py` 与 SDK
 
-题包入口是 **`run.py`**：`async def run(ctx: RunContext) -> RunTerminal`。可选 SDK 包名 `ageval-sdk`，import `ageval_sdk`。
+题包入口是 **`run.py`**：`async def run(ctx: RunContext) -> RunTerminal`。SDK 与 Runtime 同属**单一发行版**（PyPI 发行名 `ageval-cli`，一个 wheel、两个顶层包 `ageval` / `ageval_sdk`）；import 名不变，题包零改动。import 边界（`ageval_sdk` **不得** import `ageval`）由架构测试钉住，取代独立包图隔离。
 
 SDK 可被 upstream 替代。**不**拥有 Run identity、环境、credential、PASS。
 

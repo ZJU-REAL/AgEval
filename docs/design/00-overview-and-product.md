@@ -15,6 +15,7 @@ ageval 把一次评测收成可见的 Attempt：锁定 **dataset**，打开一�
 | 产品名 / 文档站 / README | **ageval**（agent eval） |
 | CLI | `ageval lock` / `ageval run` |
 | Python 包与 import | `ageval` / `ageval_sdk` |
+| PyPI 发行名 | **`ageval-cli`**（`ageval` 槽位已被占；单 wheel 双顶层包，import 名不变） |
 | 环境变量 / 家目录 | `AGEVAL_*`、`~/.ageval` |
 | 配置 format | `ageval.dataset/1`、`ageval.task/1`、`ageval.plugin/1`、`ageval.profiles/1` |
 | GitHub 路径 | [`ZJU-REAL/ageval`](https://github.com/ZJU-REAL/ageval) |
