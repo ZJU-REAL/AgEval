@@ -45,7 +45,6 @@ jobs:
           filters: |
             python:
               - 'src/**'
-              - 'sdk/**'
               - 'tests/**'
               - 'examples/**'
               - 'services/**'

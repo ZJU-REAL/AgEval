@@ -176,7 +176,7 @@ ageval/
 │   ├── runtime/                     # 身份、父进程 Agent Service、task_worker
 │   ├── evaluation/                  # 评测屏障 + 绑定 PASS
 │   └── evidence/                    # trajectory.jsonl 布局
-├── sdk/python/                      # run.py 用的 ageval_sdk（不判定 PASS，不持有宿主凭据）
+├── src/ageval_sdk/                  # run.py 用的 ageval_sdk（不判定 PASS，不持有宿主凭据）
 ├── plugins/                         # 外置 ageval.plugin/1（nooa、dsh、miniswe 等）
 ├── examples/
 │   ├── datasets/
