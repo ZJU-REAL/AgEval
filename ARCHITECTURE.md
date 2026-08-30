@@ -109,7 +109,7 @@ ageval/                              # GitHub: ZJU-REAL/ageval
 ├── AGENTS.md
 ├── ARCHITECTURE.md
 ├── README.md
-├── pyproject.toml                   # name = "ageval"; script ageval =
+├── pyproject.toml                   # name = "ageval-cli"; scripts ageval / ae
 ├── uv.lock
 ├── src/ageval/
 │   ├── cli/                         # Typer: argv, help, exit code

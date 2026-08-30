@@ -1,9 +1,12 @@
 [project]
-name = "ageval"
+name = "ageval-cli"
 dynamic = ["version"]
 description = "ageval — agent evaluation runtime (Attempt pipeline + environment kinds)"
 readme = "README.md"
 requires-python = ">=3.12"
+license = "MIT"
+license-files = ["LICENSE"]
+authors = [{ name = "ZJU-REAL" }]
 dependencies = [
     "pyyaml>=6.0.2",
     "typer>=0.16.0",
@@ -41,12 +44,25 @@ daytona = [
     "daytona>=0.21.0",
     "socksio>=1.0.0",
 ]
+all = [
+    "ageval-cli[nooa]",
+    "ageval-cli[dsh]",
+    "ageval-cli[miniswe]",
+    "ageval-cli[e2b]",
+    "ageval-cli[daytona]",
+]
 
 [project.scripts]
 ageval = "ageval.cli.main:app"
+ae = "ageval.cli.main:app"
+
+[project.urls]
+Homepage = "https://github.com/ZJU-REAL/AgEval"
+Repository = "https://github.com/ZJU-REAL/AgEval"
+Issues = "https://github.com/ZJU-REAL/AgEval/issues"
 
 [build-system]
-requires = ["hatchling"]
+requires = ["hatchling>=1.26"]
 build-backend = "hatchling.build"
 
 [tool.hatch.version]
