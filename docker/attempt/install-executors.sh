@@ -41,6 +41,46 @@ npm install -g \
 npm cache clean --force
 rm -rf /var/lib/apt/lists/* /tmp/*
 
+# Codex ACP vendors its own @openai/codex tree. `npm i -g @openai/codex` puts the
+# native optional next to the *top-level* engine, so `codex --version` passes
+# while `codex-acp` still dies looking for @openai/codex-linux-arm64 (or -x64)
+# from the nested copy. Install the platform package next to every tree.
+_codex_native_pkg() {
+  case "$(uname -m)" in
+    aarch64|arm64) echo "@openai/codex-linux-arm64" ;;
+    x86_64|amd64) echo "@openai/codex-linux-x64" ;;
+    *)
+      echo "unsupported uname -m $(uname -m) for Codex native binary" >&2
+      exit 1
+      ;;
+  esac
+}
+
+_install_codex_native() {
+  local pkg dir ver tag
+  pkg="$(_codex_native_pkg)"
+  case "${pkg}" in
+    *-linux-arm64) tag="linux-arm64" ;;
+    *-linux-x64) tag="linux-x64" ;;
+    *) echo "unhandled Codex native package ${pkg}" >&2; exit 1 ;;
+  esac
+  while IFS= read -r -d '' pkgjson; do
+    dir="$(dirname "${pkgjson}")"
+    ver="$(node -p "require('${pkgjson}').version")"
+    # optionalDependencies alias: @openai/codex-linux-arm64 -> npm:@openai/codex@<ver>-linux-arm64
+    (cd "${dir}" && npm install --omit=dev --no-package-lock --no-fund --no-audit \
+      "${pkg}@npm:@openai/codex@${ver}-${tag}")
+  done < <(find /usr/lib/node_modules -path '*/@openai/codex/package.json' -print0)
+}
+
+_install_codex_native
+NESTED_CODEX="$(find /usr/lib/node_modules/@agentclientprotocol/codex-acp -path '*/@openai/codex/bin/codex.js' | head -1)"
+if [ -z "${NESTED_CODEX}" ]; then
+  echo "nested Codex wrapper missing under codex-acp" >&2
+  exit 1
+fi
+node "${NESTED_CODEX}" --version
+
 # --- Verify as root (build-time) ---
 command -v codex
 command -v codex-acp
