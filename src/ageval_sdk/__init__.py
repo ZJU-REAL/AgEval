@@ -18,10 +18,10 @@ def _load_version() -> str:
     try:
         from importlib.metadata import version
 
-        return version("ageval-sdk")
+        return version("ageval-cli")
     except Exception:
         pass
-    # Editable / source tree: sdk/python/VERSION → repo-root VERSION (symlink).
+    # Editable / source tree: repo-root VERSION (src/ageval_sdk/__init__.py → parents[2]).
     version_file = Path(__file__).resolve().parents[2] / "VERSION"
     if version_file.is_file():
         return version_file.read_text(encoding="utf-8").strip()

@@ -13,7 +13,7 @@ def _load_version() -> str:
     try:
         from importlib.metadata import version
 
-        return version("ageval")
+        return version("ageval-cli")
     except Exception:
         pass
     # Editable / source tree: repo-root VERSION (src/ageval/__init__.py → parents[2]).
