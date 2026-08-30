@@ -33,7 +33,9 @@ def _ageval(*args: str, cwd: Path | None = None) -> subprocess.CompletedProcess[
 def _dataset(tmp_path: Path) -> Path:
     """A copy of examples/datasets/minimal-demo, so evidence never lands in the checkout."""
     return Path(
-        shutil.copytree(CORE, tmp_path / "minimal-demo", ignore=shutil.ignore_patterns(".ageval", ".env"))
+        shutil.copytree(
+            CORE, tmp_path / "minimal-demo", ignore=shutil.ignore_patterns(".ageval", ".env")
+        )
     )
 
 
