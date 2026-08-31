@@ -68,7 +68,7 @@ evaluation:
 
 def test_examples_journeys_manifest() -> None:
     man = load_dataset_manifest(JOURNEYS_DB)
-    assert man.dataset_id == "example/minimal-demo"
+    assert man.dataset_id == "official/minimal-demo"
     assert man.format == "ageval.dataset/1"
     ids = list_tasks(JOURNEYS_DB, manifest=man)
     assert "terminal-jsonl-agg" in ids
@@ -80,7 +80,7 @@ def test_examples_journeys_manifest() -> None:
 def test_resolve_and_lock_public_example() -> None:
 
     resolved = resolve_task(JOURNEYS_DB, "terminal-jsonl-agg")
-    assert resolved.dataset_id == "example/minimal-demo"
+    assert resolved.dataset_id == "official/minimal-demo"
     assert resolved.task_dir.name == "terminal-jsonl-agg"
     lock = lock_task(JOURNEYS_DB, "terminal-jsonl-agg")
     assert lock.task_id == "terminal-jsonl-agg"

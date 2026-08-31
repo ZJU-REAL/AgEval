@@ -35,7 +35,7 @@ def test_success_smoke() -> None:
     data = json.loads(result.stdout)
     assert data["task_id"] == TASK
     assert data["format"] == "ageval.task/1"
-    assert data["dataset_id"] == "example/minimal-demo"
+    assert data["dataset_id"] == "official/minimal-demo"
     assert data["dataset_version"] == "0.1.3"
     assert data["digest"].startswith("sha256:")
     assert "resolved_references" in data
@@ -110,7 +110,7 @@ def test_tasks_list_journeys() -> None:
     result = _run_ageval("tasks", str(REPO / "examples" / "datasets" / "minimal-demo"))
     assert result.returncode == 0, result.stderr
     data = json.loads(result.stdout)
-    assert data["dataset_id"] == "example/minimal-demo"
+    assert data["dataset_id"] == "official/minimal-demo"
     assert data["count"] == 3
     assert "terminal-jsonl-agg" in data["tasks"]
 

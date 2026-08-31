@@ -362,7 +362,7 @@ export function useAttemptEvidence(
   const runCommand = useMemo(() => {
     const db = meta?.dataset_id;
     const t = trial?.task_id || taskId;
-    if (db && t) return `ageval run registry://${db} --task ${t}`;
+    if (db && t) return `ageval run ${db} --task ${t}`;
     if (t) return `ageval run <dataset> --task ${t}`;
     return "";
   }, [meta, trial, taskId]);

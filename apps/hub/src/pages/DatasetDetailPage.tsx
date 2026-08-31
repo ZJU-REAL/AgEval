@@ -281,9 +281,9 @@ export function DatasetDetailPage() {
     };
   }, [datasetId, token, requestedVersion]);
 
-  const lockCmd = useMemo(() => {
-    if (!release) return `ageval lock ${datasetId} --task <task_id>`;
-    return `ageval lock registry://${datasetId}@${release.version} --task <task_id>`;
+  const runCmd = useMemo(() => {
+    if (!release) return `ageval run ${datasetId}`;
+    return `ageval run ${datasetId}@${release.version}`;
   }, [datasetId, release]);
 
   useEffect(() => {
@@ -647,7 +647,7 @@ export function DatasetDetailPage() {
       </div>
 
       <div className="mb-4 max-w-3xl">
-        <CommandStrip command={lockCmd} />
+        <CommandStrip command={runCmd} />
       </div>
 
       <UnderlineTabs

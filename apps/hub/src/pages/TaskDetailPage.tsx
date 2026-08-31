@@ -472,7 +472,7 @@ export function TaskDetailPage() {
 
   const runCmd = useMemo(() => {
     if (!release) return `ageval run ${datasetId} --task ${taskId}`;
-    return `ageval run registry://${datasetId}@${release.version} --task ${taskId}`;
+    return `ageval run ${datasetId}@${release.version} --task ${taskId}`;
   }, [datasetId, release, taskId]);
 
   function setTab(next: Tab) {
