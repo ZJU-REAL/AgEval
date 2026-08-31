@@ -19,8 +19,6 @@ services:
       POSTGRES_USER: ageval
       POSTGRES_PASSWORD: ageval
       POSTGRES_DB: ageval_registry
-    ports:
-      - "5433:5432"
     volumes:
       - postgres-data:/var/lib/postgresql/data
     healthcheck:
@@ -37,8 +35,6 @@ services:
     environment:
       RUSTFS_ACCESS_KEY: ageval
       RUSTFS_SECRET_KEY: agevalageval
-    ports:
-      - "9000:9000"
     volumes:
       - rustfs-data:/data
 
