@@ -166,9 +166,7 @@ def test_final_suite_row_keeps_finished_shape(tmp_path: Path) -> None:
             {"task_id": "alpha", "attempt_index": 0, "status": "PASS", "run_id": "run_done_a"}
         ],
         "tasks": [{"task_id": "alpha", "status": "PASS", "score": 1.0, "run_id": "run_done_a"}],
-        "task_refs": [
-            {"task_id": "alpha", "status": "PASS", "score": 1.0, "run_id": "run_done_a"}
-        ],
+        "task_refs": [{"task_id": "alpha", "status": "PASS", "score": 1.0, "run_id": "run_done_a"}],
         "metrics": {
             "pass_rate": 1.0,
             "mean_score": 1.0,

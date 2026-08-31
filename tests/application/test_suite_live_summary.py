@@ -167,9 +167,7 @@ def _seed_upload_db(tmp_path: Path, *, status: str | None) -> Path:
         "suite_run_id": "suite_up_001",
         "dataset_id": "test/db",
         "dataset_version": "0.1.0",
-        "attempts": [
-            {"task_id": "a", "attempt_index": 0, "status": "PASS", "run_id": "a0"}
-        ],
+        "attempts": [{"task_id": "a", "attempt_index": 0, "status": "PASS", "run_id": "a0"}],
         "tasks": [{"task_id": "a", "status": "PASS", "score": 1.0, "run_id": "a0"}],
         "metrics": {
             "pass_rate": 1.0,
@@ -184,9 +182,7 @@ def _seed_upload_db(tmp_path: Path, *, status: str | None) -> Path:
     }
     if status is not None:
         summary["status"] = status
-    (suite_dir / "summary.json").write_text(
-        json.dumps(summary, indent=2) + "\n", encoding="utf-8"
-    )
+    (suite_dir / "summary.json").write_text(json.dumps(summary, indent=2) + "\n", encoding="utf-8")
     return db
 
 

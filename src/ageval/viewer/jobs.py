@@ -305,9 +305,7 @@ def _job_row(
     return row
 
 
-def _merge_live_progress(
-    row: dict[str, Any], summary: dict[str, Any], *, suite_dir: Path
-) -> None:
+def _merge_live_progress(row: dict[str, Any], summary: dict[str, Any], *, suite_dir: Path) -> None:
     """Merge progress.json into a row backed by an in-progress summary snapshot.
 
     A live snapshot lists settled work only; ``progress.json`` still owns the

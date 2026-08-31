@@ -560,8 +560,7 @@ def _build_summary(
         # Observational aggregates (leaderboard / job stats); never suite PASS.
         "metrics": metrics,
         "exit_code": exit_code,
-        "created_at": created_at
-        or datetime.now(UTC).isoformat().replace("+00:00", "Z"),
+        "created_at": created_at or datetime.now(UTC).isoformat().replace("+00:00", "Z"),
         "inflight_peak": get_inflight_peak(),
         "config_fingerprint": config_fields["config_fingerprint"],
         "config_homogeneous": config_fields["config_homogeneous"],
