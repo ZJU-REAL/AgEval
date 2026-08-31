@@ -6,6 +6,7 @@ import io
 from pathlib import Path
 
 from ageval.cli.run_output import (
+    AttemptSpinner,
     RunProgress,
     dataset_label,
     format_attempt_recap,
@@ -221,3 +222,18 @@ def test_suite_recap_view_uses_ref_for_cache_root(tmp_path: Path) -> None:
     assert "ageval results upload-suite official/demo@0.1.0 --suite-run ca096a6f" in text
     next_block = text.split("next     ", 1)[-1]
     assert "sha256_3c22" not in next_block
+
+
+def test_attempt_spinner_inert_without_tty() -> None:
+    err = io.StringIO()
+    with AttemptSpinner(task_id="terminal-jsonl-agg", stderr=err, use_bar=False):
+        err.write("during")
+    assert err.getvalue() == "during"
+
+
+def test_attempt_spinner_transient_bar_leaves_no_residue() -> None:
+    err = io.StringIO()
+    with AttemptSpinner(task_id="terminal-jsonl-agg", stderr=err, use_bar=True, use_color=False):
+        pass
+    assert "terminal-jsonl-agg" not in err.getvalue()
+    assert err.getvalue() in ("", "\n")

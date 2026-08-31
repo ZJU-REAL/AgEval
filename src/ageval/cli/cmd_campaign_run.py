@@ -10,6 +10,7 @@ import typer
 from ageval.cli.cmd_agent import AGENT_OPTION_HELP, MODEL_OPTION_HELP, resolve_agent_option
 from ageval.cli.present import emit
 from ageval.cli.run_output import (
+    AttemptSpinner,
     RunProgress,
     dataset_label,
     dump_json,
@@ -340,16 +341,17 @@ def register(app: typer.Typer) -> None:
                 import time
 
                 started = time.monotonic()
-                code, result = asyncio.run(
-                    build_run_attempt()(
-                        package,
-                        plan.task_ids[0],
-                        overrides=overrides or None,
-                        profiles_path=profiles,
-                        keep_workspace=keep_workspace,
-                        keep_vendor_raw=keep_vendor_raw,
+                with AttemptSpinner(task_id=plan.task_ids[0]):
+                    code, result = asyncio.run(
+                        build_run_attempt()(
+                            package,
+                            plan.task_ids[0],
+                            overrides=overrides or None,
+                            profiles_path=profiles,
+                            keep_workspace=keep_workspace,
+                            keep_vendor_raw=keep_vendor_raw,
+                        )
                     )
-                )
                 summary = result.as_dict()
                 if machine:
                     dump_json(summary)

@@ -347,6 +347,64 @@ class RunProgress:
         self._stderr.flush()
 
 
+class AttemptSpinner:
+    """Transient stderr spinner for one single-task Attempt: name + elapsed.
+
+    Same TTY bar as the suite runner (spinner, name, 1/1, elapsed); inert when
+    stderr is not a TTY so piped/CI output stays unchanged.
+    """
+
+    def __init__(
+        self,
+        *,
+        task_id: str,
+        stderr: TextIO | None = None,
+        use_bar: bool | None = None,
+        use_color: bool | None = None,
+    ) -> None:
+        self._stderr = sys.stderr if stderr is None else stderr
+        self._use_bar = use_progress_bar(stream=self._stderr) if use_bar is None else use_bar
+        if use_color is None:
+            isatty = getattr(self._stderr, "isatty", None)
+            self._use_color = callable(isatty) and bool(isatty()) and not os.environ.get("NO_COLOR")
+        else:
+            self._use_color = use_color
+        self._task_id = task_id
+        self._progress: Progress | None = None
+        self._bar_task: TaskID | None = None
+        self._console = Console(
+            file=self._stderr,
+            highlight=False,
+            soft_wrap=True,
+            no_color=not self._use_color,
+        )
+
+    def __enter__(self) -> AttemptSpinner:
+        if not self._use_bar:
+            return self
+        progress = Progress(
+            SpinnerColumn(),
+            TextColumn("{task.description}"),
+            MofNCompleteColumn(),
+            TimeElapsedColumn(),
+            console=self._console,
+            transient=True,
+        )
+        progress.start()
+        self._progress = progress
+        self._bar_task = progress.add_task(self._task_id, total=1)
+        return self
+
+    def __exit__(self, *exc: object) -> None:
+        self.close()
+
+    def close(self) -> None:
+        if self._progress is not None:
+            self._progress.stop()
+            self._progress = None
+            self._bar_task = None
+
+
 def _unit_key(ev: Mapping[str, Any]) -> tuple[str, int]:
     tid = str(ev.get("task_id") or "")
     idx = ev.get("attempt_index")
