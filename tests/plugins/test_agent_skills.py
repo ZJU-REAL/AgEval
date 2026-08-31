@@ -221,7 +221,10 @@ def test_install_agent_skills_pulls_home_files(ageval_home: Path) -> None:
 def test_journeys_agent_skills_profile_locks(
     ageval_home: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    profiles = ROOT / "examples/datasets/minimal-demo/acp-profiles/profiles.acp.grok-build.agent-skills.yaml"
+    profiles = (
+        ROOT
+        / "examples/datasets/minimal-demo/acp-profiles/profiles.acp.grok-build.agent-skills.yaml"
+    )
     if not profiles.is_file():
         pytest.skip("journeys overlay profiles were removed")
     from ageval.plugins.install import install_from_local
@@ -245,7 +248,10 @@ def test_journeys_agent_skills_profile_locks(
             "--task",
             "terminal-jsonl-agg",
             "--profiles",
-            str(ROOT / "examples/datasets/minimal-demo/acp-profiles/profiles.acp.grok-build.agent-skills.yaml"),
+            str(
+                ROOT / "examples/datasets/minimal-demo/acp-profiles/"
+                "profiles.acp.grok-build.agent-skills.yaml"
+            ),
         ],
         cwd=ROOT,
         capture_output=True,

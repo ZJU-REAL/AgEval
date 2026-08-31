@@ -124,7 +124,9 @@ from pathlib import Path
 from ageval.application.composition import build_lock_command
 repo = Path({str(REPO)!r})
 cmd = build_lock_command()
-summary = cmd.run(dataset_root=repo / "examples" / "datasets" / "minimal-demo", task_id="terminal-jsonl-agg")
+summary = cmd.run(
+    dataset_root=repo / "examples" / "datasets" / "minimal-demo", task_id="terminal-jsonl-agg"
+)
 assert summary["task_id"] == "terminal-jsonl-agg"
 assert not any("terminal-jsonl-agg" in m and m.endswith("run") for m in sys.modules)
 print(json.dumps({{"ok": True, "digest": summary["digest"]}}))

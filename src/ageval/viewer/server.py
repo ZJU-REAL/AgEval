@@ -63,7 +63,8 @@ def _raise_bind_error(host: str, port: int, exc: OSError) -> None:
 def static_dir() -> Path:
     """Locate SPA under monorepo ``apps/viewer/dist`` (build artifact, gitignored).
 
-    Optional fallback: package-adjacent ``static/`` if a release process copies the SPA.
+    Package-adjacent ``static/`` is how installed wheels serve the SPA: the
+    release build copies ``apps/viewer/dist`` there before ``uv build``.
     Run ``pnpm build`` in ``apps/viewer`` for local ``ageval view``.
     """
     env = Path(__file__).resolve()

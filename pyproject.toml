@@ -1,13 +1,15 @@
 [project]
-name = "ageval"
+name = "ageval-cli"
 dynamic = ["version"]
 description = "ageval — agent evaluation runtime (Attempt pipeline + environment kinds)"
 readme = "README.md"
 requires-python = ">=3.12"
+license = "MIT"
+license-files = ["LICENSE"]
+authors = [{ name = "ZJU-REAL" }]
 dependencies = [
     "pyyaml>=6.0.2",
     "typer>=0.16.0",
-    "ageval-sdk",
     "agent-client-protocol==0.12.0",
 ]
 
@@ -42,22 +44,42 @@ daytona = [
     "daytona>=0.21.0",
     "socksio>=1.0.0",
 ]
+all = [
+    "ageval-cli[nooa]",
+    "ageval-cli[dsh]",
+    "ageval-cli[miniswe]",
+    "ageval-cli[e2b]",
+    "ageval-cli[daytona]",
+]
 
 [project.scripts]
 ageval = "ageval.cli.main:app"
+ae = "ageval.cli.main:app"
+
+[project.urls]
+Homepage = "https://github.com/ZJU-REAL/AgEval"
+Repository = "https://github.com/ZJU-REAL/AgEval"
+Issues = "https://github.com/ZJU-REAL/AgEval/issues"
 
 [build-system]
-requires = ["hatchling"]
+requires = ["hatchling>=1.26"]
 build-backend = "hatchling.build"
 
 [tool.hatch.version]
 path = "VERSION"
 pattern = "(?P<version>\\S+)"
 
+# Viewer SPA enters the wheel at release build: apps/viewer `pnpm build` →
+# copy dist/ to src/ageval/viewer/static/ (gitignored) → `uv build`.
+# The sdist force-include keeps sdist→wheel rebuilds SPA-carrying; building an
+# sdist without apps/viewer/dist fails on purpose (never ship a SPA-less sdist).
 [tool.hatch.build.targets.wheel]
-packages = ["src/ageval"]
-# Viewer SPA is built on demand (apps/viewer: pnpm build → dist/).
-# Do not force-include dist: it is gitignored and breaks CI `uv sync --frozen`.
+packages = ["src/ageval", "src/ageval_sdk"]
+# artifacts overrides .gitignore for the release-copied SPA (no-op while absent).
+artifacts = ["src/ageval/viewer/static/**"]
+
+[tool.hatch.build.targets.sdist]
+force-include = { "apps/viewer/dist" = "src/ageval/viewer/static" }
 
 [tool.uv]
 package = true
@@ -98,6 +120,3 @@ typeCheckingMode = "standard"
 reportMissingImports = "warning"
 venvPath = "."
 venv = ".venv"
-
-[tool.uv.sources]
-ageval-sdk = { path = "sdk/python", editable = true }

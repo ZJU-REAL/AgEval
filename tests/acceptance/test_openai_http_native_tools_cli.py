@@ -102,7 +102,9 @@ def _serve_scripted() -> tuple[ThreadingHTTPServer, str]:
 
 def test_tau2_dialog_min_openai_http_native_tools(tmp_path: Path) -> None:
     dataset = Path(
-        shutil.copytree(JOURNEYS, tmp_path / "minimal-demo", ignore=shutil.ignore_patterns(".ageval", ".env"))
+        shutil.copytree(
+            JOURNEYS, tmp_path / "minimal-demo", ignore=shutil.ignore_patterns(".ageval", ".env")
+        )
     )
     server, base = _serve_scripted()
     profiles = dataset / "profiles.openai-http.yaml"

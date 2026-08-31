@@ -177,7 +177,7 @@ ageval/
 │   ├── runtime/                     # identity, parent Agent Service, task_worker
 │   ├── evaluation/                  # barrier + bind PASS
 │   └── evidence/                    # trajectory.jsonl layout
-├── sdk/python/                      # ageval_sdk for run.py (no PASS, no host credentials)
+├── src/ageval_sdk/                  # ageval_sdk for run.py (no PASS, no host credentials)
 ├── plugins/                         # external ageval.plugin/1 (nooa, dsh, miniswe, …)
 ├── examples/
 │   ├── datasets/

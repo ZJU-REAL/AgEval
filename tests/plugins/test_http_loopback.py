@@ -231,7 +231,9 @@ def test_probe_loopback_http_without_key_is_not_credential_missing(
 ) -> None:
     monkeypatch.delenv("OPENAI_API_KEY", raising=False)
     dataset = Path(
-        shutil.copytree(JOURNEYS, tmp_path / "minimal-demo", ignore=shutil.ignore_patterns(".ageval", ".env"))
+        shutil.copytree(
+            JOURNEYS, tmp_path / "minimal-demo", ignore=shutil.ignore_patterns(".ageval", ".env")
+        )
     )
     profiles = dataset / "profiles.loopback.yaml"
     _http_profiles(profiles, base_url="http://127.0.0.1:9/v1", api_key=None)
@@ -276,7 +278,9 @@ def test_probe_remote_http_without_key_is_credential_missing(
 ) -> None:
     monkeypatch.delenv("OPENAI_API_KEY", raising=False)
     dataset = Path(
-        shutil.copytree(JOURNEYS, tmp_path / "minimal-demo", ignore=shutil.ignore_patterns(".ageval", ".env"))
+        shutil.copytree(
+            JOURNEYS, tmp_path / "minimal-demo", ignore=shutil.ignore_patterns(".ageval", ".env")
+        )
     )
     profiles = dataset / "profiles.remote.yaml"
     _http_profiles(profiles, base_url="https://api.example.invalid/v1", api_key=None)

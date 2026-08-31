@@ -12,7 +12,7 @@ def package_version() -> str:
     try:
         from importlib.metadata import version as pkg_version
 
-        return pkg_version("ageval")
+        return pkg_version("ageval-cli")
     except Exception:  # noqa: BLE001 — offline / editable edge cases
         version_file = Path(__file__).resolve().parents[3] / "VERSION"
         if version_file.is_file():

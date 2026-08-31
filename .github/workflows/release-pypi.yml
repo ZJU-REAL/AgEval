@@ -1,0 +1,91 @@
+# Publish the ageval-cli wheel/sdist to PyPI (Trusted Publishing, OIDC).
+# GHCR images are release-images.yml; PR ci.yml publishes nothing.
+#
+# Operator prerequisites (one-time, cannot be automated here):
+#   - PyPI Trusted Publisher for project `ageval-cli`:
+#       owner ZJU-REAL, repository AgEval, workflow release-pypi.yml
+#   - Dry run first: dispatch this workflow with repository=testpypi
+#     (needs the same Trusted Publisher entry on test.pypi.org).
+#
+# VERSION is the single source of truth: a tag that disagrees with it fails
+# before anything is built, so a stale VERSION can never be published.
+name: release-pypi
+
+on:
+  push:
+    tags:
+      - "v*"
+  workflow_dispatch:
+    inputs:
+      repository:
+        description: "Publish target (tags always go to PyPI)"
+        type: choice
+        options: [testpypi, pypi]
+        default: testpypi
+
+permissions:
+  contents: read
+  id-token: write
+
+concurrency:
+  group: release-pypi-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  pypi:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Refuse tags that disagree with VERSION
+        if: github.event_name == 'push'
+        run: |
+          expected="v$(tr -d '[:space:]' < VERSION)"
+          if [ "${GITHUB_REF}" != "refs/tags/${expected}" ]; then
+            echo "::error::${GITHUB_REF#refs/tags/} does not match VERSION (${expected}); bump VERSION before tagging."
+            exit 1
+          fi
+
+      - name: pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 11.10.0
+
+      - name: Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+          cache-dependency-path: apps/viewer/pnpm-lock.yaml
+
+      - name: Build viewer SPA
+        run: |
+          pnpm --dir apps/viewer install --frozen-lockfile
+          pnpm --dir apps/viewer build
+
+      - name: Bundle SPA into the package
+        run: |
+          mkdir -p src/ageval/viewer/static
+          cp -R apps/viewer/dist/. src/ageval/viewer/static/
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+
+      - name: Build distributions
+        run: uv build
+
+      - name: Resolve publish target
+        id: target
+        run: |
+          if [ "${GITHUB_EVENT_NAME}" = "push" ] || [ "${{ inputs.repository }}" = "pypi" ]; then
+            echo "url=https://upload.pypi.org/legacy/" >> "$GITHUB_OUTPUT"
+          else
+            echo "url=https://test.pypi.org/legacy/" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Publish
+        run: uv publish --publish-url "${{ steps.target.outputs.url }}" --trusted-publishing automatic

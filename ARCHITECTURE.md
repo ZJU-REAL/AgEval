@@ -109,7 +109,7 @@ ageval/                              # GitHub: ZJU-REAL/ageval
 ├── AGENTS.md
 ├── ARCHITECTURE.md
 ├── README.md
-├── pyproject.toml                   # name = "ageval"; script ageval =
+├── pyproject.toml                   # name = "ageval-cli"; scripts ageval / ae
 ├── uv.lock
 ├── src/ageval/
 │   ├── cli/                         # Typer: argv, help, exit code
@@ -164,7 +164,7 @@ ageval/                              # GitHub: ZJU-REAL/ageval
 │   └── agents/                      # ageval.agent/1 cache + builtin catalog
 │       ├── builtin/                 # catalog.json + shipped harness trees
 │       └── reserved.py              # short ids: overlay, not Hub upload
-├── sdk/python/src/ageval_sdk/       # RunContext / RunTerminal / AgentSession
+├── src/ageval_sdk/                  # RunContext / RunTerminal / AgentSession (same distribution as ageval)
 ├── apps/
 │   ├── viewer/                      # `ageval view` SPA
 │   └── hub/                         # Registry Dataset / Plugin / Agent / Leaderboard
