@@ -10,6 +10,7 @@ from rich.progress import TextColumn
 from ageval.cli.run_output import (
     AttemptSpinner,
     RunProgress,
+    _SuiteElapsedColumn,
     dataset_label,
     format_attempt_recap,
     format_duration_ms,
@@ -294,3 +295,48 @@ def test_attempt_spinner_phase_updates_description() -> None:
         task = spinner._progress.tasks[spinner._bar_task]
         assert task.description == "alpha (run)"
         assert "(run)" in str(TextColumn("{task.description}").render(task))
+
+
+def test_suite_bar_elapsed_column_shows_unit_time_and_total() -> None:
+    err = io.StringIO()
+    clock = {"t": 100.0}
+    progress = RunProgress(
+        suite_run_id="s",
+        dataset_label="d",
+        stderr=err,
+        use_bar=True,
+        use_color=False,
+        monotonic=lambda: clock["t"],
+    )
+    progress.handle({"type": "suite_start", "total": 2, "done": 0})
+    clock["t"] = 110.0
+    progress.handle({"type": "unit_start", "task_id": "alpha", "attempt_index": 0})
+    clock["t"] = 125.0
+    assert progress._progress is not None and progress._bar_task is not None
+    column = _SuiteElapsedColumn(progress)
+    rendered = str(column.render(progress._progress.tasks[progress._bar_task]))
+    # Current unit clock (110 -> 125) leads; the suite total (100 -> 125) follows dimmed.
+    assert "15s" in rendered
+    assert "(total 25s)" in rendered
+    progress.close()
+
+
+def test_suite_bar_elapsed_without_running_unit_shows_dash() -> None:
+    err = io.StringIO()
+    clock = {"t": 100.0}
+    progress = RunProgress(
+        suite_run_id="s",
+        dataset_label="d",
+        stderr=err,
+        use_bar=True,
+        use_color=False,
+        monotonic=lambda: clock["t"],
+    )
+    progress.handle({"type": "suite_start", "total": 1, "done": 0})
+    clock["t"] = 130.0
+    assert progress._progress is not None and progress._bar_task is not None
+    column = _SuiteElapsedColumn(progress)
+    rendered = str(column.render(progress._progress.tasks[progress._bar_task]))
+    assert rendered.startswith("-")
+    assert "(total 30s)" in rendered
+    progress.close()

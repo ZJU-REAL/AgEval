@@ -16,15 +16,48 @@ from rich.markup import escape
 from rich.progress import (
     MofNCompleteColumn,
     Progress,
+    ProgressColumn,
     SpinnerColumn,
+    Task,
     TaskID,
     TextColumn,
     TimeElapsedColumn,
 )
+from rich.text import Text
 
 _STATUS_STYLE = {"PASS": "green", "FAIL": "red", "ERROR": "yellow"}
 _STATUS_RE = re.compile(r"\b(PASS|FAIL|ERROR)\b")
 _RECAP_RULE = "─" * 40
+
+
+def _clock_text(seconds: float | None) -> str:
+    """Progressive live-bar clock: seconds, then minutes, then hours."""
+    if seconds is None:
+        return "-"
+    total = int(seconds)
+    if total < 60:
+        return f"{total}s"
+    minutes, sec = divmod(total, 60)
+    if minutes < 60:
+        return f"{minutes}m {sec:02d}s"
+    hours, min2 = divmod(minutes, 60)
+    return f"{hours}h {min2:02d}m {sec:02d}s"
+
+
+class _SuiteElapsedColumn(ProgressColumn):
+    """Current unit's elapsed time, with the suite total in secondary color."""
+
+    def __init__(self, state: RunProgress) -> None:
+        super().__init__()
+        self._state = state
+
+    def render(self, task: Task) -> Text:
+        current = self._state.current_unit_elapsed_seconds()
+        total = self._state.suite_elapsed_seconds()
+        segments: list[tuple[str, str]] = [(_clock_text(current), "progress.elapsed")]
+        if total is not None:
+            segments.append((f" (total {_clock_text(total)})", "dim"))
+        return Text.assemble(*segments)
 
 
 def use_json_stdout(*, force_json: bool = False, stream: TextIO | None = None) -> bool:
@@ -207,6 +240,7 @@ class RunProgress:
         self._started: dict[tuple[str, int], float] = {}
         self._elapsed: dict[tuple[str, int], str] = {}
         self._running: dict[tuple[str, int], str | None] = {}
+        self._suite_started: float | None = None
         names = [str(t) for t in (task_ids or ()) if str(t)]
         self._name_width = max((len(n) for n in names), default=8)
         self._show_attempt = (
@@ -223,6 +257,20 @@ class RunProgress:
 
     def elapsed_labels(self) -> dict[tuple[str, int], str]:
         return dict(self._elapsed)
+
+    def current_unit_elapsed_seconds(self) -> float | None:
+        """Wall seconds since the first still-running unit started."""
+        for key in self._running:
+            started = self._started.get(key)
+            if started is not None:
+                return max(0.0, float(self._now()) - started)
+        return None
+
+    def suite_elapsed_seconds(self) -> float | None:
+        """Wall seconds since the suite bar started."""
+        if self._suite_started is None:
+            return None
+        return max(0.0, float(self._now()) - self._suite_started)
 
     def close(self) -> None:
         if self._progress is not None:
@@ -254,12 +302,14 @@ class RunProgress:
             extra = f"  todo={todo} total={total}" if todo is not None else f"  total={total}"
             header = f"{header}{extra}  cancel: ageval cancel {self.suite_run_id}"
         self._emit(header)
+        if self._use_bar:
+            self._suite_started = float(self._now())
         if self._use_bar and total > 0:
             progress = Progress(
                 SpinnerColumn(),
                 TextColumn("{task.description}"),
                 MofNCompleteColumn(),
-                TimeElapsedColumn(),
+                _SuiteElapsedColumn(self),
                 console=self._console,
                 transient=True,
             )
