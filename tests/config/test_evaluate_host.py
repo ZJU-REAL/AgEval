@@ -523,3 +523,97 @@ def test_unknown_egress_value_fails_closed() -> None:
         )
     assert caught.value.error_code == "invalid_schema"
     assert "egress" in caught.value.message
+
+
+def test_evaluate_host_nested_options_lock_and_project(tmp_path: Path) -> None:
+    root = _standalone(
+        tmp_path / "pkg",
+        files=("run.py", "evaluator.py", "environment/evaluate.Dockerfile"),
+    )
+    locked = _lock(
+        root,
+        job=job_document(
+            {"solver": dict(DOCKER_SOLVER)},
+            environment="docker",
+            environment_options={"egress": "llm"},
+            evaluate_host={
+                "isolated": True,
+                "environment_options": {"egress": "llm", "network": "bridge", "user": "root"},
+            },
+        ),
+    )
+    overlay = thaw(locked.job_overlay)
+    # Two boxes, two policies: the scoring map is its own document.
+    assert overlay["evaluate_host"]["environment_options"] == {
+        "egress": "llm",
+        "network": "bridge",
+        "user": "root",
+    }
+    assert overlay["environment_options"]["egress"] == "llm"
+
+
+def test_evaluate_host_nested_options_without_isolated_fails_closed(tmp_path: Path) -> None:
+    root = _standalone(tmp_path / "pkg", files=("run.py", "evaluator.py"))
+    with pytest.raises(ConfigError) as caught:
+        _lock(
+            root,
+            job=job_document(
+                {"solver": dict(DOCKER_SOLVER)},
+                environment="docker",
+                evaluate_host={"environment_options": {"network": "bridge"}},
+            ),
+        )
+    assert caught.value.error_code == "invalid_schema"
+    assert "requires evaluate_host.isolated" in caught.value.message
+
+
+def test_evaluate_host_nested_unknown_key_fails_closed() -> None:
+    with pytest.raises(ConfigError) as caught:
+        parse_job_mapping(
+            {
+                "format": "ageval.profiles/1",
+                "environment": "docker",
+                "evaluate_host": {
+                    "isolated": True,
+                    "environment_options": {"sidecar": True},
+                },
+                "agent_profiles": {"solver": dict(DOCKER_SOLVER)},
+            }
+        )
+    assert caught.value.error_code == "invalid_schema"
+    assert "unknown evaluate_host.environment_options keys" in caught.value.message
+
+
+def test_evaluate_host_nested_image_key_fails_closed() -> None:
+    """The recipe stays environment/evaluate.Dockerfile or evaluation.docker_image."""
+    with pytest.raises(ConfigError) as caught:
+        parse_job_mapping(
+            {
+                "format": "ageval.profiles/1",
+                "environment": "docker",
+                "evaluate_host": {
+                    "isolated": True,
+                    "environment_options": {"image": "evil:latest"},
+                },
+                "agent_profiles": {"solver": dict(DOCKER_SOLVER)},
+            }
+        )
+    assert caught.value.error_code == "invalid_schema"
+    assert "unknown evaluate_host.environment_options keys" in caught.value.message
+
+
+def test_evaluate_host_nested_bad_egress_fails_closed() -> None:
+    with pytest.raises(ConfigError) as caught:
+        parse_job_mapping(
+            {
+                "format": "ageval.profiles/1",
+                "environment": "docker",
+                "evaluate_host": {
+                    "isolated": True,
+                    "environment_options": {"egress": "open"},
+                },
+                "agent_profiles": {"solver": dict(DOCKER_SOLVER)},
+            }
+        )
+    assert caught.value.error_code == "invalid_schema"
+    assert "egress" in caught.value.message

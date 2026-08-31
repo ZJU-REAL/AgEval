@@ -82,6 +82,9 @@ job：
 # profiles.yaml — 省略 evaluate_host = 同一环境
 evaluate_host:
   isolated: true
+  # environment_options:      # 打分盒自己的网络策略；省略 = 不继承 agent 的 egress/network
+  #   egress: llm             # ACP judge 在打分盒里时放行其 API host
+  #   network: bridge
 ```
 
 lock：
@@ -89,9 +92,19 @@ lock：
 - `isolated: true` 必须能在成员题上落到配方：存在 `environment/evaluate.Dockerfile`，或 `evaluation.docker_image`（OCI tag）。两者都无 → lock 失败，不 start。
 - 配方文件 **不** 放 `evaluation/`（那是 gold）。
 - Current：`environment: docker`。local / 不能再起一份环境的 kind + `isolated: true` → lock 失败。
+- 嵌套 `environment_options` 要求 `isolated: true`；键允许 `network` / `egress` / `platform` / `user`（与盒子同一旋钮名，**不是** `image`）；`egress` 的 kind 门禁与 agent 同一规则；未知键一次错误，不映射。
 - 未知 `evaluate_host` 键、未知 `artifacts.publishable` 键：一次错误，不映射。
 
-runtime：第二实例由 composition 用同一 docker 赢家工厂构造（不同 `BoxSpec.attempt_root` + evaluate 配方）。`evaluation_runtime` 仍是独占槽默认引擎，parent 子进程跑 `evaluator.py`。isolated 时对 **未在 run 打开过的 ACP profile** 在打分环境上再跑 `after_environment_ready`（不要拿 solver 的 entry 去装打分镜像）。SDK 仍不得拥有 `host.start` / `host.upload`。
+runtime：打分盒实例在 **evaluate 相位**（writer 已密封）构造：composition 不再预建
+第二 EnvironmentProvider。构造时 `image_layers` 取 **evaluate 相位 profile graph**
+的联合（`bind_winner` 的赢家工厂仍是 Attempt 级 docker 插件；`BoxSpec` 仍只装
+evaluate 配方与独立 attempt root）——
+declare 了 `config.image_layers` 的 judge 插件由此 bake 进打分镜像，solver 独占的
+插件不进。无 `image_layers` 的插件（含 `acp`）不加东西；官方 ACP 引擎仍是 **配方**
+问题（`FROM` 官方 attempt 基座），不是 Core wrap。`evaluation_runtime` 仍是独占槽
+默认引擎，parent 子进程跑 `evaluator.py`。isolated 时对 **未在 run 打开过的 profile**
+（不限 executor kind）在打分环境上再跑 `after_environment_ready`；空链 no-op，
+不跑 `environment_setup`。SDK 仍不得拥有 `host.start` / `host.upload`。
 
 ## 命名打分 Host（`evaluation.environments`）
 

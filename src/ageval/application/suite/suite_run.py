@@ -25,6 +25,7 @@ from ageval.application.suite.suite_metrics import (
     aggregate_k_metrics,
     extend_slot_previous,
     flatten_legacy_tasks_as_attempts,
+    metrics_payload_from_k_agg,
     slot_key,
     task_refs_for_summary,
 )
@@ -469,37 +470,7 @@ def _task_row_from_rollup(t: Mapping[str, Any]) -> dict[str, Any]:
     }
 
 
-def _build_summary(
-    plan: SuitePlan,
-    attempts: list[dict[str, Any]],
-    *,
-    overrides: dict[str, Any] | None,
-    profiles_path: Path | str | None,
-) -> dict[str, Any]:
-    """Roll attempts → tasks + metrics; write identity fields (no k in fingerprint)."""
-    k_agg = aggregate_k_metrics(
-        attempts,
-        task_ids=plan.task_ids,
-        n_attempts=plan.n_attempts,
-    )
-    task_rows: list[dict[str, Any]] = list(k_agg.pop("task_rows"))
-    # Single shape for k==1 and k>1. Full samples live under ``attempts[]``.
-    tasks_out = [_task_row_from_rollup(t) for t in task_rows]
-    metrics = {
-        "pass_rate": k_agg["pass_rate"],
-        "mean_score": k_agg["mean_score"],
-        "n_tasks": k_agg["n_tasks"],
-        "n_pass": k_agg["n_pass"],
-        "n_fail": k_agg["n_fail"],
-        "n_error": k_agg["n_error"],
-        "missing_score_as": k_agg["missing_score_as"],
-        "n_attempts": plan.n_attempts,
-        "k_values": k_agg["k_values"],
-        "pass_at_k": k_agg["pass_at_k"],
-        "pass_power_k": k_agg["pass_power_k"],
-        "per_task": k_agg["per_task"],
-    }
-
+def _counts_and_exit_code(tasks_out: list[dict[str, Any]]) -> tuple[dict[str, int], int]:
     counts = {"pass": 0, "fail": 0, "error": 0, "skipped": 0}
     for row in tasks_out:
         st = str(row.get("status") or "").upper()
@@ -516,6 +487,35 @@ def _build_summary(
         exit_code = 1
     else:
         exit_code = 0
+    return counts, exit_code
+
+
+def _metrics_from_k_agg(k_agg: Mapping[str, Any], *, n_attempts: int) -> dict[str, Any]:
+    metrics = metrics_payload_from_k_agg(k_agg)
+    metrics["n_attempts"] = n_attempts
+    return metrics
+
+
+def _build_summary(
+    plan: SuitePlan,
+    attempts: list[dict[str, Any]],
+    *,
+    overrides: dict[str, Any] | None,
+    profiles_path: Path | str | None,
+    created_at: str | None = None,
+) -> dict[str, Any]:
+    """Roll attempts → tasks + metrics; write identity fields (no k in fingerprint)."""
+    k_agg = aggregate_k_metrics(
+        attempts,
+        task_ids=plan.task_ids,
+        n_attempts=plan.n_attempts,
+    )
+    task_rows: list[dict[str, Any]] = list(k_agg.pop("task_rows"))
+    # Single shape for k==1 and k>1. Full samples live under ``attempts[]``.
+    tasks_out = [_task_row_from_rollup(t) for t in task_rows]
+    metrics = _metrics_from_k_agg(k_agg, n_attempts=plan.n_attempts)
+
+    counts, exit_code = _counts_and_exit_code(tasks_out)
 
     # Fingerprint from one row per task (prefer a PASS attempt's run_id).
     fp_rows: list[dict[str, Any]] = []
@@ -560,7 +560,7 @@ def _build_summary(
         # Observational aggregates (leaderboard / job stats); never suite PASS.
         "metrics": metrics,
         "exit_code": exit_code,
-        "created_at": datetime.now(UTC).isoformat().replace("+00:00", "Z"),
+        "created_at": created_at or datetime.now(UTC).isoformat().replace("+00:00", "Z"),
         "inflight_peak": get_inflight_peak(),
         "config_fingerprint": config_fields["config_fingerprint"],
         "config_homogeneous": config_fields["config_homogeneous"],
@@ -577,6 +577,73 @@ def _build_summary(
     if any(isinstance(a.get("previous"), list) and a["previous"] for a in attempts):
         summary["amended"] = True
     return summary
+
+
+def _settled_task_ids(plan: SuitePlan, attempts: list[dict[str, Any]]) -> list[str]:
+    """Ids with at least one settled attempt: plan order first, then discovered.
+
+    Mirrors the final summary's task-id union: resume-filter siblings that
+    already settled stay listed.
+    """
+    settled = {str(a.get("task_id") or "") for a in attempts}
+    present: list[str] = []
+    seen: set[str] = set()
+
+    def _add(tid: str) -> None:
+        if tid and tid not in seen:
+            seen.add(tid)
+            present.append(tid)
+
+    for tid in plan.task_ids:
+        _add(tid)
+    for tid in settled:
+        _add(tid)
+    return [tid for tid in present if tid in settled]
+
+
+def _live_summary(
+    plan: SuitePlan,
+    attempts: list[dict[str, Any]],
+    *,
+    created_at: str,
+    status: str,
+) -> dict[str, Any]:
+    """In-progress observational snapshot over *settled* attempts only.
+
+    ``metrics.pass_rate`` counts only settled tasks; unrun planned ids appear
+    nowhere. No config fingerprint: the final document is the fingerprint
+    authority. ``status`` is ``running`` / ``cancelling`` — never a verdict.
+    """
+    settled_ids = _settled_task_ids(plan, attempts)
+    k_agg = aggregate_k_metrics(
+        attempts,
+        task_ids=settled_ids,
+        n_attempts=plan.n_attempts,
+    )
+    task_rows: list[dict[str, Any]] = list(k_agg.pop("task_rows"))
+    tasks_out = [_task_row_from_rollup(t) for t in task_rows]
+    metrics = _metrics_from_k_agg(k_agg, n_attempts=plan.n_attempts)
+    counts, exit_code = _counts_and_exit_code(tasks_out)
+    return {
+        "schema": "ageval.suite.summary/1",
+        "suite_run_id": plan.suite_run_id,
+        "dataset_id": plan.dataset_id,
+        "dataset_version": plan.dataset_version,
+        "max_concurrent_tasks": plan.max_concurrent_tasks,
+        "n_attempts": plan.n_attempts,
+        "task_ids": settled_ids,
+        "attempts": list(attempts),
+        "tasks": tasks_out,
+        "task_refs": task_refs_for_summary(tasks_out, attempts=attempts),
+        "counts": counts,
+        # Observational aggregates; a running snapshot is not suite PASS.
+        "metrics": metrics,
+        "exit_code": exit_code,
+        "status": status,
+        "created_at": created_at,
+        "inflight_peak": get_inflight_peak(),
+        "note": "suite in progress; observational snapshot of settled tasks",
+    }
 
 
 def _write_summary(plan: SuitePlan, summary: dict[str, Any]) -> dict[str, Any]:
@@ -725,6 +792,24 @@ async def execute_suite_run(
             with contextlib.suppress(Exception):
                 on_progress(event)
 
+    # ``created_at`` locks on the first write of this suite (resume keeps the
+    # original) and every later rewrite — live or final — reuses it.
+    created_at_cell: list[str] = []
+    if resume and isinstance(old_summary, dict):
+        prior_created = old_summary.get("created_at")
+        if isinstance(prior_created, str) and prior_created.strip():
+            created_at_cell.append(prior_created.strip())
+
+    def _write_live_summary(status: str) -> None:
+        """Rewrite summary.json from settled attempts (live observational view)."""
+        settled = [a for a in existing if not _is_cancelled_placeholder(a)] + list(new_results)
+        if not created_at_cell:
+            created_at_cell.append(datetime.now(UTC).isoformat().replace("+00:00", "Z"))
+        _write_summary(
+            plan,
+            _live_summary(plan, settled, created_at=created_at_cell[0], status=status),
+        )
+
     _write_suite_progress(
         plan,
         done=completed_count,
@@ -732,6 +817,7 @@ async def execute_suite_run(
         running=[],
         status="running" if todo else "complete",
     )
+    _write_live_summary("running" if todo else "complete")
     _emit(
         {
             "type": "suite_start",
@@ -842,6 +928,7 @@ async def execute_suite_run(
                     running=_running_snapshot(),
                     status=st,
                 )
+                _write_live_summary(st)
                 _emit(
                     {
                         "type": "unit_done",
@@ -952,6 +1039,7 @@ async def execute_suite_run(
         attempts,
         overrides=overrides,
         profiles_path=profiles_path,
+        created_at=created_at_cell[0] if created_at_cell else None,
     )
     if resume:
         summary["resumed"] = True
@@ -980,6 +1068,7 @@ async def execute_suite_run(
             }
         )
     else:
+        summary["status"] = "complete"
         _write_suite_progress(
             plan,
             done=completed_count,

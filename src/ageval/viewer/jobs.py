@@ -273,7 +273,7 @@ def _job_row(
 
     did, ver = dataset_identity(summary, location=str(suite_dir / "summary.json"))
     ref = dataset_ref(did, ver)
-    return {
+    row = {
         "job_id": str(summary.get("suite_run_id") or suite_dir.name),
         "job_name": str(summary.get("suite_run_id") or suite_dir.name),
         "source_kind": "suite",
@@ -301,6 +301,35 @@ def _job_row(
         "summary_path": str(suite_dir / "summary.json"),
         "note": summary.get("note") or "per-task evaluator verdicts only; no suite-level PASS",
     }
+    _merge_live_progress(row, summary, suite_dir=suite_dir)
+    return row
+
+
+def _merge_live_progress(row: dict[str, Any], summary: dict[str, Any], *, suite_dir: Path) -> None:
+    """Merge progress.json into a row backed by an in-progress summary snapshot.
+
+    A live snapshot lists settled work only; ``progress.json`` still owns the
+    planned unit count. Final summaries are untouched.
+    """
+    status = str(summary.get("status") or "").strip().lower() or None
+    row["status"] = status
+    if status not in {"running", "cancelling"}:
+        return
+    progress = _load_progress(suite_dir)
+    if progress is None:
+        return
+    raw_metrics = row.get("metrics")
+    metrics = raw_metrics if isinstance(raw_metrics, dict) else {}
+    row["progress"] = progress
+    planned = int(progress.get("total") or 0)
+    if planned:
+        row["trials_total"] = planned
+        row["task_count"] = planned
+    row["trials_done"] = (
+        int(metrics.get("n_pass") or 0)
+        + int(metrics.get("n_fail") or 0)
+        + int(metrics.get("n_error") or 0)
+    )
 
 
 def _load_progress(suite_dir: Path) -> dict[str, Any] | None:
