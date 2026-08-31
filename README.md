@@ -126,7 +126,7 @@ uv run ageval view examples/datasets/minimal-demo --no-browser
 
 Default `examples/datasets/minimal-demo` profiles use `environment: docker`. Bind a shipped harness with `--agent pi` (no install). Optional `--model` overrides this run. Custom overlay packs still use `ageval agent install` then `--agent org/name@version`.
 
-In-repo examples: [`examples/README.md`](examples/README.md) — `minimal-demo`, a five-task `tau3-airline` cut, and catalog Agents.
+In-repo examples: [`examples/README.md`](examples/README.md) — `minimal-demo`, a five-task `tau3-airline-5` cut, and catalog Agents.
 
 ## Architecture
 
@@ -182,7 +182,7 @@ ageval/
 ├── examples/
 │   ├── datasets/
 │   │   ├── minimal-demo/            # terminal-jsonl-agg · tau2-dialog-min · multiagent-env-min
-│   │   └── tau3-airline/            # airline-00 … airline-04
+│   │   └── tau3-airline-5/            # airline-00 … airline-04
 │   └── agents/                      # ageval.agent/1
 ├── apps/viewer                      # ageval view SPA
 ├── apps/hub                         # Hub SPA

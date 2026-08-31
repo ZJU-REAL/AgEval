@@ -10,7 +10,7 @@ not a second environment.
 
 | kind | Opens | To actually run |
 | --- | --- | --- |
-| `local` | Host directory | Default `examples/datasets/tau3-airline` |
+| `local` | Host directory | Default `examples/datasets/tau3-airline-5` |
 | `docker` | Local container | Default `examples/datasets/minimal-demo` `profiles.yaml` |
 | `e2b` | Cloud sandbox | `E2B_API_KEY`; `--profiles examples/datasets/minimal-demo/profiles.e2b-acp.yaml` |
 | `ssh` A | Remote machine | `AGEVAL_SSH_HOST` / `USER` / `KEY` |
@@ -19,7 +19,7 @@ not a second environment.
 
 ```bash
 uv run ageval run examples/datasets/minimal-demo --task terminal-jsonl-agg
-uv run ageval run examples/datasets/tau3-airline --task airline-00
+uv run ageval run examples/datasets/tau3-airline-5 --task airline-00
 uv run ageval run examples/datasets/minimal-demo --task terminal-jsonl-agg \
   --profiles examples/datasets/minimal-demo/profiles.e2b-acp.yaml --probe
 ```

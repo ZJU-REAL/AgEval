@@ -75,7 +75,7 @@ Arrows mean **control-flow progress**. Cross-trust-boundary data flow is in [Dat
 | Production composition root | `src/ageval/application/composition.py` |
 | Smoke lock | `uv run ageval lock examples/datasets/minimal-demo --task terminal-jsonl-agg` (exit 0; summary has `dataset_id`, no `database_id`) |
 | Smoke docker ACP | `uv run ageval run examples/datasets/minimal-demo --task terminal-jsonl-agg` (default `minimal-demo` box is docker) |
-| Smoke local ACP | `uv run ageval lock examples/datasets/tau3-airline --task airline-00` (default box is local; run needs credentials + tau2) |
+| Smoke local ACP | `uv run ageval lock examples/datasets/tau3-airline-5 --task airline-00` (default box is local; run needs credentials + tau2) |
 | Smoke demo | `uv run ageval run examples/datasets/minimal-demo --task terminal-jsonl-agg`; `… --task tau2-dialog-min` |
 | Expected failure | Unknown format → `invalid_format` exit 2; missing `--task` follows CLI; e2b/ssh/daytona without keys `--probe` `ready:false` |
 | Observable result | Secret-free lock summary + digest; Attempt has `lock.json` / `result.json` / `trajectory.jsonl` |
@@ -177,7 +177,7 @@ ageval/                              # GitHub: ZJU-REAL/AgEval
 ├── examples/
 │   ├── datasets/
 │   │   ├── minimal-demo/            # terminal-jsonl-agg / tau2-dialog-min / multiagent-env-min
-│   │   └── tau3-airline/            # airline-00 … airline-04 lock
+│   │   └── tau3-airline-5/            # airline-00 … airline-04 lock
 │   └── agents/                      # ageval.agent/1 catalog packages
 ├── plugins/                         # external ageval.plugin/1
 │   ├── nooa/ / dsh/ / miniswe/ / acp-oneshot/

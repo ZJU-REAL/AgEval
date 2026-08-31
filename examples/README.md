@@ -7,8 +7,8 @@ one abbreviated popular-bench conversion.
 examples/
 ├── agents/           # ageval.agent/1 (cc/pi/codex/opencode/dsh/nooa/miniswe)
 └── datasets/
-    ├── minimal-demo/   # dataset example/minimal-demo — case-class fidelity
-    └── tau3-airline/   # dataset my-lab/tau3-airline — 5-task airline cut
+    ├── minimal-demo/   # dataset official/minimal-demo — case-class fidelity
+    └── tau3-airline-5/   # dataset official/tau3-airline-5 — 5-task airline cut
 ```
 
 There is no product `executor: mock`. Offline lock uses the real kinds; a missing
@@ -37,7 +37,7 @@ preflight only.
 
 ```bash
 uv run ageval lock examples/datasets/minimal-demo --task terminal-jsonl-agg
-uv run ageval lock examples/datasets/tau3-airline --task airline-00   # conversion; tau2 pin for run
+uv run ageval lock examples/datasets/tau3-airline-5 --task airline-00   # conversion; tau2 pin for run
 uv run ageval run examples/datasets/minimal-demo --task terminal-jsonl-agg
 uv run ageval tasks examples/datasets/minimal-demo
 
@@ -45,7 +45,7 @@ uv run ageval tasks examples/datasets/minimal-demo
 uv run ageval lock examples/datasets/minimal-demo --task does-not-exist   # exit ≠ 0
 ```
 
-## `datasets/minimal-demo/` (`dataset_id: example/minimal-demo`)
+## `datasets/minimal-demo/` (`dataset_id: official/minimal-demo`)
 
 | Task                                                                         | Case class                  |
 | ---------------------------------------------------------------------------- | --------------------------- |
@@ -101,7 +101,7 @@ uv run ageval run examples/datasets/minimal-demo --task terminal-jsonl-agg \
 # live ACP stdio over ssh A is unsupported
 ```
 
-## `datasets/tau3-airline/` (`dataset_id: my-lab/tau3-airline`)
+## `datasets/tau3-airline-5/` (`dataset_id: official/tau3-airline-5`)
 
 Popular-bench **port** of [tau2-bench](https://github.com/sierra-research/tau2-bench)
 `airline` (τ³-bench) as **one domain = one dataset**. Dual-role dialog
@@ -115,22 +115,22 @@ has 50 tasks; that full suite is not checked in.
 | ------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------ |
 | Upstream pin | `tau2-bench` @ `v1.0.1` (`fc0055dc…`); paper [2506.07982](https://arxiv.org/abs/2506.07982)                                                            |
 | Members      | **5** tasks: `airline-00` … `airline-04` (upstream ids `0`…`4`)                                                                                       |
-| Layout       | Dataset-level [`shared/lib`](datasets/tau3-airline/shared/lib/) + [`shared/assets`](datasets/tau3-airline/shared/assets/); **no** per-task `lib/` copies |
+| Layout       | Dataset-level [`shared/lib`](datasets/tau3-airline-5/shared/lib/) + [`shared/assets`](datasets/tau3-airline-5/shared/assets/); **no** per-task `lib/` copies |
 | Gold         | Under each `tasks/airline-NN/evaluation/` only — not under `shared/`                                                                                   |
-| Host deps    | `tau2==1.0.1` (see [`datasets/tau3-airline/requirements.txt`](datasets/tau3-airline/requirements.txt)) for run/eval                                    |
+| Host deps    | `tau2==1.0.1` (see [`datasets/tau3-airline-5/requirements.txt`](datasets/tau3-airline-5/requirements.txt)) for run/eval                                    |
 | Evidence     | **Not** a public smoke upgrade path; package / Hub publish **≠** `real-benchmark-verified`                                                             |
 
 ```bash
-uv run ageval lock examples/datasets/tau3-airline --task airline-00
-uv run ageval tasks examples/datasets/tau3-airline
-uv run python scripts/check_shared_lib_collisions.py examples/datasets/tau3-airline
+uv run ageval lock examples/datasets/tau3-airline-5 --task airline-00
+uv run ageval tasks examples/datasets/tau3-airline-5
+uv run python scripts/check_shared_lib_collisions.py examples/datasets/tau3-airline-5
 # Five-task in-repo suite (needs agent credentials + tau2):
-# uv run ageval run examples/datasets/tau3-airline
+# uv run ageval run examples/datasets/tau3-airline-5
 ```
 
-Package-local detail: [`datasets/tau3-airline/README.md`](datasets/tau3-airline/README.md).
+Package-local detail: [`datasets/tau3-airline-5/README.md`](datasets/tau3-airline-5/README.md).
 Regenerate the in-repo cut:
-`python examples/datasets/tau3-airline/scripts/generate_package.py --ids 0,1,2,3,4`.
+`python examples/datasets/tau3-airline-5-5/scripts/generate_package.py --ids 0,1,2,3,4`.
 
 ## `agents/` (`ageval.agent/1`)
 
@@ -147,7 +147,7 @@ uv run ageval run examples/datasets/minimal-demo --task terminal-jsonl-agg --age
 
 ## Hub-only conversions
 
-This monorepo keeps **minimal-demo** plus a **five-task** `tau3-airline` cut under
+This monorepo keeps **minimal-demo** plus a **five-task** `tau3-airline-5` cut under
 `examples/datasets/`. Larger popular-bench ports (including the full 50-task airline
 domain) stay **out of `examples/`** and ship as **Hub packages** (publish + suite
 upload), so clone size and CI paths stay bounded:
@@ -165,5 +165,5 @@ Package presence, Hub publish, or a suite job on the board does **not** raise ev
 ```bash
 uv run ageval lock examples/datasets/minimal-demo --task terminal-jsonl-agg
 uv run ageval run examples/datasets/minimal-demo --task terminal-jsonl-agg
-uv run ageval lock examples/datasets/tau3-airline --task airline-00
+uv run ageval lock examples/datasets/tau3-airline-5 --task airline-00
 ```

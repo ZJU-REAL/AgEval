@@ -4,7 +4,7 @@
 Usage::
 
     uv run python scripts/check_shared_lib_collisions.py <database-root> [...]
-    uv run python scripts/check_shared_lib_collisions.py examples/datasets/tau3-airline
+    uv run python scripts/check_shared_lib_collisions.py examples/datasets/tau3-airline-5
 
 Exit codes:
   0 — no forbidden shared/ paths and no task-level ``shared`` shadow

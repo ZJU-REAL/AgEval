@@ -125,7 +125,7 @@ uv run ageval view examples/datasets/minimal-demo --no-browser
 
 `examples/datasets/minimal-demo` 的默认环境为 docker。内置 harness 用 `--agent pi`（不必 install）。可选 `--model` 改这次 run。定制 overlays 包仍先 `ageval agent install`，再 `--agent org/name@version`。
 
-仓库内示例见 [`examples/README.md`](examples/README.md)：`minimal-demo`、五题缩略的 `tau3-airline`，以及 Agent 目录包。
+仓库内示例见 [`examples/README.md`](examples/README.md)：`minimal-demo`、五题缩略的 `tau3-airline-5`，以及 Agent 目录包。
 
 ## 架构
 
@@ -181,7 +181,7 @@ ageval/
 ├── examples/
 │   ├── datasets/
 │   │   ├── minimal-demo/            # terminal-jsonl-agg · tau2-dialog-min · multiagent-env-min
-│   │   └── tau3-airline/            # airline-00 … airline-04
+│   │   └── tau3-airline-5/            # airline-00 … airline-04
 │   └── agents/                      # ageval.agent/1
 ├── apps/viewer                      # ageval view SPA
 ├── apps/hub                         # Hub SPA

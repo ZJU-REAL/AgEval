@@ -1,9 +1,9 @@
-# tau3-airline (ageval Dataset)
+# tau3-airline-5 (ageval Dataset)
 
 Port of **τ³-bench / tau2-bench** `airline` domain onto ageval outer lifecycle.
 
 In-repo this is an **abbreviated** dataset: **five** members (`airline-00` … `airline-04`).
-The upstream domain has 50 tasks; that full cut is not checked into this repository.
+The upstream domain has 50 tasks; that full cut is not checked into this repository; it ships via Hub as `official/tau3-airline`.
 
 | Field | Value |
 | --- | --- |
@@ -32,10 +32,10 @@ as `shared.lib.*` (Runtime puts the dataset root on `sys.path`, not the `lib/` l
 ## Run
 
 ```bash
-uv run ageval lock examples/datasets/tau3-airline --task airline-00
-uv run ageval run  examples/datasets/tau3-airline --task airline-00
-uv run ageval run  examples/datasets/tau3-airline   # five in-repo members
-uv run python scripts/check_shared_lib_collisions.py examples/datasets/tau3-airline
+uv run ageval lock examples/datasets/tau3-airline-5 --task airline-00
+uv run ageval run  examples/datasets/tau3-airline-5 --task airline-00
+uv run ageval run  examples/datasets/tau3-airline-5   # five in-repo members
+uv run python scripts/check_shared_lib_collisions.py examples/datasets/tau3-airline-5
 ```
 
 Host needs `tau2==1.0.1` (see `requirements.txt`) for tools/DB scoring.
@@ -53,5 +53,5 @@ The in-repo cut is `--ids 0,1,2,3,4`. `--all` expands locally from `shared/asset
 do not commit the full 50-task tree here.
 
 ```bash
-python examples/datasets/tau3-airline/scripts/generate_package.py --ids 0,1,2,3,4
+python examples/datasets/tau3-airline-5/scripts/generate_package.py --ids 0,1,2,3,4
 ```
