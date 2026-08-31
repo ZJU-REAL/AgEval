@@ -45,3 +45,48 @@ def test_bind_result_phase_failure_wins() -> None:
     assert result.status == "ERROR"
     assert result.error_phase == "run"
     assert result.score is None
+
+
+def test_bind_result_run_timeout_is_fail() -> None:
+    result = bind_result(
+        evaluator_raw={"status": "PASS", "score": 1},
+        kind="local",
+        evidence_path="/tmp/evidence",
+        error_phase="run",
+        error_detail="RuntimeError: task_run_timeout",
+    )
+    assert result.status == "FAIL"
+    assert result.score == 0.0
+    assert result.error_phase is None
+    assert result.metrics["reason"] == "timeout"
+    assert result.metrics["timeout_phase"] == "run"
+
+
+def test_bind_result_evaluate_timeout_is_fail() -> None:
+    result = bind_result(
+        evaluator_raw=None,
+        kind="docker",
+        evidence_path="/tmp/evidence",
+        error_phase="evaluate",
+        error_detail=(
+            "RuntimeError: TimeoutExpired: Command '['docker', 'exec']' "
+            "timed out after 1800 seconds"
+        ),
+    )
+    assert result.status == "FAIL"
+    assert result.score == 0.0
+    assert result.error_phase is None
+    assert result.metrics["timeout_phase"] == "evaluate"
+
+
+def test_bind_result_environment_timeout_stays_error() -> None:
+    result = bind_result(
+        evaluator_raw=None,
+        kind="docker",
+        evidence_path="/tmp/evidence",
+        error_phase="environment",
+        error_detail="TimeoutError: docker start timed out",
+    )
+    assert result.status == "ERROR"
+    assert result.error_phase == "environment"
+    assert result.score is None

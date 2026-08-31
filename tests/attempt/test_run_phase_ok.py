@@ -1,4 +1,4 @@
-"""A failed task worker is a run-phase ERROR, not a judged evaluate."""
+"""A failed task worker still raises in run; bind maps timeout to FAIL."""
 
 from __future__ import annotations
 

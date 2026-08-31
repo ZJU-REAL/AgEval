@@ -18,5 +18,6 @@
 | Export fails `unsealed_invocation` | Attempt still running or metadata not terminal |
 | Export fails `secret_residual` | Fix source evidence; do not strip secrets by hand in export dir |
 | Docker ERROR | Docker daemon, image build, network/creds projection; read result / agent meta under `.ageval/runs/` |
+| Invoke / wall / verifier timeout | FAIL (`metrics.reason=timeout`), exit 1 — not ERROR. Environment start failure stays ERROR |
 
 Design: `docs/design/05-runtime/evidence.md`, `docs/design/07-budget-evaluation-failure.md`.

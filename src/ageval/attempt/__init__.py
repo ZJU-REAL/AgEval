@@ -45,7 +45,7 @@ async def run_attempt(ctx: AttemptCtx) -> None:
     A phase failure is an outcome, not a crash: it is recorded against the
     first phase that failed and the Attempt still produces a result document.
     After environment starts, ``record`` still seals whatever invoke scratch
-    exists so Viewer / upload can read ``trajectory.jsonl`` on ERROR.
+    exists so Viewer / upload can read ``trajectory.jsonl`` on FAIL/ERROR.
     Cancellation (``BaseException``) still propagates; cleanup always runs.
     """
     should_record = False

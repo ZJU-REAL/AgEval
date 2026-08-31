@@ -405,9 +405,10 @@ Phase detail: [docs/design/05-runtime/lifecycle.md](docs/design/05-runtime/lifec
 | Unauthorized effect | Rejected before execute | Capability / box |
 | Agent infrastructure error | ERROR; may have no score | runtime / executor |
 | Low eval score | FAIL + score; Attempt still complete | Evaluation |
-| Evaluator crash | `error.phase = evaluate` | Evaluation |
+| Agent / evaluate time budget | FAIL, score 0, `metrics.reason=timeout` | Attempt |
+| Evaluator crash (not timeout) | `error.phase = evaluate` ERROR | Evaluation |
 | Cleanup failure | warning | Box / Attempt |
-| User cancel / timeout | Enters cleanup | Attempt / runtime |
+| User cancel | Enters cleanup | Attempt / runtime |
 
 Privacy: tokens, `CODEX_HOME` contents, DB passwords, and SSH private keys must not appear in lock, default logs, or evidence body.
 

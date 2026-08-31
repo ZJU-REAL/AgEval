@@ -16,7 +16,8 @@
 | 缺 cap / inject | lock 失败 | Config / plugins |
 | 缺钥 | preflight 一次失败，`started: false` | 环境 / executor |
 | 评测低分 | FAIL + score | Evaluation |
-| Evaluator 崩 | `error.phase = evaluate` | Evaluation |
+| Agent / evaluate 超时（invoke、wall、verifier `timed out`） | FAIL + score 0；`metrics.reason=timeout`。不是 ERROR | Attempt |
+| Evaluator 崩（非超时） | `error.phase = evaluate` ERROR | Evaluation |
 | Cleanup 失败 | warning | 不改已 bind 的分 |
 
 相位失败记在该 phase。未知键：拒绝，一条消息。不要把 skip 写成通过。

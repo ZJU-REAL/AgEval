@@ -237,6 +237,7 @@ async def run_attempt(
         evidence_path=evidence.locator,
         cleanup_warning=_fact_detail(ctx, "cleanup_warning", "error"),
         error_phase=_fact_detail(ctx, "phase_failed", "phase"),
+        error_detail=_fact_detail(ctx, "phase_failed", "error"),
         facts=tuple(ctx.facts_as_list()),
     )
     facts = ctx.facts_as_list()

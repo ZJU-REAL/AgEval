@@ -35,6 +35,8 @@
 | **LockedTaskConfig** | lock 产物与其 digest（含 `extension_bindings`） |
 | **ageval SDK** | `RunContext` / `RunTerminal` / `Agent.session`。不拥有 identity / credential / PASS |
 | **硬顶** | 执行前上限。事后 token 只是观测 |
+| **FAIL** | 评测低分，或 run/evaluate **超时**（能力问题，score 0） |
+| **ERROR** | 非能力问题：environment 起不来、evaluator 崩、配置。超时不是 ERROR |
 | **evidence** | `.ageval/runs/<id>/`；布局字符串只在 `evidence/` 模块 |
 | **轨迹** | `trajectory.jsonl`；复盘用，不能发明 PASS |
 

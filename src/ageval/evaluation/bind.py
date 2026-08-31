@@ -1,7 +1,8 @@
 """Attempt result binding — the barrier between running and judging.
 
 The Agent finishing is not a verdict. ``status`` may only come from an
-evaluator's raw output (or from a phase failure, which is an ERROR).
+evaluator's raw output, a capability timeout (FAIL), or a non-timeout
+phase failure (ERROR).
 """
 
 from __future__ import annotations
@@ -13,6 +14,27 @@ from typing import Any
 STATUS_PASS = "PASS"
 STATUS_FAIL = "FAIL"
 STATUS_ERROR = "ERROR"
+
+# Capability budget, not infrastructure. Matched against phase_failed error text.
+_TIMEOUT_MARKERS = (
+    "task_run_timeout",
+    "miniswe_timeout",
+    "wall_time_exceeded",
+    "attempt wall time exceeded",
+    "timeoutexpired",
+    "timed out after",
+    "exec timed out",
+    "remote command timed out",
+    "limitsexceeded",
+)
+
+
+def is_capability_timeout(*, phase: str | None, error: str | None) -> bool:
+    """True when run/evaluate hit a time budget. Environment timeouts stay ERROR."""
+    if phase not in {"run", "evaluate"}:
+        return False
+    blob = (error or "").lower()
+    return any(marker in blob for marker in _TIMEOUT_MARKERS)
 
 
 @dataclass(frozen=True, slots=True)
@@ -59,14 +81,15 @@ def bind_result(
     evidence_path: str,
     cleanup_warning: str | None = None,
     error_phase: str | None = None,
+    error_detail: str | None = None,
     logs: str | None = None,
     facts: Sequence[Mapping[str, Any]] = (),
 ) -> AttemptResult:
     """Turn an evaluator's raw output into the Attempt verdict.
 
-    A phase failure is an ERROR regardless of what the evaluator said, and a
-    missing evaluator result is an ERROR — never a silent FAIL that could be
-    mistaken for a judged outcome.
+    A run/evaluate time budget is FAIL (agent capability). Other phase
+    failures and a missing evaluator result are ERROR — never a silent FAIL
+    that could be mistaken for a judged outcome.
     """
     common: dict[str, Any] = {
         "cleanup_warning": cleanup_warning,
@@ -78,6 +101,19 @@ def bind_result(
         "facts": tuple(facts),
     }
     if error_phase:
+        if is_capability_timeout(phase=error_phase, error=error_detail):
+            detail = (error_detail or "").strip()
+            return AttemptResult(
+                status=STATUS_FAIL,
+                score=0.0,
+                metrics={
+                    "reason": "timeout",
+                    "timeout_phase": error_phase,
+                    **({"error": detail[:500]} if detail else {}),
+                },
+                error_phase=None,
+                **common,
+            )
         return AttemptResult(
             status=STATUS_ERROR, score=None, metrics={}, error_phase=error_phase, **common
         )
