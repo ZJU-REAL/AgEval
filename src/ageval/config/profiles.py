@@ -262,7 +262,11 @@ def parse_job_mapping(raw: Mapping[str, Any], *, location: str = "profiles.yaml"
     )
 
 
-_EVALUATE_HOST_KEYS = frozenset({"isolated"})
+_EVALUATE_HOST_KEYS = frozenset({"isolated", "environment_options"})
+# The scoring box reads the same per-box knobs as the agent box. ``image`` is
+# deliberately absent: the recipe stays environment/evaluate.Dockerfile or
+# evaluation.docker_image.
+_EVALUATE_HOST_OPTION_KEYS = frozenset({"network", "egress", "platform", "user"})
 _EGRESS_VALUES = frozenset({"llm"})
 
 
@@ -284,25 +288,51 @@ def _parse_evaluate_host(raw: Any, *, location: str) -> dict[str, Any]:
             location=location,
         )
     isolated = raw.get("isolated")
-    if isolated is None:
+    options_raw = raw.get("environment_options")
+    if isolated is None and options_raw is None:
         return {}
-    if not isinstance(isolated, bool):
-        raise ConfigError(
-            ERROR_INVALID_SCHEMA,
-            "evaluate_host.isolated must be a boolean",
-            location=f"{location}/isolated",
+    out: dict[str, Any] = {}
+    if isolated is not None:
+        if not isinstance(isolated, bool):
+            raise ConfigError(
+                ERROR_INVALID_SCHEMA,
+                "evaluate_host.isolated must be a boolean",
+                location=f"{location}/isolated",
+            )
+        out["isolated"] = isolated
+    if options_raw is not None:
+        if not isinstance(options_raw, Mapping):
+            raise ConfigError(
+                ERROR_INVALID_SCHEMA,
+                "evaluate_host.environment_options must be a mapping the box kind understands",
+                location=f"{location}/environment_options",
+            )
+        unknown_options = sorted(set(options_raw) - _EVALUATE_HOST_OPTION_KEYS)
+        if unknown_options:
+            raise ConfigError(
+                ERROR_INVALID_SCHEMA,
+                f"unknown evaluate_host.environment_options keys: {unknown_options}",
+                location=f"{location}/environment_options",
+            )
+        _validate_egress(
+            options_raw,
+            location=f"{location}/environment_options",
+            label="evaluate_host.environment_options.egress",
         )
-    return {"isolated": isolated}
+        out["environment_options"] = copy.deepcopy(dict(options_raw))
+    return out
 
 
-def _validate_egress(options: Mapping[str, Any], *, location: str) -> None:
+def _validate_egress(
+    options: Mapping[str, Any], *, location: str, label: str = "environment_options.egress"
+) -> None:
     if "egress" not in options:
         return
     egress = options.get("egress")
     if not isinstance(egress, str) or egress not in _EGRESS_VALUES:
         raise ConfigError(
             ERROR_INVALID_SCHEMA,
-            "environment_options.egress must be llm when set",
+            f"{label} must be llm when set",
             location=f"{location}/egress",
         )
 

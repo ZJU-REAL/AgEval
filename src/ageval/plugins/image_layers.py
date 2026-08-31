@@ -7,11 +7,16 @@ image it builds. That is why ``image_contribute`` left the timeline.
 
 from __future__ import annotations
 
+from collections.abc import Iterable
 from dataclasses import dataclass
 from pathlib import Path
+from typing import TYPE_CHECKING
 
 from ageval.plugins.manifest import PluginManifest, load_manifest
 from ageval.plugins.store import load_index, resolve_package_root
+
+if TYPE_CHECKING:
+    from ageval.plugins.protocol import ExtensionGraph
 
 
 @dataclass(frozen=True, slots=True)
@@ -63,3 +68,34 @@ def _manifest(root: Path) -> PluginManifest | None:
     except PluginManifestError:
         # A broken install is reported where it is installed, not here.
         return None
+
+
+def graph_plugin_ids(graph: ExtensionGraph) -> frozenset[str]:
+    """Plugin ids a graph binds: exclusive winners plus every chain handler."""
+    bound = {ref.plugin_id for ref in graph.winners.values()}
+    for chain in graph.chains.values():
+        bound.update(handler.plugin_id for handler in chain)
+    return frozenset(bound)
+
+
+def layers_tuple(layers: Iterable[ImageLayer]) -> tuple[tuple[str, str, str, str], ...]:
+    """The factory-facing layer shape (plugin_id, dockerfile, package_root, body)."""
+    return tuple(
+        (layer.plugin_id, str(layer.dockerfile), str(layer.package_root), layer.body)
+        for layer in layers
+    )
+
+
+def layers_for_graph(graph: ExtensionGraph) -> tuple[tuple[str, str, str, str], ...]:
+    """Bake files declared by the plugins one graph binds, for kinds that build."""
+    return layers_tuple(layers_for_plugins(graph_plugin_ids(graph)))
+
+
+def layers_for_graphs(
+    graphs: Iterable[ExtensionGraph],
+) -> tuple[tuple[str, str, str, str], ...]:
+    """Union bake files over several graphs, ordered by plugin id."""
+    bound: set[str] = set()
+    for graph in graphs:
+        bound.update(graph_plugin_ids(graph))
+    return layers_tuple(layers_for_plugins(frozenset(bound)))

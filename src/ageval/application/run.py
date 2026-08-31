@@ -25,9 +25,7 @@ from ageval.evaluation.bind import AttemptResult, bind_result
 from ageval.evidence.locators import default_runs_root
 from ageval.evidence.store import (
     AGENT_BOX_REL,
-    EVALUATE_BOX_REL,
     AttemptEvidenceStore,
-    evaluate_box_rel,
 )
 from ageval.plugins.binding import bind_winner
 from ageval.plugins.bootstrap import ensure_bootstrapped
@@ -187,24 +185,6 @@ async def run_attempt(
     )
     services.register(ENVIRONMENT, host, plugin_id=graph.winners[ENVIRONMENT].plugin_id)
     await host.preflight()
-    evaluate_hosts = _bind_named_evaluate_hosts(
-        lock,
-        registry=registry,
-        graph=graph,
-        task_root=task_root,
-        evidence=evidence,
-    )
-    evaluate_host = (
-        None
-        if evaluate_hosts
-        else _bind_evaluate_host(
-            lock,
-            registry=registry,
-            graph=graph,
-            task_root=task_root,
-            attempt_root=evidence.path(EVALUATE_BOX_REL),
-        )
-    )
 
     ctx = AttemptCtx(
         run_id=run_ident.value,
@@ -216,8 +196,6 @@ async def run_attempt(
         registry=registry,
         services=services,
         host=host,
-        evaluate_host=evaluate_host,
-        evaluate_hosts=evaluate_hosts,
         evidence=evidence,
         cancellation=CancellationSignal(),
         task_root=task_root,
@@ -328,15 +306,9 @@ def _selected_profile_id(lock: LockedTaskConfig) -> str:
 
 def _plugin_image_layers(graph: ExtensionGraph) -> tuple[tuple[str, str, str, str], ...]:
     """Bake files the bound plugins declared, for kinds that build."""
-    from ageval.plugins.image_layers import layers_for_plugins
+    from ageval.plugins.image_layers import layers_for_graph
 
-    bound = {ref.plugin_id for ref in graph.winners.values()}
-    for chain in graph.chains.values():
-        bound.update(handler.plugin_id for handler in chain)
-    return tuple(
-        (layer.plugin_id, str(layer.dockerfile), str(layer.package_root), layer.body)
-        for layer in layers_for_plugins(frozenset(bound))
-    )
+    return layers_for_graph(graph)
 
 
 def _environment_options(lock: LockedTaskConfig) -> dict[str, Any]:
@@ -393,143 +365,20 @@ def _box_spec(
     )
 
 
-def _evaluate_isolated(lock: LockedTaskConfig) -> bool:
-    overlay = thaw(lock.job_overlay) if lock.job_overlay is not None else {}
-    host = overlay.get("evaluate_host") if isinstance(overlay, dict) else None
-    return bool(isinstance(host, dict) and host.get("isolated") is True)
-
-
-def _evaluate_host_options(lock: LockedTaskConfig) -> dict[str, Any]:
-    """Job options for the scoring box: no agent image, network, or egress."""
-    base = _environment_options(lock)
-    out = {key: value for key, value in base.items() if key in {"platform", "user"}}
-    image = thaw(lock.resolved_references).get("evaluation_docker_image")
-    if isinstance(image, str) and image.strip():
-        out["image"] = image.strip()
-    return out
-
-
-def _evaluate_box_spec(
-    lock: LockedTaskConfig,
-    *,
-    task_root: Path,
-    attempt_root: Path,
-) -> BoxSpec:
-    references = thaw(lock.resolved_references)
-    return BoxSpec(
-        attempt_root=attempt_root,
-        task_root=task_root,
-        repo_root=Path.cwd(),
-        dockerfile=references.get("environment_evaluate_dockerfile"),
-        compose_file=None,
-    )
-
-
-def _bind_evaluate_host(
-    lock: LockedTaskConfig,
-    *,
-    registry: Any,
-    graph: ExtensionGraph,
-    task_root: Path,
-    attempt_root: Path,
-) -> Any | None:
-    """Second EnvironmentProvider when isolated; otherwise None (same box)."""
-    if not _evaluate_isolated(lock):
-        return None
-    return bind_winner(
-        registry,
-        graph,
-        ENVIRONMENT,
-        spec=_evaluate_box_spec(lock, task_root=task_root, attempt_root=attempt_root),
-        plugin_layers=(),
-        options=_evaluate_host_options(lock),
-    )
-
-
-def _named_evaluate_recipes(lock: LockedTaskConfig) -> dict[str, dict[str, str]]:
-    raw = thaw(lock.resolved_references).get("evaluation_environments") or {}
-    if not isinstance(raw, dict):
-        return {}
-    out: dict[str, dict[str, str]] = {}
-    for name, recipe in raw.items():
-        if isinstance(name, str) and isinstance(recipe, dict):
-            out[name] = {str(key): str(value) for key, value in recipe.items()}
-    return out
-
-
-def _named_evaluate_host_options(lock: LockedTaskConfig, recipe: dict[str, str]) -> dict[str, Any]:
-    base = _environment_options(lock)
-    out = {key: value for key, value in base.items() if key in {"platform", "user"}}
-    image = recipe.get("docker_image")
-    if isinstance(image, str) and image.strip():
-        out["image"] = image.strip()
-    return out
-
-
-def _named_evaluate_box_spec(
-    lock: LockedTaskConfig,
-    *,
-    name: str,
-    recipe: dict[str, str],
-    task_root: Path,
-    attempt_root: Path,
-) -> BoxSpec:
-    del lock, name
-    dockerfile = recipe.get("dockerfile")
-    return BoxSpec(
-        attempt_root=attempt_root,
-        task_root=task_root,
-        repo_root=Path.cwd(),
-        dockerfile=dockerfile if isinstance(dockerfile, str) and dockerfile.strip() else None,
-        compose_file=None,
-    )
-
-
 def _bind_evaluate_session_target(ctx: AttemptCtx, agent_service: AgentServiceServer) -> None:
     """Let evaluate-phase session(environment=) rebind ACP onto a named host."""
     parent = getattr(agent_service, "service", None)
     if parent is None:
         return
-    names = frozenset(ctx.evaluate_hosts)
+    from ageval.attempt.phases.evaluate import bind_named_environment, named_evaluate_environments
+
+    names = frozenset(named_evaluate_environments(ctx))
     parent.evaluate_environment_names = names if names else None
     if not names:
         return
-    from ageval.attempt.phases.evaluate import bind_named_environment
-
     parent.evaluate_environment_binder = lambda name, profile_id=None: bind_named_environment(
         ctx, name, profile_id=profile_id
     )
-
-
-def _bind_named_evaluate_hosts(
-    lock: LockedTaskConfig,
-    *,
-    registry: Any,
-    graph: ExtensionGraph,
-    task_root: Path,
-    evidence: AttemptEvidenceStore,
-) -> dict[str, Any]:
-    """Construct named scoring hosts. Start happens on first exec / session."""
-    recipes = _named_evaluate_recipes(lock)
-    if not recipes:
-        return {}
-    out: dict[str, Any] = {}
-    for name, recipe in recipes.items():
-        out[name] = bind_winner(
-            registry,
-            graph,
-            ENVIRONMENT,
-            spec=_named_evaluate_box_spec(
-                lock,
-                name=name,
-                recipe=recipe,
-                task_root=task_root,
-                attempt_root=evidence.path(evaluate_box_rel(name)),
-            ),
-            plugin_layers=(),
-            options=_named_evaluate_host_options(lock, recipe),
-        )
-    return out
 
 
 def _agent_service(

@@ -440,12 +440,28 @@ def _apply_evaluate_job(job: JobDocument, resolved_refs: dict[str, Any]) -> None
             )
     egress = job.environment_options.get("egress")
     if egress is None:
-        return
-    if job.environment not in _EGRESS_KINDS:
+        pass
+    elif job.environment not in _EGRESS_KINDS:
         raise ConfigError(
             ERROR_INVALID_SCHEMA,
             "environment_options.egress requires environment: docker",
             location="/environment_options/egress",
+        )
+    scoring_options = job.evaluate_host.get("environment_options")
+    if not scoring_options:
+        return
+    if not isolated:
+        raise ConfigError(
+            ERROR_INVALID_SCHEMA,
+            "evaluate_host.environment_options requires evaluate_host.isolated: true",
+            location="/evaluate_host/environment_options",
+        )
+    scoring_egress = scoring_options.get("egress")
+    if scoring_egress is not None and job.environment not in _EGRESS_KINDS:
+        raise ConfigError(
+            ERROR_INVALID_SCHEMA,
+            "evaluate_host.environment_options.egress requires environment: docker",
+            location="/evaluate_host/environment_options/egress",
         )
 
 
