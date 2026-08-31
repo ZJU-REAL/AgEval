@@ -126,3 +126,45 @@ async def test_record_failure_after_evaluate_error_does_not_replace_phase(
     assert failed[0].detail["phase"] == "evaluate"
     warnings = [f for f in ctx.phase_facts if f.name == "record_warning"]
     assert warnings
+
+
+@pytest.mark.asyncio
+async def test_on_phase_observer_sees_started_and_finished(
+    tmp_path: Any, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    order: list[str] = []
+    _patch_phases(monkeypatch, order, fail=None)
+    ctx = _ctx(tmp_path)
+    events: list[tuple[str, str]] = []
+    ctx.on_phase = lambda event, phase: events.append((event, phase))
+    await run_attempt(ctx)
+    assert events == [
+        ("started", "environment"),
+        ("finished", "environment"),
+        ("started", "run"),
+        ("finished", "run"),
+        ("started", "evaluate"),
+        ("finished", "evaluate"),
+        ("started", "record"),
+        ("finished", "record"),
+        ("started", "cleanup"),
+        ("finished", "cleanup"),
+    ]
+
+
+@pytest.mark.asyncio
+async def test_on_phase_observer_on_phase_failure(
+    tmp_path: Any, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    order: list[str] = []
+    _patch_phases(monkeypatch, order, fail="run")
+    ctx = _ctx(tmp_path)
+    events: list[tuple[str, str]] = []
+    ctx.on_phase = lambda event, phase: events.append((event, phase))
+    await run_attempt(ctx)
+    assert ("started", "run") in events
+    # The failing phase still reports finished; evaluate never starts.
+    assert ("finished", "run") in events
+    assert all(phase != "evaluate" for _, phase in events)
+    assert ("started", "record") in events
+    assert ("started", "cleanup") in events

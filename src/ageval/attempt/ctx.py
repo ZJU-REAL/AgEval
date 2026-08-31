@@ -8,6 +8,7 @@ PASS enters exactly once, through ``bind_evaluation``.
 from __future__ import annotations
 
 import time
+from collections.abc import Callable
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
@@ -22,6 +23,12 @@ from ageval.runtime.cancellation import CancellationSignal
 
 class EvaluationBindingError(RuntimeError):
     """Raised when something other than the evaluate phase tries to set the verdict."""
+
+
+PhaseObserver = Callable[[str, str], None]
+"""Live phase observer: called with (``"started"`` | ``"finished"``, phase name).
+
+Observational only — phases never read it, and it never changes the sequence."""
 
 
 @dataclass
@@ -65,6 +72,7 @@ class AttemptCtx:
     keep_workspace: bool = False
     keep_vendor_raw: bool = False
     summary_extra: dict[str, Any] | None = None
+    on_phase: PhaseObserver | None = None
     phase_facts: list[PhaseFact] = field(default_factory=list)
     phase: str = "created"
     evaluation_result: Any = None

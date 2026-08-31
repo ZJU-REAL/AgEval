@@ -13,7 +13,7 @@ from typing import Any
 
 from ageval.application.phase_timing import timing_from_facts
 from ageval.attempt import run_attempt as run_attempt_pipeline
-from ageval.attempt.ctx import AttemptCtx
+from ageval.attempt.ctx import AttemptCtx, PhaseObserver
 from ageval.config.constants import (
     ENVIRONMENT_DIR,
     EVALUATION_DIR,
@@ -121,10 +121,15 @@ async def run_attempt(
     keep_vendor_raw: bool = False,
     force_build: bool = False,
     identity_factory: IdentityFactory | None = None,
+    on_phase: PhaseObserver | None = None,
 ) -> tuple[int, AttemptResult]:
     """Run one foreground Attempt and return its exit code and result."""
     from ageval.application.composition import build_lock_command
 
+    # Lock and preflight run before AttemptCtx exists; notify the observer
+    # directly so the live label covers the whole Attempt, not just the phases.
+    if on_phase is not None:
+        on_phase("started", "lock")
     locked = build_lock_command().lock(
         dataset,
         task,
@@ -133,6 +138,8 @@ async def run_attempt(
         overrides=overrides,
         force_build=force_build,
     )
+    if on_phase is not None:
+        on_phase("finished", "lock")
     lock = locked.lock
     dataset_root = locked.resolved.dataset_root
     task_root = locked.resolved.task_dir
@@ -185,7 +192,11 @@ async def run_attempt(
         options=_agent_environment_options(lock, graph),
     )
     services.register(ENVIRONMENT, host, plugin_id=graph.winners[ENVIRONMENT].plugin_id)
+    if on_phase is not None:
+        on_phase("started", "preflight")
     await host.preflight()
+    if on_phase is not None:
+        on_phase("finished", "preflight")
 
     ctx = AttemptCtx(
         run_id=run_ident.value,
@@ -208,6 +219,7 @@ async def run_attempt(
         deadline_monotonic=deadline,
         keep_workspace=keep_workspace,
         keep_vendor_raw=keep_vendor_raw,
+        on_phase=on_phase,
     )
     _bind_evaluate_session_target(ctx, agent_service)
 

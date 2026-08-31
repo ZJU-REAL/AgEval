@@ -50,11 +50,11 @@ async def run_attempt(ctx: AttemptCtx) -> None:
     """
     should_record = False
     try:
-        await _timed(ctx, environment.run)
+        await _timed(ctx, environment.PHASE, environment.run)
         should_record = True
-        await _timed(ctx, run.run)
+        await _timed(ctx, run.PHASE, run.run)
         try:
-            await _timed(ctx, evaluate.run)
+            await _timed(ctx, evaluate.PHASE, evaluate.run)
         except Exception as exc:  # noqa: BLE001 — evaluate ERROR still seals
             _note_phase_failed(ctx, exc)
     except Exception as exc:  # noqa: BLE001 — the phase name is the operator's answer
@@ -62,7 +62,7 @@ async def run_attempt(ctx: AttemptCtx) -> None:
     finally:
         if should_record:
             try:
-                await _timed(ctx, record.run)
+                await _timed(ctx, record.PHASE, record.run)
             except Exception as exc:  # noqa: BLE001 — do not hide an earlier phase
                 if _failed_phase(ctx) is None:
                     _note_phase_failed(ctx, exc)
@@ -71,20 +71,24 @@ async def run_attempt(ctx: AttemptCtx) -> None:
                         "record_warning",
                         {"error": f"{type(exc).__name__}: {exc}"},
                     )
-        await _timed(ctx, cleanup.run)
+        await _timed(ctx, cleanup.PHASE, cleanup.run)
 
 
 def _utc_now() -> str:
     return datetime.now(UTC).replace(microsecond=0).isoformat().replace("+00:00", "Z")
 
 
-async def _timed(ctx: AttemptCtx, phase: Phase) -> None:
-    """Run one phase and record how long it took (observational only)."""
+async def _timed(ctx: AttemptCtx, name: str, phase: Phase) -> None:
+    """Run one phase, notify the live observer, and record how long it took."""
+    if ctx.on_phase is not None:
+        ctx.on_phase("started", name)
     started_mono = time.monotonic()
     started_at = _utc_now()
     try:
         await phase(ctx)
     finally:
+        if ctx.on_phase is not None:
+            ctx.on_phase("finished", name)
         ctx.record_fact(
             "phase_finished",
             {
