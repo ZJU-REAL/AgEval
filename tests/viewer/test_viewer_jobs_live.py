@@ -72,6 +72,7 @@ def _seed_live_suite(db: Path, job_id: str = "suite_live_001") -> None:
         "done": 2,
         "total": 4,
         "n_attempts": 1,
+        "task_ids": ["alpha", "beta", "gamma", "delta-fail"],
         "running": [{"task_id": "gamma", "attempt_index": 0, "phase": "running"}],
         "updated_at": "2026-08-30T10:05:00Z",
         "cancel_requested": False,
@@ -146,8 +147,62 @@ def test_get_job_live_snapshot_lists_settled_tasks(tmp_path: Path) -> None:
     assert payload["job"]["status"] == "running"
     assert payload["job"]["trials_done"] == 2
     assert payload["job"]["trials_total"] == 4
-    assert [t["task_id"] for t in payload["tasks"]] == ["alpha", "beta"]
+    assert [t["task_id"] for t in payload["tasks"]] == [
+        "alpha",
+        "beta",
+        "gamma",
+        "delta-fail",
+    ]
     assert payload["progress"]["status"] == "running"
+
+
+def test_get_job_live_marks_unsettled_planned_tasks_as_placeholders(tmp_path: Path) -> None:
+    db = _clean_db(tmp_path)
+    _seed_live_suite(db)
+
+    payload = jobs.get_job(db, "suite_live_001")
+    by_id = {t["task_id"]: t for t in payload["tasks"]}
+    # gamma is in flight; delta-fail has not started.
+    assert by_id["gamma"]["status"] == "RUNNING"
+    assert by_id["delta-fail"]["status"] == "PENDING"
+    for tid in ("gamma", "delta-fail"):
+        placeholder = by_id[tid]
+        assert placeholder["run_id"] is None
+        assert placeholder["score"] is None
+        assert placeholder["attempts"] == []
+    # Placeholders carry no metrics: settled aggregates stay untouched.
+    assert payload["job"]["trials_done"] == 2
+    assert payload["job"]["trials_total"] == 4
+
+
+def test_get_job_before_first_summary_lists_planned_pending(tmp_path: Path) -> None:
+    db = _clean_db(tmp_path)
+    job_id = "suite_planned_001"
+    suite_dir = db / ".ageval" / "suite-runs" / job_id
+    suite_dir.mkdir(parents=True)
+    progress = {
+        "schema": "ageval.suite.progress/1",
+        "suite_run_id": job_id,
+        "dataset_id": "test/suite-min",
+        "dataset_version": "0.1.0",
+        "status": "running",
+        "done": 0,
+        "total": 2,
+        "n_attempts": 1,
+        "task_ids": ["alpha", "beta"],
+        "running": [{"task_id": "alpha", "attempt_index": 0, "phase": "running"}],
+        "updated_at": "2026-08-30T10:05:00Z",
+        "cancel_requested": False,
+    }
+    (suite_dir / "progress.json").write_text(
+        json.dumps(progress, indent=2) + "\n", encoding="utf-8"
+    )
+
+    payload = jobs.get_job(db, job_id)
+    by_id = {t["task_id"]: t for t in payload["tasks"]}
+    assert by_id["alpha"]["status"] == "RUNNING"
+    assert by_id["beta"]["status"] == "PENDING"
+    assert payload["task_count"] == 2
 
 
 def test_final_suite_row_keeps_finished_shape(tmp_path: Path) -> None:

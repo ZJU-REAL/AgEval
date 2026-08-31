@@ -1,3 +1,4 @@
+import type { MouseEvent as ReactMouseEvent, KeyboardEvent as ReactKeyboardEvent } from "react";
 import { useEffect, useMemo, useState } from "react";
 import { Navigate, useNavigate, useParams } from "react-router-dom";
 
@@ -226,68 +227,90 @@ export function JobDetailPage() {
               {!loading &&
                 !error &&
                 rows.map((t) => {
+                  const statusUpper = (t.status || "").toUpperCase();
+                  // Planned-but-unrun (and still-running) tasks have no
+                  // attempt yet: placeholder rows, muted, navigate nowhere.
+                  const isPlaceholder =
+                    statusUpper === "PENDING" || statusUpper === "RUNNING";
                   const errText = formatError(t.error);
-                  const isErr =
-                    (t.status || "").toUpperCase() === "ERROR" || Boolean(errText);
+                  const isErr = statusUpper === "ERROR" || Boolean(errText);
                   const href = taskHref(jobId, t);
                   const trialCount = t.n ?? taskRunIds(t).length;
+                  const navProps = isPlaceholder
+                    ? {}
+                    : {
+                        tabIndex: 0,
+                        role: "link" as const,
+                        onClick: (e: ReactMouseEvent<HTMLTableRowElement>) => {
+                          const el = e.target as HTMLElement;
+                          if (el.closest("button, [role='button']")) return;
+                          navigate(href);
+                        },
+                        onKeyDown: (e: ReactKeyboardEvent<HTMLTableRowElement>) => {
+                          const el = e.target as HTMLElement;
+                          if (el.closest("button, [role='button']")) return;
+                          if (e.key === "Enter") {
+                            navigate(href);
+                          }
+                        },
+                      };
                   return (
                     <TableRow
                       key={t.task_id}
-                      className="cursor-pointer"
-                      tabIndex={0}
-                      role="link"
-                      onClick={(e) => {
-                        const el = e.target as HTMLElement;
-                        if (el.closest("button, [role='button']")) return;
-                        navigate(href);
-                      }}
-                      onKeyDown={(e) => {
-                        const el = e.target as HTMLElement;
-                        if (el.closest("button, [role='button']")) return;
-                        if (e.key === "Enter") {
-                          navigate(href);
-                        }
-                      }}
+                      className={isPlaceholder ? "text-mute" : "cursor-pointer"}
+                      aria-disabled={isPlaceholder || undefined}
+                      {...navProps}
                     >
                       <TableCell className="font-medium max-w-[12rem]">
                         <TruncateTip text={t.task_id} copyable />
                       </TableCell>
                       <TableCell className="max-w-[14rem]">
                         <AxisLabel
-                          value={t.agent_label || job?.agent_label}
+                          value={isPlaceholder ? null : t.agent_label || job?.agent_label}
                           className="block truncate"
                         />
                       </TableCell>
                       <TableCell className="max-w-[18rem]">
                         <ModelLabel
-                          value={t.model_label || job?.model_label}
-                          effort={t.reasoning_effort || job?.reasoning_effort}
+                          value={isPlaceholder ? null : t.model_label || job?.model_label}
+                          effort={
+                            isPlaceholder ? null : t.reasoning_effort || job?.reasoning_effort
+                          }
                           className="truncate"
                         />
                       </TableCell>
                       <TableCell className="text-body">
                         {t.dataset || job?.dataset_ref || "-"}
                       </TableCell>
-                      <TableCell className="tabular">{formatScore(t.score)}</TableCell>
-                      <TableCell className="tabular">{trialCount || 1}</TableCell>
                       <TableCell className="tabular">
-                        {isErr || (t.status || "").toUpperCase() === "ERROR" ? 1 : 0}
+                        {isPlaceholder ? "-" : formatScore(t.score)}
                       </TableCell>
-                      <TableCell className="text-mute">{t.duration || "-"}</TableCell>
+                      <TableCell className="tabular">
+                        {isPlaceholder ? "-" : trialCount || 1}
+                      </TableCell>
+                      <TableCell className="tabular">
+                        {isPlaceholder ? "-" : isErr || statusUpper === "ERROR" ? 1 : 0}
+                      </TableCell>
+                      <TableCell className="text-mute">
+                        {isPlaceholder ? "-" : t.duration || "-"}
+                      </TableCell>
                       <TableCell
                         className={
-                          isErr || (t.status || "").toUpperCase() === "FAIL"
+                          !isPlaceholder && (isErr || statusUpper === "FAIL")
                             ? "text-error"
                             : "text-mute"
                         }
                       >
-                        {errText ||
-                          ((t.status || "").toUpperCase() === "ERROR"
-                            ? "ERROR"
-                            : (t.status || "").toUpperCase() === "FAIL"
-                              ? "FAIL"
-                              : "-")}
+                        {isPlaceholder
+                          ? statusUpper === "RUNNING"
+                            ? "RUNNING"
+                            : "PENDING"
+                          : errText ||
+                            (statusUpper === "ERROR"
+                              ? "ERROR"
+                              : statusUpper === "FAIL"
+                                ? "FAIL"
+                                : "-")}
                       </TableCell>
                     </TableRow>
                   );

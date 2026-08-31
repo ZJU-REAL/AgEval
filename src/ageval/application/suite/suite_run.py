@@ -434,6 +434,8 @@ def _write_suite_progress(
         "total": total,
         "n_attempts": plan.n_attempts,
         "max_concurrent_tasks": plan.max_concurrent_tasks,
+        # The full planned axis so the viewer can mark unrun tasks as pending.
+        "task_ids": list(plan.task_ids),
         "running": running,
         "updated_at": datetime.now(UTC).isoformat().replace("+00:00", "Z"),
         "cancel_requested": is_suite_cancel_requested(plan.dataset_root, plan.suite_run_id),

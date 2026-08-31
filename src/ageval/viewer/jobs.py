@@ -192,6 +192,49 @@ def _previous_entries(
     return items
 
 
+def _planned_pending_rows(
+    progress: dict[str, Any] | None, settled_ids: set[str]
+) -> list[dict[str, Any]]:
+    """Placeholder rows for planned task ids that have not settled yet.
+
+    The suite summary deliberately contains settled tasks only; the viewer
+    joins the planned axis from ``progress.json`` so the job detail page can
+    show how many tasks are still to run. Placeholders carry no attempt and
+    navigate nowhere.
+    """
+    if not isinstance(progress, dict):
+        return []
+    raw = progress.get("task_ids")
+    if not isinstance(raw, list):
+        return []
+    running_ids = {
+        str(item.get("task_id") or "")
+        for item in progress.get("running", [])
+        if isinstance(item, dict)
+    }
+    rows: list[dict[str, Any]] = []
+    for tid in raw:
+        tid = str(tid or "").strip()
+        if not tid or tid in settled_ids:
+            continue
+        rows.append(
+            {
+                "task_id": tid,
+                "status": "RUNNING" if tid in running_ids else "PENDING",
+                "score": None,
+                "run_id": None,
+                "attempt_run_ids": [],
+                "previous": [],
+                "attempts": [],
+                "error": None,
+                "exit_code": None,
+                "n": None,
+                "c": None,
+            }
+        )
+    return rows
+
+
 def _in_progress_suite_row(
     progress: dict[str, Any],
     *,
@@ -795,6 +838,9 @@ def get_job(dataset_root: Path, job_id: str) -> dict[str, Any]:
             }
         )
 
+    settled_ids = {str(row.get("task_id") or "") for row in task_rows}
+    task_rows.extend(_planned_pending_rows(progress, settled_ids))
+
     return {
         "ok": True,
         "job": job,
@@ -831,6 +877,8 @@ def _get_in_progress_suite_job(
                 "n": 1,
             }
         )
+    present_ids = {str(row.get("task_id") or "") for row in task_rows}
+    task_rows.extend(_planned_pending_rows(progress, present_ids))
     return {
         "ok": True,
         "job": job,
