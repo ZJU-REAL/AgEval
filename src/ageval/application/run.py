@@ -29,6 +29,7 @@ from ageval.evidence.store import (
 )
 from ageval.plugins.binding import bind_winner
 from ageval.plugins.bootstrap import ensure_bootstrapped
+from ageval.plugins.image_layers import layers_for_graph
 from ageval.plugins.protocol import ExtensionGraph
 from ageval.plugins.services import ServiceTable
 from ageval.plugins.slots import ENVIRONMENT
@@ -86,7 +87,7 @@ async def probe_attempt(
             task_root=locked.resolved.task_dir,
             attempt_root=Path(tempfile.mkdtemp(prefix="ageval-probe-")),
         ),
-        plugin_layers=_plugin_image_layers(graph),
+        plugin_layers=layers_for_graph(graph),
     )
     probe: dict[str, Any] = {
         "task_id": lock.task_id,
@@ -180,7 +181,7 @@ async def run_attempt(
             task_root=task_root,
             attempt_root=evidence.path(AGENT_BOX_REL),
         ),
-        plugin_layers=_plugin_image_layers(graph),
+        plugin_layers=layers_for_graph(graph),
         options=_agent_environment_options(lock, graph),
     )
     services.register(ENVIRONMENT, host, plugin_id=graph.winners[ENVIRONMENT].plugin_id)
@@ -302,13 +303,6 @@ def _selected_profile_id(lock: LockedTaskConfig) -> str:
     if isinstance(active, str) and active.strip():
         return active.strip()
     return str(rows[0].get("id"))
-
-
-def _plugin_image_layers(graph: ExtensionGraph) -> tuple[tuple[str, str, str, str], ...]:
-    """Bake files the bound plugins declared, for kinds that build."""
-    from ageval.plugins.image_layers import layers_for_graph
-
-    return layers_for_graph(graph)
 
 
 def _environment_options(lock: LockedTaskConfig) -> dict[str, Any]:

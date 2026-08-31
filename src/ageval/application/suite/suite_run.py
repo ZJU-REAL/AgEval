@@ -585,6 +585,7 @@ def _settled_task_ids(plan: SuitePlan, attempts: list[dict[str, Any]]) -> list[s
     Mirrors the final summary's task-id union: resume-filter siblings that
     already settled stay listed.
     """
+    settled = {str(a.get("task_id") or "") for a in attempts}
     present: list[str] = []
     seen: set[str] = set()
 
@@ -595,9 +596,9 @@ def _settled_task_ids(plan: SuitePlan, attempts: list[dict[str, Any]]) -> list[s
 
     for tid in plan.task_ids:
         _add(tid)
-    for tid in (str(a.get("task_id") or "") for a in attempts):
+    for tid in settled:
         _add(tid)
-    return [tid for tid in present if any(str(a.get("task_id") or "") == tid for a in attempts)]
+    return [tid for tid in present if tid in settled]
 
 
 def _live_summary(
