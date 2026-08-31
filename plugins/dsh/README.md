@@ -39,7 +39,7 @@ A kind that cannot `exec` / `upload` fails at `ageval lock`, not mid-invoke.
 | `options.provider` | `deepseek-official` | Provider id on `initialize`. |
 | `model` | `deepseek-v4-flash` | Passed on `initialize`. |
 | `api_key` | `DEEPSEEK_API_KEY` / `deepseek_api_key` / `litellm_api_key` | Env **locator name**. Projected as `DEEPSEEK_API_KEY`. Omit on loopback `base_url` (`127.0.0.1` / `localhost` / `::1`). |
-| `base_url` | `DEEPSEEK_BASE_URL` / `deepseek_base_url` / `litellm_base_url` / `OPENAI_BASE_URL` | Projected as `DEEPSEEK_BASE_URL`. |
+| `base_url` | `DEEPSEEK_BASE_URL` / `deepseek_base_url` | Projected as `DEEPSEEK_BASE_URL`. Defaults to the official `https://api.deepseek.com`; no cross-provider fallbacks. |
 
 ## Install
 

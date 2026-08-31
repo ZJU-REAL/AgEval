@@ -30,9 +30,8 @@ _CREDENTIAL_ENV_NAMES = (
 _BASE_URL_ENV_FALLBACKS = (
     "DEEPSEEK_BASE_URL",
     "deepseek_base_url",
-    "litellm_base_url",
-    "OPENAI_BASE_URL",
 )
+DEFAULT_BASE_URL = "https://api.deepseek.com"
 
 
 def describe_dsh() -> dict[str, Any]:
@@ -134,7 +133,7 @@ def resolve_base_url(explicit: str | None) -> str | None:
         raw = os.environ.get(key)
         if raw and str(raw).strip():
             return str(raw).strip()
-    return None
+    return DEFAULT_BASE_URL
 
 
 def build_executor(
