@@ -341,7 +341,8 @@ def register(app: typer.Typer) -> None:
                 import time
 
                 started = time.monotonic()
-                with AttemptSpinner(task_id=plan.task_ids[0]):
+                spinner = AttemptSpinner(task_id=plan.task_ids[0])
+                with spinner:
                     code, result = asyncio.run(
                         build_run_attempt()(
                             package,
@@ -350,6 +351,7 @@ def register(app: typer.Typer) -> None:
                             profiles_path=profiles,
                             keep_workspace=keep_workspace,
                             keep_vendor_raw=keep_vendor_raw,
+                            on_phase=spinner.phase,
                         )
                     )
                 summary = result.as_dict()

@@ -12,6 +12,7 @@ from pathlib import Path
 from typing import Any, TextIO
 
 from rich.console import Console
+from rich.markup import escape
 from rich.progress import (
     MofNCompleteColumn,
     Progress,
@@ -205,7 +206,7 @@ class RunProgress:
             self._use_color = use_color
         self._started: dict[tuple[str, int], float] = {}
         self._elapsed: dict[tuple[str, int], str] = {}
-        self._running: dict[tuple[str, int], None] = {}
+        self._running: dict[tuple[str, int], str | None] = {}
         names = [str(t) for t in (task_ids or ()) if str(t)]
         self._name_width = max((len(n) for n in names), default=8)
         self._show_attempt = (
@@ -235,6 +236,8 @@ class RunProgress:
             self._on_start(ev)
         elif kind == "unit_start":
             self._on_unit_start(ev)
+        elif kind == "unit_phase":
+            self._on_unit_phase(ev)
         elif kind == "unit_done":
             self._on_unit_done(ev)
         elif kind == "suite_complete":
@@ -276,6 +279,13 @@ class RunProgress:
             self._refresh_bar(int(ev.get("done") or 0), int(ev.get("total") or 0))
             return
         self._emit(f"start  {_plain_unit_label(key, show_attempt=self._show_attempt)}")
+
+    def _on_unit_phase(self, ev: Mapping[str, Any]) -> None:
+        key = _unit_key(ev)
+        phase = str(ev.get("phase") or "")
+        self._running[key] = phase or None
+        if self._progress is not None and self._bar_task is not None:
+            self._progress.update(self._bar_task, description=self._bar_description())
 
     def _on_unit_done(self, ev: Mapping[str, Any]) -> None:
         key = _unit_key(ev)
@@ -327,14 +337,20 @@ class RunProgress:
     def _refresh_bar(self, done: int, total: int) -> None:
         if self._progress is None or self._bar_task is None:
             return
-        running = list(self._running)
-        if not running:
-            desc = "done" if done >= total and total else "waiting"
-        elif len(running) == 1:
-            desc = running[0][0]
+        if self._running:
+            desc = self._bar_description()
         else:
-            desc = f"{running[0][0]} +{len(running) - 1}"
+            desc = "done" if done >= total and total else "waiting"
         self._progress.update(self._bar_task, completed=done, total=max(total, 1), description=desc)
+
+    def _bar_description(self) -> str:
+        """First running unit, phase-annotated; ``+N`` when units interleave."""
+        running = list(self._running.items())
+        key, phase = running[0]
+        label = f"{key[0]} ({phase})" if phase else key[0]
+        if len(running) > 1:
+            label = f"{label} +{len(running) - 1}"
+        return escape(label)
 
     def _emit(self, line: str) -> None:
         if self._progress is not None:
@@ -397,6 +413,18 @@ class AttemptSpinner:
 
     def __exit__(self, *exc: object) -> None:
         self.close()
+
+    def phase(self, event: str, name: str) -> None:
+        """Live label from the attempt observer: ``task (phase)`` on started.
+
+        Parentheses, not brackets: rich reads task descriptions as console
+        markup and would strip ``[phase]`` from the rendered line.
+        """
+        if self._progress is None or self._bar_task is None or event != "started" or not name:
+            return
+        self._progress.update(
+            self._bar_task, description=f"{escape(self._task_id)} ({escape(name)})"
+        )
 
     def close(self) -> None:
         if self._progress is not None:

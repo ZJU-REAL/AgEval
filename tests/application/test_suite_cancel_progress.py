@@ -162,3 +162,28 @@ async def test_progress_callback_events() -> None:
     assert "suite_complete" in events
     prog = Path(summary["summary_path"]).parent / "progress.json"
     assert prog.is_file()
+
+
+@pytest.mark.asyncio
+async def test_unit_phase_events_reach_on_progress() -> None:
+    plan = plan_suite_run(SUITE, n_attempts=1, max_concurrent_tasks=1)
+    plan.task_ids = ["alpha"]
+    events: list[dict] = []
+
+    async def runner(  # noqa: ANN001
+        root, task_id, *, overrides=None, profiles_path=None, on_phase=None, **kwargs
+    ):
+        if on_phase is not None:
+            on_phase("started", "environment")
+            on_phase("finished", "environment")
+            on_phase("started", "run")
+        await asyncio.sleep(0.01)
+        result = SimpleNamespace(status="PASS", score=1.0, evidence_path=None, logs=None)
+        return 0, result
+
+    await execute_suite_run(plan, run_fn=runner, on_progress=events.append)
+    phases = [e for e in events if e.get("type") == "unit_phase"]
+    assert [(e["phase"], e["task_id"], e["attempt_index"]) for e in phases] == [
+        ("environment", "alpha", 0),
+        ("run", "alpha", 0),
+    ]

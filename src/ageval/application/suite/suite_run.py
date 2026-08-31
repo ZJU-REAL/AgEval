@@ -29,6 +29,7 @@ from ageval.application.suite.suite_metrics import (
     slot_key,
     task_refs_for_summary,
 )
+from ageval.attempt.ctx import PhaseObserver
 from ageval.config.dataset import list_tasks, load_dataset_manifest
 from ageval.config.errors import ConfigError
 from ageval.registry.resolve import resolve_dataset_root
@@ -296,6 +297,7 @@ async def _run_one(
     profiles_path: Path | str | None = None,
     keep_workspace: bool = False,
     keep_vendor_raw: bool = False,
+    on_phase: PhaseObserver | None = None,
 ) -> dict[str, Any]:
     """Run one (task_id, attempt_index) unit. Concurrency is owned by the claim pool."""
     global _inflight_current, _inflight_peak
@@ -310,6 +312,7 @@ async def _run_one(
             profiles_path=profiles_path,
             keep_workspace=keep_workspace,
             keep_vendor_raw=keep_vendor_raw,
+            on_phase=on_phase,
         )
         status = getattr(result, "status", None) or "ERROR"
         run_id = extract_run_id(
@@ -442,6 +445,30 @@ def _write_suite_progress(
 
 
 ProgressCallback = Callable[[dict[str, Any]], None]
+
+
+def _phase_forwarder(
+    on_progress: ProgressCallback | None,
+    task_id: str,
+    attempt_index: int,
+) -> PhaseObserver | None:
+    """Wrap a unit's attempt observer into ``unit_phase`` progress events."""
+    if on_progress is None:
+        return None
+
+    def observe(event: str, phase: str) -> None:
+        if event != "started":
+            return
+        on_progress(
+            {
+                "type": "unit_phase",
+                "task_id": task_id,
+                "attempt_index": attempt_index,
+                "phase": phase,
+            }
+        )
+
+    return observe
 
 
 def _task_row_from_rollup(t: Mapping[str, Any]) -> dict[str, Any]:
@@ -907,6 +934,7 @@ async def execute_suite_run(
                 profiles_path=profiles_path,
                 keep_workspace=keep_workspace,
                 keep_vendor_raw=keep_vendor_raw,
+                on_phase=_phase_forwarder(on_progress, tid, idx),
             )
             async with progress_lock:
                 new_results.append(row)

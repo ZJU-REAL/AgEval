@@ -5,6 +5,8 @@ from __future__ import annotations
 import io
 from pathlib import Path
 
+from rich.progress import TextColumn
+
 from ageval.cli.run_output import (
     AttemptSpinner,
     RunProgress,
@@ -237,3 +239,58 @@ def test_attempt_spinner_transient_bar_leaves_no_residue() -> None:
         pass
     assert "terminal-jsonl-agg" not in err.getvalue()
     assert err.getvalue() in ("", "\n")
+
+
+def test_run_progress_bar_description_shows_phase() -> None:
+    err = io.StringIO()
+    progress = RunProgress(
+        suite_run_id="s",
+        dataset_label="d",
+        stderr=err,
+        use_bar=True,
+        use_color=False,
+    )
+    progress.handle({"type": "suite_start", "total": 1, "done": 0})
+    progress.handle({"type": "unit_start", "task_id": "alpha", "attempt_index": 0})
+    progress.handle(
+        {"type": "unit_phase", "task_id": "alpha", "attempt_index": 0, "phase": "evaluate"}
+    )
+    assert progress._progress is not None and progress._bar_task is not None
+    task = progress._progress.tasks[progress._bar_task]
+    assert task.description == "alpha (evaluate)"
+    assert "(evaluate)" in str(TextColumn("{task.description}").render(task))
+    progress.handle(
+        {"type": "unit_phase", "task_id": "alpha", "attempt_index": 0, "phase": "record"}
+    )
+    assert progress._progress.tasks[progress._bar_task].description == "alpha (record)"
+    progress.close()
+
+
+def test_run_progress_unit_phase_silent_without_tty() -> None:
+    err = io.StringIO()
+    progress = RunProgress(
+        suite_run_id="s",
+        dataset_label="d",
+        stderr=err,
+        use_bar=False,
+        use_color=False,
+    )
+    progress.handle({"type": "unit_start", "task_id": "alpha", "attempt_index": 0})
+    before = err.getvalue()
+    progress.handle({"type": "unit_phase", "task_id": "alpha", "attempt_index": 0, "phase": "run"})
+    assert err.getvalue() == before
+
+
+def test_attempt_spinner_phase_updates_description() -> None:
+    err = io.StringIO()
+    spinner = AttemptSpinner(task_id="alpha", stderr=err, use_bar=True, use_color=False)
+    with spinner:
+        assert spinner._progress is not None and spinner._bar_task is not None
+        spinner.phase("started", "environment")
+        assert spinner._progress.tasks[spinner._bar_task].description == "alpha (environment)"
+        spinner.phase("finished", "environment")
+        assert spinner._progress.tasks[spinner._bar_task].description == "alpha (environment)"
+        spinner.phase("started", "run")
+        task = spinner._progress.tasks[spinner._bar_task]
+        assert task.description == "alpha (run)"
+        assert "(run)" in str(TextColumn("{task.description}").render(task))
