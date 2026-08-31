@@ -1,6 +1,6 @@
 # ageval_sdk public surface (shipped)
 
-Package: `ageval_sdk` (see `sdk/python/src/ageval_sdk/`).
+Package: `ageval_sdk` (see `src/ageval_sdk/`, same distribution as `ageval`).
 
 ## Types
 
