@@ -1,7 +1,10 @@
 format: ageval.profiles/1
 environment: docker
+
+# dsh is a single coding-agent harness: bind every role slot (solver,
+# user+service, specialist+planner+reducer) via the "*" wildcard row.
 agent_profiles:
-  solver:
+  '*':
     executor: dsh
     extensions:
     - plugin: dsh
