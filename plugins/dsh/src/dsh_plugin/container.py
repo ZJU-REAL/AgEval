@@ -60,6 +60,7 @@ class DshBoxExecutor:
         self.base_url = (base_url or "").strip() or None
         self.api_key_env = (api_key_env or "").strip() or None
         self.session_id = session_id
+        self._invoke_seq = 0
         self._prepared = False
 
     @staticmethod
@@ -93,6 +94,10 @@ class DshBoxExecutor:
         collect_dir: str | os.PathLike[str] | None,
     ) -> AgentResult:
         await self._prepare()
+        # The harness runtime rejects a new live session whose id matches an
+        # already-persisted log ("id collision"), so every invoke gets its own
+        # session id; role affinity stays in the stable prefix.
+        self._invoke_seq += 1
         request = {
             "prompt": prompt,
             "model": self.model,
@@ -100,7 +105,7 @@ class DshBoxExecutor:
             "workdir": self._host.visible_path(self._placement.workdir or WORKSPACE_PATH),
             "session_root": self._host.visible_path(BOX_SESSIONS),
             "cordis": self._host.visible_path(f"{BOX_COMPOSITIONS}/{self.composition}.cordis.yml"),
-            "session_id": self.session_id,
+            "session_id": f"{self.session_id}-{self._invoke_seq}",
             "composition": self.composition,
         }
         if self.permission:
