@@ -127,6 +127,20 @@ def _task_rows_from_summary(summary: dict[str, Any]) -> list[dict[str, Any]]:
     return [t for t in raw if isinstance(t, dict)]
 
 
+def _refuse_in_progress_snapshot(
+    summary: dict[str, Any], suite_dir: Path, suite_run_id: str
+) -> None:
+    """A live ``running``/``cancelling`` snapshot is not a complete suite."""
+    snapshot_status = str(summary.get("status") or "").strip().lower()
+    if snapshot_status in {"running", "cancelling"}:
+        raise ConfigError(
+            "suite_in_progress",
+            f"suite {suite_run_id} is still {snapshot_status}; "
+            "an in-progress summary is an observational snapshot, not a complete suite",
+            location=str(suite_dir / "summary.json"),
+        )
+
+
 def _suite_metrics_and_refs(summary: dict[str, Any]) -> tuple[dict[str, Any], list[dict[str, Any]]]:
     """Resolve metrics + task_refs, recomputing pass@k / n,c when recoverable (#60 A).
 
@@ -398,6 +412,7 @@ class ResultsCommands:
         root = resolve_dataset_root(dataset_root)
         suite_dir = _resolve_suite_dir(root, suite_run_id)
         summary = _load_suite_summary(suite_dir)
+        _refuse_in_progress_snapshot(summary, suite_dir, suite_run_id)
 
         metrics, task_refs = _suite_metrics_and_refs(summary)
         try:
@@ -571,6 +586,7 @@ class ResultsCommands:
         root = resolve_dataset_root(dataset_root)
         suite_dir = _resolve_suite_dir(root, suite_run_id)
         summary = _load_suite_summary(suite_dir)
+        _refuse_in_progress_snapshot(summary, suite_dir, suite_run_id)
         metrics, task_refs = _suite_metrics_and_refs(summary)
         tid = task_id.strip()
         hit: dict[str, Any] | None = None
