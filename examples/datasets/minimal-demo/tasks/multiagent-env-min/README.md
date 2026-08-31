@@ -14,13 +14,22 @@ must be discovered from seeded DB rows via tools.
 
 ## ACP mix (default)
 
-| Role                    | profile id         | ACP `entry`     |
-| ----------------------- | ------------------ | --------------- |
-| specialists (×5 probes) | `specialist-pi`    | `pi`            |
-| planner                 | `planner-opencode` | `opencode`      |
-| reducer                 | `reducer-grok`     | `grok-build`    |
+`profiles.yaml` binds all three roles to the `pi` entry by default; point
+`parameters.roles` at other profile ids for a heterogeneous mix.
+
+| Role                    | profile id  | ACP `entry` |
+| ----------------------- | ----------- | ----------- |
+| specialists (×5 probes) | `specialist` | `pi`       |
+| planner                 | `planner`    | `pi`       |
+| reducer                 | `reducer`    | `pi`       |
 
 `run.py` reads profile ids from `parameters.roles` — it never branches on entry name.
+
+## In-box PostgreSQL
+
+`environment/Dockerfile` adds PostgreSQL to the Attempt image; `environment/setup.sh`
+starts it, loads `environment/seed.sql`, and writes `.ageval_env_result.json` into
+the workspace so `lib/db_tools.py` can reach the seeded database via `docker exec`.
 
 ## Package layout
 

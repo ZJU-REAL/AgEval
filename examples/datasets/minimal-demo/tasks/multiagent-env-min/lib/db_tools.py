@@ -29,6 +29,7 @@ def build_db_toolset(env: dict[str, Any]) -> ToolSet:
     user = str(env.get("user") or "ageval")
     database = str(env.get("database") or "ageval")
     password = str(env.get("password") or "ageval-attempt")
+    host = str(env.get("host") or "")
 
     def db_query(args: dict[str, Any]) -> dict[str, Any]:
         sql = str(args.get("sql") or "").strip()
@@ -41,6 +42,7 @@ def build_db_toolset(env: dict[str, Any]) -> ToolSet:
             return {"ok": False, "error": "mutation_denied"}
         if not container:
             return {"ok": False, "error": "missing_container"}
+        host_flag = ["-h", host] if host else []
         proc = subprocess.run(
             [
                 "docker",
@@ -49,6 +51,7 @@ def build_db_toolset(env: dict[str, Any]) -> ToolSet:
                 f"PGPASSWORD={password}",
                 container,
                 "psql",
+                *host_flag,
                 "-U",
                 user,
                 "-d",
