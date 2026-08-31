@@ -76,7 +76,27 @@ pnpm --dir website typecheck
 pnpm --dir website build
 ```
 
+## Self-host (Docker)
+
+The site runs as a **Next.js standalone server** — the search API (`/api/search`, Mandarin tokenizer) and the i18n middleware need a Node runtime; TLS stays on the operator's Caddy/nginx in front.
+
+From the repo root:
+
+```sh
+# build locally
+docker compose -f website/docker-compose.yml up -d --build
+
+# or pull a released image
+export AGEVAL_IMAGE_TAG=<tag>
+docker compose -f website/docker-compose.yml pull && docker compose -f website/docker-compose.yml up -d
+```
+
+Serves on port `3000`. `NEXT_PUBLIC_HUB_URL` (Hub SPA link on homepage/docs sidebar) is **build-time**; pass it as an env when building:
+
+```sh
+NEXT_PUBLIC_HUB_URL=https://hub.example.com docker compose -f website/docker-compose.yml build
+```
+
 ## Not in scope here
 
-- Production deploy (Vercel later)
 - Hub / Viewer feature work (those live under `apps/`)
