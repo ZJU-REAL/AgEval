@@ -4,10 +4,10 @@ This document maintains **implementation structure** only: current vs target lay
 
 - Do **not** write product essays, version checklists, or Phase task tables.
 - Product and mechanism design authority: [docs/](docs/README.md) (especially [docs/design/](docs/design/)). **Self-contained**; do not read an out-of-repo BRIEF.
-- Incremental delivery and acceptance tracking: [GitHub Issues](https://github.com/ZJU-REAL/ageval/issues).
+- Incremental delivery and acceptance tracking: [GitHub Issues](https://github.com/ZJU-REAL/AgEval/issues).
 - Reader-facing docs: [website/](website/) (not design authority).
 
-GitHub: [`ZJU-REAL/ageval`](https://github.com/ZJU-REAL/ageval). The product name, packages, and CLI are **ageval**.
+GitHub: [`ZJU-REAL/AgEval`](https://github.com/ZJU-REAL/AgEval). The product name, packages, and CLI are **ageval**.
 
 ## Document Status
 
@@ -105,7 +105,7 @@ Earlier intermediate checkpoints follow code and examples. **Do not** treat Targ
 ### Current Source Layout
 
 ```text
-ageval/                              # GitHub: ZJU-REAL/ageval
+ageval/                              # GitHub: ZJU-REAL/AgEval
 ├── AGENTS.md
 ├── ARCHITECTURE.md
 ├── README.md

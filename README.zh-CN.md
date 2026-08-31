@@ -5,7 +5,7 @@
 <p align="center">
   <a href="README.md">English</a> · <a href="README.zh-CN.md">中文</a>
   &nbsp;&nbsp;
-  <a href="https://github.com/ZJU-REAL/ageval/releases"><img alt="Release" src="https://img.shields.io/github/v/release/ZJU-REAL/ageval?display_name=tag&sort=semver"></a>
+  <a href="https://github.com/ZJU-REAL/AgEval/releases"><img alt="Release" src="https://img.shields.io/github/v/release/ZJU-REAL/AgEval?display_name=tag&sort=semver"></a>
   <a href="https://www.python.org/downloads/"><img alt="Python" src="https://img.shields.io/badge/python-3.12%2B-blue"></a>
 </p>
 
@@ -107,7 +107,7 @@ ageval 把 **Harness** 作为一等评测维度。
 需要 [uv](https://docs.astral.sh/uv/) 与 CPython **3.12+**。实际运行 coding agent 还需要本机 ACP 入口与凭据。仅执行 `ageval lock` 时不需要。
 
 ```bash
-git clone https://github.com/ZJU-REAL/ageval.git
+git clone https://github.com/ZJU-REAL/AgEval.git
 cd ageval
 uv sync --frozen --all-packages
 uv run ageval -V

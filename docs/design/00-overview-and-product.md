@@ -18,7 +18,7 @@ ageval 把一次评测收成可见的 Attempt：锁定 **dataset**，打开一�
 | PyPI 发行名 | **`ageval-cli`**（`ageval` 槽位已被占；单 wheel 双顶层包，import 名不变） |
 | 环境变量 / 家目录 | `AGEVAL_*`、`~/.ageval` |
 | 配置 format | `ageval.dataset/1`、`ageval.task/1`、`ageval.plugin/1`、`ageval.profiles/1` |
-| GitHub 路径 | [`ZJU-REAL/ageval`](https://github.com/ZJU-REAL/ageval) |
+| GitHub 路径 | [`ZJU-REAL/AgEval`](https://github.com/ZJU-REAL/AgEval) |
 
 未知 format：**一个**错误（`invalid_format` 于 `/format`），停。不要在报错里教映射。
 

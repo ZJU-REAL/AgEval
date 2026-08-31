@@ -5,7 +5,7 @@
 <p align="center">
   <a href="README.md">English</a> · <a href="README.zh-CN.md">中文</a>
   &nbsp;&nbsp;
-  <a href="https://github.com/ZJU-REAL/ageval/releases"><img alt="Release" src="https://img.shields.io/github/v/release/ZJU-REAL/ageval?display_name=tag&sort=semver"></a>
+  <a href="https://github.com/ZJU-REAL/AgEval/releases"><img alt="Release" src="https://img.shields.io/github/v/release/ZJU-REAL/AgEval?display_name=tag&sort=semver"></a>
   <a href="https://www.python.org/downloads/"><img alt="Python" src="https://img.shields.io/badge/python-3.12%2B-blue"></a>
 </p>
 
@@ -108,7 +108,7 @@ ageval treats **Harness** as a first-class evaluation axis.
 Requires [uv](https://docs.astral.sh/uv/) and CPython **3.12+**. A live coding-agent run also requires a host ACP entry and credentials. `ageval lock` does not.
 
 ```bash
-git clone https://github.com/ZJU-REAL/ageval.git
+git clone https://github.com/ZJU-REAL/AgEval.git
 cd ageval
 uv sync --frozen --all-packages
 uv run ageval -V

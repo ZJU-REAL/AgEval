@@ -11,7 +11,7 @@
 | 题包根 | **dataset**（`ageval.dataset/1`），不是 SQL |
 | CLI / 包 | `ageval` / import `ageval` |
 | 家目录 / 环境变量 | `~/.ageval`、`AGEVAL_*` |
-| GitHub 路径 | [`ZJU-REAL/ageval`](https://github.com/ZJU-REAL/ageval) |
+| GitHub 路径 | [`ZJU-REAL/AgEval`](https://github.com/ZJU-REAL/AgEval) |
 | 代际 | greenfield；不兼容归档 v1；未知 format 为 `invalid_format` |
 | v1 只读参考 | 本机归档 v1（勿 import、勿假设 API 兼容） |
 
@@ -281,4 +281,4 @@ uv run pytest tests/registry -q
 | [docs/design/01-ageval-core.md](docs/design/01-ageval-core.md) | Core：lock + 五相位 + 环境 |
 | [docs/design/09-owner-matrix-and-structure.md](docs/design/09-owner-matrix-and-structure.md) | Owner 矩阵 |
 | [ARCHITECTURE.md](ARCHITECTURE.md) | 源码树、依赖、生命周期图 |
-| [GitHub Issues](https://github.com/ZJU-REAL/ageval/issues) | 增量交付与验收跟踪 |
+| [GitHub Issues](https://github.com/ZJU-REAL/AgEval/issues) | 增量交付与验收跟踪 |
