@@ -8,7 +8,7 @@ from __future__ import annotations
 
 from pathlib import Path
 from types import SimpleNamespace
-from typing import Any
+from typing import Any, cast
 
 import pytest
 
@@ -67,7 +67,7 @@ class StubGraph:
             ENVIRONMENT: SimpleNamespace(plugin_id="fakebox"),
             EXECUTOR: SimpleNamespace(plugin_id=executor_plugin),
         }
-        self.chains = {
+        self.chains: dict[str, list[Any]] = {
             AFTER_ENVIRONMENT_READY: [SimpleNamespace(plugin_id=pid) for pid in chain_plugin_ids]
         }
 
@@ -359,7 +359,7 @@ async def test_named_scoring_host_binds_lazily_with_layers(
     }
     ctx = _ctx(tmp_path, created, lock=lock, graphs=graphs, sealed={"solver"})
 
-    host = await ensure_named_host(ctx, "audit")
+    host = cast(RecordingHost, await ensure_named_host(ctx, "audit"))
     assert host.started
     assert created[0]["layers"] == (("judge-plugin", "D", ".", "X"),)
     assert created[0]["spec"].dockerfile == "environment/evaluate/audit/Dockerfile"

@@ -318,7 +318,8 @@ def _merge_live_progress(row: dict[str, Any], summary: dict[str, Any], *, suite_
     progress = _load_progress(suite_dir)
     if progress is None:
         return
-    metrics = row.get("metrics") if isinstance(row.get("metrics"), dict) else {}
+    raw_metrics = row.get("metrics")
+    metrics = raw_metrics if isinstance(raw_metrics, dict) else {}
     row["progress"] = progress
     planned = int(progress.get("total") or 0)
     if planned:

@@ -97,7 +97,8 @@ lock：
 
 runtime：打分盒实例在 **evaluate 相位**（writer 已密封）构造：composition 不再预建
 第二 EnvironmentProvider。构造时 `image_layers` 取 **evaluate 相位 profile graph**
-的联合（`bind_winner` 的赢家工厂仍是 Attempt 级 docker 插件；配方仍是 `_evaluate_box_spec`）——
+的联合（`bind_winner` 的赢家工厂仍是 Attempt 级 docker 插件；`BoxSpec` 仍只装
+evaluate 配方与独立 attempt root）——
 declare 了 `config.image_layers` 的 judge 插件由此 bake 进打分镜像，solver 独占的
 插件不进。无 `image_layers` 的插件（含 `acp`）不加东西；官方 ACP 引擎仍是 **配方**
 问题（`FROM` 官方 attempt 基座），不是 Core wrap。`evaluation_runtime` 仍是独占槽
