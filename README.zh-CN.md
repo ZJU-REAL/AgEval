@@ -1,12 +1,17 @@
 # ageval
 
-**agent eval** — 锁定 dataset，组合环境与 Agent，跑同一份题包。
+<p align="center">
+  <img src="docs/assets/hero.zh-CN.png" alt="ageval：Agent 评测写一次，到处都能跑。" width="100%">
+</p>
 
 <p align="center">
   <a href="README.md">English</a> · <a href="README.zh-CN.md">中文</a>
-  &nbsp;&nbsp;
-  <a href="https://github.com/ZJU-REAL/AgEval/releases"><img alt="Release" src="https://img.shields.io/github/v/release/ZJU-REAL/AgEval?display_name=tag&sort=semver"></a>
-  <a href="https://www.python.org/downloads/"><img alt="Python" src="https://img.shields.io/badge/python-3.12%2B-blue"></a>
+</p>
+<p align="center">
+  <a href="https://github.com/ZJU-REAL/AgEval/stargazers"><img alt="stars" src="https://shieldcn.dev/github/stars/ZJU-REAL/AgEval.svg?variant=secondary&size=sm&logo=ri%3AGoStarFill&logoColor=F5C518"></a>
+  <a href="https://github.com/ZJU-REAL/AgEval/blob/main/LICENSE"><img alt="license" src="https://shieldcn.dev/github/license/ZJU-REAL/AgEval.svg?variant=secondary&size=sm&logo=ri%3AFaBalanceScale&logoColor=34D399"></a>
+  <a href="https://github.com/ZJU-REAL/AgEval/releases"><img alt="release" src="https://shieldcn.dev/github/release/ZJU-REAL/AgEval.svg?variant=secondary&size=sm&logo=ri%3AGoTag&logoColor=60A5FA"></a>
+  <a href="https://github.com/ZJU-REAL/AgEval/commits"><img alt="last commit" src="https://shieldcn.dev/github/last-commit/ZJU-REAL/AgEval.svg?variant=secondary&size=sm&logo=ri%3AGoGitCommit&logoColor=A78BFA"></a>
 </p>
 
 大多数 Agent 评测仍停留在**模型**层面：同一套提示、同一套工具约定，比较不同权重或不同 API。这一划分正在失效——可交付的 Agent 是 Model 与 Harness 的组合：同一套权重接到不同的 coding-agent 运行时、工具策略或环境隔离上，行为与成本都会变。因此要把 Harness 作为一等评测维度，与 Model、运行环境一并锁定。

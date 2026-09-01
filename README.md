@@ -1,16 +1,21 @@
 # ageval
 
-**agent eval** — lock a dataset, bind environment and agent, run the same task.
+<p align="center">
+  <img src="docs/assets/hero.png" alt="ageval: Write your agent eval once. Run it anywhere." width="100%">
+</p>
 
 <p align="center">
   <a href="README.md">English</a> · <a href="README.zh-CN.md">中文</a>
-  &nbsp;&nbsp;
-  <a href="https://github.com/ZJU-REAL/AgEval/releases"><img alt="Release" src="https://img.shields.io/github/v/release/ZJU-REAL/AgEval?display_name=tag&sort=semver"></a>
-  <a href="https://www.python.org/downloads/"><img alt="Python" src="https://img.shields.io/badge/python-3.12%2B-blue"></a>
 </p>
 
-> [!IMPORTANT]
-> Most agent evaluation still sits at the **model**: same prompts, same tool contract, different weights or APIs. That split is failing. A shippable agent is a Model plus a Harness: the same weights on a different coding-agent runtime, tool policy, or isolation change behavior and cost. Harness has to be a first-class eval axis, locked with the Model and the environment.
+<p align="center">
+  <a href="https://github.com/ZJU-REAL/AgEval/stargazers"><img alt="stars" src="https://shieldcn.dev/github/stars/ZJU-REAL/AgEval.svg?variant=secondary&size=sm&logo=ri%3AGoStarFill&logoColor=F5C518"></a>
+  <a href="https://github.com/ZJU-REAL/AgEval/blob/main/LICENSE"><img alt="license" src="https://shieldcn.dev/github/license/ZJU-REAL/AgEval.svg?variant=secondary&size=sm&logo=ri%3AFaBalanceScale&logoColor=34D399"></a>
+  <a href="https://github.com/ZJU-REAL/AgEval/releases"><img alt="release" src="https://shieldcn.dev/github/release/ZJU-REAL/AgEval.svg?variant=secondary&size=sm&logo=ri%3AGoTag&logoColor=60A5FA"></a>
+  <a href="https://github.com/ZJU-REAL/AgEval/commits"><img alt="last commit" src="https://shieldcn.dev/github/last-commit/ZJU-REAL/AgEval.svg?variant=secondary&size=sm&logo=ri%3AGoGitCommit&logoColor=A78BFA"></a>
+</p>
+
+Most agent evaluation still sits at the **model**: same prompts, same tool contract, different weights or APIs. That split is failing. A shippable agent is a Model plus a Harness: the same weights on a different coding-agent runtime, tool policy, or isolation change behavior and cost. Harness has to be a first-class eval axis, locked with the Model and the environment.
 
 **ageval** decouples the runtime of a bench run. Environment and Agent combine through plugins, so one `run.py` runs under each binding.
 

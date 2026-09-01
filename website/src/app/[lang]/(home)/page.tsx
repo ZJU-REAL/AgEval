@@ -60,6 +60,19 @@ function HeroCtas({
   );
 }
 
+
+function HeroTitleB({ line, accent }: { line: string; accent: string }) {
+  const i = line.indexOf(accent);
+  if (i < 0) return line;
+  return (
+    <>
+      {line.slice(0, i)}
+      <span className="hero-title-accent">{accent}</span>
+      {line.slice(i + accent.length)}
+    </>
+  );
+}
+
 type HomeParams = { lang: string };
 
 export async function generateMetadata({
@@ -98,7 +111,9 @@ export default async function HomePage({ params }: { params: Promise<HomeParams>
             <div className="hero-center">
               <h1 className="hero-title">
                 <span className="hero-title-a">{text.hero.titleA}</span>
-                <span className="hero-title-b">{text.hero.titleB}</span>
+                <span className="hero-title-b">
+                  <HeroTitleB line={text.hero.titleB} accent={lang === "en" ? "anywhere" : "到处"} />
+                </span>
                 <HeroRotate />
               </h1>
               <p className="hero-note">{text.hero.note}</p>

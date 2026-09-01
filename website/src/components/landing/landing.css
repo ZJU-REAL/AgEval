@@ -390,6 +390,10 @@ html:has(.ageval-landing) body {
   margin-top: 6px;
 }
 
+.ageval-landing .hero-title-accent {
+  color: var(--accent);
+}
+
 .ageval-landing .hero-rotate {
   display: grid;
   justify-content: center;
