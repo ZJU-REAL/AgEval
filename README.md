@@ -9,10 +9,10 @@
 </p>
 
 <p align="center">
-  <a href="https://github.com/ZJU-REAL/AgEval/stargazers"><img alt="stars" src="https://shieldcn.dev/github/stars/ZJU-REAL/AgEval.svg?variant=secondary&size=sm&logo=ri%3AGoStarFill&logoColor=F5C518"></a>
-  <a href="https://github.com/ZJU-REAL/AgEval/blob/main/LICENSE"><img alt="license" src="https://shieldcn.dev/github/license/ZJU-REAL/AgEval.svg?variant=secondary&size=sm&logo=ri%3AFaBalanceScale&logoColor=34D399"></a>
-  <a href="https://github.com/ZJU-REAL/AgEval/releases"><img alt="release" src="https://shieldcn.dev/github/release/ZJU-REAL/AgEval.svg?variant=secondary&size=sm&logo=ri%3AGoTag&logoColor=60A5FA"></a>
-  <a href="https://github.com/ZJU-REAL/AgEval/commits"><img alt="last commit" src="https://shieldcn.dev/github/last-commit/ZJU-REAL/AgEval.svg?variant=secondary&size=sm&logo=ri%3AGoGitCommit&logoColor=A78BFA"></a>
+  <a href="https://github.com/ZJU-REAL/ageval/stargazers"><img alt="stars" src="https://shieldcn.dev/github/stars/ZJU-REAL/ageval.svg?variant=secondary&size=sm&logo=ri%3AGoStarFill&logoColor=F5C518"></a>
+  <a href="https://github.com/ZJU-REAL/ageval/blob/main/LICENSE"><img alt="license" src="https://shieldcn.dev/github/license/ZJU-REAL/ageval.svg?variant=secondary&size=sm&logo=ri%3AFaBalanceScale&logoColor=34D399"></a>
+  <a href="https://github.com/ZJU-REAL/ageval/releases"><img alt="release" src="https://shieldcn.dev/github/release/ZJU-REAL/ageval.svg?variant=secondary&size=sm&logo=ri%3AGoTag&logoColor=60A5FA"></a>
+  <a href="https://github.com/ZJU-REAL/ageval/commits"><img alt="last commit" src="https://shieldcn.dev/github/last-commit/ZJU-REAL/ageval.svg?variant=secondary&size=sm&logo=ri%3AGoGitCommit&logoColor=A78BFA"></a>
 </p>
 
 Most agent evaluation still measures the **model**: same prompts, same tool contract, different weights or APIs. A shippable agent is a model plus its runtime — the same weights on a different coding agent, tool policy, or environment behave differently and cost differently. A comparison that deserves the name is a product: **H agent runtimes × M models × E environments**. Every cell wants its own scaffold; scores mean nothing unless that cell is in the lock.
@@ -114,7 +114,7 @@ Write a dataset once. Swap the environment and the Agent without rewriting `run.
 Requires [uv](https://docs.astral.sh/uv/) and CPython **3.12+**. A live coding-agent run also requires a host ACP entry and credentials. `ageval lock` does not.
 
 ```bash
-git clone https://github.com/ZJU-REAL/AgEval.git
+git clone https://github.com/ZJU-REAL/ageval.git
 cd ageval
 uv sync --frozen --all-packages
 uv run ageval -V

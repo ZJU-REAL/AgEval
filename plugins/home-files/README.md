@@ -48,7 +48,7 @@ extensions:
 Secrets stay locators. Overlay JSON must not embed tokens or upstream URLs.
 Use `${NAME}` (same as profiles) or `{env:NAME}`. Copy expands those from the
 same `.env` chain as lock (process env, then dataset `.env`, cwd `.env`, repo
-`.env`). Unset names fail closed. Bare `$NAME` is left for the engine (Pi
+`.env`). Unset names are rejected. Bare `$NAME` is left for the engine (Pi
 `apiKey`). No JSON deep-merge.
 
 To show the same files on Hub Agent Performance, list them on this role as

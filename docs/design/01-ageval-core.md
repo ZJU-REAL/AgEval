@@ -31,7 +31,7 @@ CLI --task / --profiles / --set
   → LockedTaskConfig（冻结）
 ```
 
-未知 format：`invalid_format` 于 `/format`。`api_key` 只留 locator 名。两个插件抢同一独占槽或同一 export id → fail closed。绑定图进 lock digest。未列入 `extensions` 的不进链、不进服务表。
+未知 format：`invalid_format` 于 `/format`。`api_key` 只留 locator 名。两个插件抢同一独占槽或同一 export id → 拒绝。绑定图进 lock digest。未列入 `extensions` 的不进链、不进服务表。
 
 `--profiles` 整份替换配置文件。`--agent` 与 `--profiles` 互斥。`--model` 是 run 参数（须配合 `--agent`），改已绑角色的 `binding.model`；省略则用包缺省。`--set` 白名单见 [02](02-task-package-and-config.md)。`limits.*` 不可 `--set`。
 
@@ -71,7 +71,7 @@ environment / run 失败记 `phase_failed` 并跳过未跑的相；**environment
 
 槽名权威：`src/ageval/plugins/slots.py`。新**时间线**槽仍要改 attempt 宿主；插件不可自造槽名。
 
-Current 独占槽：`environment`、`executor`、`evaluation_runtime`、`trajectory_seal`。后两者的默认赢家是引擎（`plugin_id: default`，`is_default=True`）：parent 子进程跑 `evaluator.py`（与 `run.py` 同一 JSON-RPC 口）与层 C 写入（run 相位 `trajectory.jsonl`；evaluate 相位若有 SDK invoke 则另写 `evaluation/observation.jsonl`）。没有 job 字段糖；替换只能走显式 `extensions` 行（`slot` + `plugin`）。缺默认注册 → lock fail-closed。
+Current 独占槽：`environment`、`executor`、`evaluation_runtime`、`trajectory_seal`。后两者的默认赢家是引擎（`plugin_id: default`，`is_default=True`）：parent 子进程跑 `evaluator.py`（与 `run.py` 同一 JSON-RPC 口）与层 C 写入（run 相位 `trajectory.jsonl`；evaluate 相位若有 SDK invoke 则另写 `evaluation/observation.jsonl`）。没有 job 字段糖；替换只能走显式 `extensions` 行（`slot` + `plugin`）。缺默认注册 → lock 失败，不能进入运行。
 
 PASS 仍只经 `AttemptCtx.bind_evaluation` 进入 Result。`evaluation_runtime` 赢家返回 raw，不得自己写 verdict。`pass` / `identity` / `cleanup` / `evidence` 仍不是服务。
 
@@ -140,7 +140,7 @@ async def run(ctx) -> None:
 | --- | --- |
 | run | `before_run` / `after_run`；`before/after_agent_open\|invoke\|close`；`normalize_agent_result` |
 | evaluate | `before_evaluate` / `after_evaluate`（可注 metrics，**不能改 PASS**）。**upload gold 是引擎代码**，不是 `evaluation_runtime` 的方法。独占槽 `evaluation_runtime` 默认 parent 跑 `evaluator.py` |
-| record | `trajectory_collect` / `trajectory_enrich`（fail-open）；独占槽 `trajectory_seal` 写 run 相位层 C（fail-closed：丢文件即相位失败）；evaluate 相位 invoke 封到 `evaluation/observation.jsonl`（有才写；省略 user）；`summary_enrich`（fail-open，seal 成功后一次，写 Attempt `summary.extra`） |
+| record | `trajectory_collect` / `trajectory_enrich`（fail-open）；独占槽 `trajectory_seal` 写 run 相位层 C（丢文件即阶段失败）；evaluate 相位 invoke 封到 `evaluation/observation.jsonl`（有才写；省略 user）；`summary_enrich`（fail-open，seal 成功后一次，写 Attempt `summary.extra`） |
 | cleanup | `cleanup_report`（链）；cleanup phase 本身由 finally 调用 |
 
 `executor` 是 **profile graph 里的独占槽**（run 与 evaluate 的 `Agent.session` 都走它），不是 attempt 上的独立 phase。ACP attach 发生在该 profile 第一次 invoke，不是独立 phase。

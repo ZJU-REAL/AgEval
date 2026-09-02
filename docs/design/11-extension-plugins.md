@@ -32,7 +32,7 @@
 | 独占 | 每个 resolved graph 一个赢家；登记为同名 service | `environment`、`executor`、`evaluation_runtime`、`trajectory_seal` |
 | 链 | `(ctx, value, nxt)` | `after_environment_ready`、`environment_setup`、`trajectory_collect`、`summary_enrich` |
 
-`environment` / `evaluation_runtime` / `trajectory_seal` 是 Attempt 级一份赢家。`executor` 按 `agent_profiles` 每行一份：同一 Attempt 上 solver 与 judge 可以选不同 executor 插件（仍各是该 graph 上的独占赢家）。两个插件抢**同一 graph** 的同一独占槽或同一 export id → fail closed。
+`environment` / `evaluation_runtime` / `trajectory_seal` 是 Attempt 级一份赢家。`executor` 按 `agent_profiles` 每行一份：同一 Attempt 上 solver 与 judge 可以选不同 executor 插件（仍各是该 graph 上的独占赢家）。两个插件抢**同一 graph** 的同一独占槽或同一 export id → rejected。
 
 `profiles.environment` / `agent_profiles.<id>.executor` = 选独占槽赢家。`evaluation_runtime` / `trajectory_seal` **没有** job 字段糖；默认赢家即可，替换只能走显式 `extensions` 行（`slot` + `plugin`）。`extensions` 也是链槽 opt-in。未列入 `extensions` 的不进链、不进服务表（引擎默认除外）。不开 `evaluation_collect` 一类新槽；evaluate 相位 SDK invoke 复用现有 invoke → 层 B → fold。
 
@@ -76,19 +76,19 @@ agent_profiles:
 
 外置包实例见 `plugins/nooa/plugin.yaml`：`slots.exclusive` / `slots.chain`，`host_requires`，`config.image_layers`（给 environment 赢家 bake，**不是**时间线槽）。
 
-`description` 可选。一段功能说明；Hub 插件详情把它画在 Install (CLI) 上方。缺省不展示。空字符串 / 非字符串 fail closed。Hub 渲染 Markdown 链接（`[text](https://…)`）；其它块级语法不展示。
+`description` 可选。一段功能说明；Hub 插件详情把它画在 Install (CLI) 上方。缺省不展示。空字符串 / 非字符串则拒绝。Hub 渲染 Markdown 链接（`[text](https://…)`）；其它块级语法不展示。
 
 ## 规则
 
 - `host_requires` / `plugin_requires` 只保留「没装先装谁」。调用一律 `inject: [service:…]`。
-- 两个插件抢同一独占槽或同一 export id → fail closed。绑定图进 lock digest。
+- 两个插件抢同一独占槽或同一 export id → 拒绝。绑定图进 lock digest。
 - 参数走该插件 `config` / 服务方法。禁止翻别人 yaml。密钥 locator。
 - 拆时先拆 inject 方。PASS / 身份 / cleanup **不是**可 export 的服务。
 - 新插座不必先改 `slots.py`；新 **时间线** 槽仍要改 attempt 宿主。
 - `ageval plugin install` 只写 `~/.ageval/plugins`，永不改 profiles。
 - 按机制命名（`acp` / `acp-oneshot` / `docker` / `e2b` / `daytona` / `ssh` / `nooa`）。禁止按 bench 名。
 
-独占槽默认赢家（Current）：`environment` 由 job `environment:` 选出（缺省常见 local 或 docker，以 profiles 为准）；`executor` 由 **各** `agent_profiles.*.executor` 选出（coding-agent 默认 acp；judge 行可以是 `openai-http` 或 `anthropic-http`）；`evaluation_runtime` / `trajectory_seal` 由引擎 `plugin_id: default` 赢（parent `evaluator.py` / 层 C writer）。缺默认注册 → lock fail-closed。lock 记录 **per-profile** executor 绑定。
+独占槽默认赢家（Current）：`environment` 由 job `environment:` 选出（缺省常见 local 或 docker，以 profiles 为准）；`executor` 由 **各** `agent_profiles.*.executor` 选出（coding-agent 默认 acp；judge 行可以是 `openai-http` 或 `anthropic-http`）；`evaluation_runtime` / `trajectory_seal` 由引擎 `plugin_id: default` 赢（parent `evaluator.py` / 层 C writer）。缺默认注册 → lock 失败，不能进入运行。lock 记录 **per-profile** executor 绑定。
 
 链默认：`after_environment_ready`（ACP 探测安装 + HOME overlay）；`environment_setup`（`setup.sh`，引擎 defaults）。
 
@@ -97,14 +97,14 @@ agent_profiles:
 ```text
 profiles.environment / agent_profiles.<id>.executor / extensions
   → registry resolve（每个 profile 一份 graph；environment 赢家必须一致）
-       exclusive  该 graph 单赢家（priority，并列 fail closed）
+       exclusive  该 graph 单赢家（priority，并列则拒绝）
        chain      已排序的 nxt 链
   → lock.extension_bindings 按 profile id 进 digest
 ```
 
 inject 用 `service: environment`，不写死 `plugin_id: e2b`。`executor: acp` 要 `attach_stdio`；环境内 worker（dsh / nooa / `acp-oneshot`）要 `exec`（dsh / nooa 另要 `upload`）。缺则 lock 失败。环境没有 `attach_stdio` 不是把 oneshot 折进 ACP 插件的理由。
 
-Resolve：显式 binding > 更低 priority 赢；并列且无显式挑选 → fail closed。`DEFAULT_PRIORITY = 1000`。**数字更小的先跑（链）/ 先赢（独占）。**
+Resolve：显式 binding > 更低 priority 赢；并列且无显式挑选 → 拒绝。`DEFAULT_PRIORITY = 1000`。**数字更小的先跑（链）/ 先赢（独占）。**
 
 ## 包
 
@@ -114,7 +114,7 @@ Recognition（list/lock 认得）≠ 本机能跑 ≠ 镜像已 bake。缺 extra
 
 Hub `/plugins` 可以把 first-party contrib 画成 **catalog overlay**，不是 upload。contrib 目录仍是正规 `ageval.plugin/1`（`plugin.yaml` + README）。README 是详情页的公开合同：必须用表格写清 **export / inject 的 capabilities** 与 **读取的参数**（名称、默认值、作用）。作者约定见 `skills/ageval-plugin`。手写 JSON（`services/registry/builtin_plugins.json`）列出八个 bootstrap id：`local`、`docker`、`e2b`、`ssh`、`daytona`、`acp`、`openai-http`、`anthropic-http`。Registry 读 JSON 与 contrib 文件树；**禁止**在 Registry 进程 `import ageval.plugins.contrib`。行上 `builtin: true`，不绑 `org_id`，不设 `official`（`official` 仍是 upload-org allowlist）。没有 blob / digest / 下载数 / 安装命令；详情仍预览 `plugin.yaml` 与 README。详情路由是短 id（`/plugins/docker`）。`plugins/defaults` 不进这张表。机制 Agent 卡是另一张 catalog overlay（`src/ageval/agents/builtin/catalog.json`，见 [14](14-agent-hub.md)），不要把 `ageval.agent/1` upload 画进 `/plugins`。
 
-四条不相等：**Hub 认得** ≠ **本机能跑** ≠ **镜像已 bake** ≠ **`ageval plugin install` 装过**。空店 Explore 仍应看到这八张卡；e2b / ssh / daytona 缺 extra 或缺钥时卡仍在，lock/run 维持既有 skip / fail-closed。八个短 id 保留：`ageval plugin publish` 与 `ageval plugin install` 撞到它们 fail-closed，避免 `/plugins/docker` 和店包抢同一条路由。运行时装载路径仍是 `bootstrap.py`。
+四条不相等：**Hub 认得** ≠ **本机能跑** ≠ **镜像已 bake** ≠ **`ageval plugin install` 装过**。空店 Explore 仍应看到这八张卡；e2b / ssh / daytona 缺 extra 或缺钥时卡仍在，lock/run 维持既有 skip，或检查不过就不能进入运行。八个短 id 保留：`ageval plugin publish` 与 `ageval plugin install` 撞到它们则拒绝，避免 `/plugins/docker` 和店包抢同一条路由。运行时装载路径仍是 `bootstrap.py`。
 
 `FAIL_OPEN_SLOTS`：`before_run` / `after_run` / `trajectory_collect` / `trajectory_enrich` / `summary_enrich` / `cleanup_report`。其余失败即该相位失败。
 

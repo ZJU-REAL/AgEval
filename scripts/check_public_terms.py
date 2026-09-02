@@ -41,6 +41,8 @@ BANNED = (
     "契约薄",
     "实现可胖",
     "实现自由",
+    "fail-closed",
+    "fail closed",
 )
 
 # These fire only when not part of a longer allowed token.

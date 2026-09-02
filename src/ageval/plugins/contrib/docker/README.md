@@ -27,7 +27,7 @@ Job knobs are `environment_options` (not `extensions[].options`).
 | `environment_options.image` | unset | Existing image tag; skip local build. Alias: `docker_image`. |
 | `environment_options.platform` | this host | `docker` platform (e.g. `linux/arm64`). |
 | `environment_options.network` | `bridge` | Attempt container network. A task compose file overrides this to `{project}_default`. |
-| `environment_options.user` | `10001:10001` | `docker run --user` and the same identity for `exec` / `attach_stdio`. `root` / `0` / `0:0` → root. Other values must be `uid` or `uid:gid`. Unknown strings fail closed. Default still has `no-new-privileges`. |
+| `environment_options.user` | `10001:10001` | `docker run --user` and the same identity for `exec` / `attach_stdio`. `root` / `0` / `0:0` → root. Other values must be `uid` or `uid:gid`. Unknown strings are rejected. Default still has `no-new-privileges`. |
 
 ## Bind
 

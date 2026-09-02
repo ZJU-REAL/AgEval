@@ -41,7 +41,7 @@ evaluate 阶段的 ACP（如 `judge`）在有 `evaluation.environments` 时必�
 uv run ageval executors -v
 ```
 
-看 `engine_ready` 与 `acp_entry_ready`。`-v` 还会标 `credential_missing`：声明的 credential 名全空、且 binding 没有 `api_key` 时出现。需要密钥的 entry（如 `pi`）在 `--probe` / session-open 会 fail closed；支持 OAuth / 本机登录的 entry 只警告。子进程环境只投影 allowlist（`PATH` / `HOME` / `LANG`、entry 声明的 credential 名、binding 的 `api_key` / `base_url`）；宿主里未声明的 token 进不了 entry。
+看 `engine_ready` 与 `acp_entry_ready`。`-v` 还会标 `credential_missing`：声明的 credential 名全空、且 binding 没有 `api_key` 时出现。需要密钥的 entry（如 `pi`）在 `--probe` / session-open 过不了检查就不能进入运行；支持 OAuth / 本机登录的 entry 只警告。子进程环境只投影 allowlist（`PATH` / `HOME` / `LANG`、entry 声明的 credential 名、binding 的 `api_key` / `base_url`）；宿主里未声明的 token 进不了 entry。
 
 ## 运行时切换
 

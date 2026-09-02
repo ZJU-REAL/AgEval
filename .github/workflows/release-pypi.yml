@@ -3,7 +3,7 @@
 #
 # Operator prerequisites (one-time, cannot be automated here):
 #   - PyPI Trusted Publisher for project `ageval-cli`:
-#       owner ZJU-REAL, repository AgEval, workflow release-pypi.yml
+#       owner ZJU-REAL, repository ageval, workflow release-pypi.yml
 #   - Dry run first: dispatch this workflow with repository=testpypi
 #     (needs the same Trusted Publisher entry on test.pypi.org).
 #

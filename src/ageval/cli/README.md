@@ -60,7 +60,7 @@ Other subcommands: `0` on success, typically `2` on operator error.
 | `AGEVAL_REGISTRY_TOKEN` | Bearer token (CI; overrides file token) |
 | `AGEVAL_RESULTS_URL` | Results store URL (defaults to Registry URL) |
 | `AGEVAL_CACHE_ROOT` | Local verified cache root (default `.ageval/cache`) |
-| `AGEVAL_OFFLINE_AGENT` | Set to `1` for fail-closed agent path (offline tests) |
+| `AGEVAL_OFFLINE_AGENT` | Set to `1` for the offline agent path (tests never start a live run) |
 
 Credentials file `~/.ageval/credentials` (mode `0600`):
 
@@ -152,7 +152,7 @@ uv run ageval run examples/core --task sdk-agent-session \
 
 ### Allowlisted `--set` pointers
 
-Fixed parameter leaves (others fail closed):
+Fixed parameter leaves (others rejected):
 
 - `/parameters/seed`
 - `/parameters/active_profile`
@@ -355,7 +355,7 @@ uv run ageval results get-suite <suite_run_id> --local /path/to/dataset
 **`--with-attempts` (issue #43 / #60):** after the suite summary archive uploads,
 each run id from `task_refs[].attempt_run_ids` (preferred) or `task_refs[].run_id`
 is packed from `.ageval/runs/<run_id>/` with the **same visibility** as the suite.
-Missing local run dirs **fail closed** before any network upload. Re-uploading an
+Missing local run dirs are rejected before any network upload. Re-uploading an
 existing `run_id` without `--replace` is treated as success (`already_exists`).
 With suite `--replace`, linked attempt uploads also replace. Registry suite list/get
 annotate each task_ref with `has_attempt_content` so Hub Jobs can open evidence or

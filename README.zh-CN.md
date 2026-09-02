@@ -8,10 +8,10 @@
   <a href="README.md">English</a> · <a href="README.zh-CN.md">中文</a>
 </p>
 <p align="center">
-  <a href="https://github.com/ZJU-REAL/AgEval/stargazers"><img alt="stars" src="https://shieldcn.dev/github/stars/ZJU-REAL/AgEval.svg?variant=secondary&size=sm&logo=ri%3AGoStarFill&logoColor=F5C518"></a>
-  <a href="https://github.com/ZJU-REAL/AgEval/blob/main/LICENSE"><img alt="license" src="https://shieldcn.dev/github/license/ZJU-REAL/AgEval.svg?variant=secondary&size=sm&logo=ri%3AFaBalanceScale&logoColor=34D399"></a>
-  <a href="https://github.com/ZJU-REAL/AgEval/releases"><img alt="release" src="https://shieldcn.dev/github/release/ZJU-REAL/AgEval.svg?variant=secondary&size=sm&logo=ri%3AGoTag&logoColor=60A5FA"></a>
-  <a href="https://github.com/ZJU-REAL/AgEval/commits"><img alt="last commit" src="https://shieldcn.dev/github/last-commit/ZJU-REAL/AgEval.svg?variant=secondary&size=sm&logo=ri%3AGoGitCommit&logoColor=A78BFA"></a>
+  <a href="https://github.com/ZJU-REAL/ageval/stargazers"><img alt="stars" src="https://shieldcn.dev/github/stars/ZJU-REAL/ageval.svg?variant=secondary&size=sm&logo=ri%3AGoStarFill&logoColor=F5C518"></a>
+  <a href="https://github.com/ZJU-REAL/ageval/blob/main/LICENSE"><img alt="license" src="https://shieldcn.dev/github/license/ZJU-REAL/ageval.svg?variant=secondary&size=sm&logo=ri%3AFaBalanceScale&logoColor=34D399"></a>
+  <a href="https://github.com/ZJU-REAL/ageval/releases"><img alt="release" src="https://shieldcn.dev/github/release/ZJU-REAL/ageval.svg?variant=secondary&size=sm&logo=ri%3AGoTag&logoColor=60A5FA"></a>
+  <a href="https://github.com/ZJU-REAL/ageval/commits"><img alt="last commit" src="https://shieldcn.dev/github/last-commit/ZJU-REAL/ageval.svg?variant=secondary&size=sm&logo=ri%3AGoGitCommit&logoColor=A78BFA"></a>
 </p>
 
 大多数 Agent 评测仍停留在**模型**：同一套提示、同一套工具约定，比较不同权重或不同 API。可交付的 Agent 却是模型加上它的运行时——同一套权重接到不同的 coding agent、工具策略或环境上，行为和成本都会变。配得上「比较」的评测因此是一个乘积：**H 个 Agent 运行时 × M 个模型 × E 个环境**。每个组合都要一套脚手架；组合不写进 lock，分数就不可比。
@@ -113,7 +113,7 @@
 需要 [uv](https://docs.astral.sh/uv/) 与 CPython **3.12+**。实际运行 coding agent 还需要本机 ACP 入口与凭据。仅执行 `ageval lock` 时不需要。
 
 ```bash
-git clone https://github.com/ZJU-REAL/AgEval.git
+git clone https://github.com/ZJU-REAL/ageval.git
 cd ageval
 uv sync --frozen --all-packages
 uv run ageval -V

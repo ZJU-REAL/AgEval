@@ -11,7 +11,7 @@
 | `nooa_package_missing` / `No module named 'nooa'` | Host needs `uv sync --extra nooa`; docker image bake installs it in-image |
 | ACP entry not ready | `ageval executors -v` → that `entry_id` `host_ready` / install pin; no invoke-time `npm i` |
 | `credential_missing` | Declared credential env names unset and no `api_key` locator. Required ACP entries fail at `--probe` / session-open; keyless (OAuth) warn only. HTTP executors (`openai-http` / `anthropic-http` / `dsh` / `nooa` / `miniswe`) skip this when locked `base_url` host is `127.0.0.1` / `localhost` / `::1` |
-| e2b / ssh probe not ready | Missing `E2B_API_KEY` or SSH locator — fail-closed, `started: false`. Skip ≠ pass |
+| e2b / ssh probe not ready | Missing `E2B_API_KEY` or SSH locator — the check fails and the run does not start; `started: false`. Skip ≠ pass |
 | PASS without real model | Forbidden — do not use fixtures as public proof |
 | Trajectory empty | Non-empty `agent_profiles` + `run.py` `Agent.session`/`invoke` |
 | Resume skipped an ERROR | Default `--resume-suite` skips finished PASS / FAIL / ERROR. Use `--replace-slot --task T` |

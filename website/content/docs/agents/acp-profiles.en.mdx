@@ -39,7 +39,7 @@ Evaluate-phase ACP (for example `judge`) on a named map must `Agent.session("jud
 uv run ageval executors -v
 ```
 
-`-v` also reports `credential_missing` when every declared credential env name is unset and the binding has no `api_key`. Entries that require a key (for example `pi`) fail closed at `--probe` / session-open; entries that document keyless (OAuth) auth warn only. The child environment is allowlisted (`PATH` / `HOME` / `LANG`, the entry’s credential names, and the binding’s `api_key` / `base_url`). Undeclared host tokens do not reach the entry.
+`-v` also reports `credential_missing` when every declared credential env name is unset and the binding has no `api_key`. Entries that require a key (for example `pi`) fail `--probe` / session-open, and the run does not start; entries that document keyless (OAuth) auth warn only. The child environment is allowlisted (`PATH` / `HOME` / `LANG`, the entry’s credential names, and the binding’s `api_key` / `base_url`). Undeclared host tokens do not reach the entry.
 
 ## Runtime switch
 

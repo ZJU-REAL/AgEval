@@ -141,7 +141,7 @@ contrib/local    → 本机目录
 | 项 | Current | Target（未宣称完成） |
 | --- | --- | --- |
 | local / docker | 公开真 `ageval run`（core ACP、`minimal-demo` 点名题） | — |
-| e2b / ssh / daytona | 代码在；缺钥 `--probe` fail-closed | 有凭证时同一题公开 `ageval run`（ssh 含 A+B） |
+| e2b / ssh / daytona | 代码在；缺钥则 `--probe` 过不了，不能进入运行 | 有凭证时同一题公开 `ageval run`（ssh 含 A+B） |
 | Protocol seam | docker 已是真实赢家 | 第二个云赢家（e2b **或** ssh）真跑后 seam 才算成立 |
 
 默认 CI **无**真 E2B/SSH/Daytona。skip ≠ 通过。不得从 docker 一次 PASS 推导 `isolated`。

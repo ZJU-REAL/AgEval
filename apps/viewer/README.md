@@ -82,4 +82,4 @@ Python serves **`apps/viewer/dist/`** only (no separate `static/` tree). `dist/`
 | `GET .../trials/{run_id}/file?path=` | File preview (size-capped; secret-like names redacted) |
 | `GET .../trials/{run_id}/trajectory` | Parsed `trajectory.jsonl` steps (observational; steps carry `profile_id` when known) |
 
-All ids are single path segments; file paths fail closed on `..`. No Registry required for local browse.
+All ids are single path segments; file paths reject paths that contain `..`. No Registry required for local browse.

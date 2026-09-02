@@ -4,10 +4,10 @@ This document maintains **implementation structure** only: current vs target lay
 
 - Do **not** write product essays, version checklists, or Phase task tables.
 - Product and mechanism design authority: [docs/](docs/README.md) (especially [docs/design/](docs/design/)). **Self-contained**; do not read an out-of-repo BRIEF.
-- Incremental delivery and acceptance tracking: [GitHub Issues](https://github.com/ZJU-REAL/AgEval/issues).
+- Incremental delivery and acceptance tracking: [GitHub Issues](https://github.com/ZJU-REAL/ageval/issues).
 - Reader-facing docs: [website/](website/) (not design authority).
 
-GitHub: [`ZJU-REAL/AgEval`](https://github.com/ZJU-REAL/AgEval). The product name, packages, and CLI are **ageval**.
+GitHub: [`ZJU-REAL/ageval`](https://github.com/ZJU-REAL/ageval). The product name, packages, and CLI are **ageval**.
 
 ## Document Status
 
@@ -105,7 +105,7 @@ Earlier intermediate checkpoints follow code and examples. **Do not** treat Targ
 ### Current Source Layout
 
 ```text
-ageval/                              # GitHub: ZJU-REAL/AgEval
+ageval/                              # GitHub: ZJU-REAL/ageval
 ├── AGENTS.md
 ├── ARCHITECTURE.md
 ├── README.md
@@ -285,7 +285,7 @@ Third-party workflow SDKs: allowed only as a task or **explicit** external plugi
 | New public use case | Must have a matching `build_*` |
 | CLI | Imports only `ageval.application.composition` (and `ageval.cli` itself) |
 | Tests | May use test-only wiring; public smoke must go through production CLI |
-| Plugin discovery | Extension registry + `ageval plugin install` local cache; fail closed; no `ageval.agent_executors` dual path |
+| Plugin discovery | Extension registry + `ageval plugin install` local cache; missing plugins are rejected and the run does not start; no `ageval.agent_executors` dual path |
 
 ## Extension emit map (Current)
 

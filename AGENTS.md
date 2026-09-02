@@ -11,7 +11,7 @@
 | 交付单位 | **dataset**（`ageval.dataset/1`），不是 SQL |
 | CLI / 包 | `ageval` / import `ageval` |
 | 家目录 / 环境变量 | `~/.ageval`、`AGEVAL_*` |
-| GitHub 路径 | [`ZJU-REAL/AgEval`](https://github.com/ZJU-REAL/AgEval) |
+| GitHub 路径 | [`ZJU-REAL/ageval`](https://github.com/ZJU-REAL/ageval) |
 | 代际 | greenfield；不兼容归档 v1；未知 format 为 `invalid_format` |
 | v1 只读参考 | 本机归档 v1（勿 import、勿假设 API 兼容） |
 
@@ -61,7 +61,7 @@ apps/* / services/* README  ← SPA / 服务开发细节；非产品教程权威
 | 设计 | `docs/`（PRD + design 00–14 + glossary）**自包含**；不要读仓外 BRIEF |
 | production 源码 | Config → `attempt.run_attempt` 五相位 → 环境 kind → ACP `attach_stdio` → 环境内 evaluate → evidence；`src/ageval/plugins/` 注册表 + contrib；外置 `plugins/` |
 | 公开 entrypoint | `ageval lock` / `run` / `campaign` / `view` / `evidence` / `plugin` / `jobs` / `results` 等（以 `ageval --help` 为准；`ageval run` 输出 `logs` locator） |
-| 环境 | `local` / `docker` 有公开真 run；`e2b` / `ssh` / `daytona` 代码在，缺钥 `--probe` fail-closed，**不得**标完成 |
+| 环境 | `local` / `docker` 有公开真 run；`e2b` / `ssh` / `daytona` 代码在，缺钥则 `--probe` 过不了，不能进入运行，**不得**标完成 |
 | 证据等级 | **限定 `runnable-mvp`**（core local/docker ACP、`minimal-demo` 点名题）；见 [examples/README.md](examples/README.md)；**不得**扩写全 suite `isolated` |
 | 交付跟踪 | **GitHub Issues** |
 | 文档站 | [`website/`](website/) 读者向 Fumadocs；机制权威仍在 `docs/` |
@@ -281,4 +281,4 @@ uv run pytest tests/registry -q
 | [docs/design/01-ageval-core.md](docs/design/01-ageval-core.md) | Core：lock + 五相位 + 环境 |
 | [docs/design/09-owner-matrix-and-structure.md](docs/design/09-owner-matrix-and-structure.md) | Owner 矩阵 |
 | [ARCHITECTURE.md](ARCHITECTURE.md) | 源码树、依赖、生命周期图 |
-| [GitHub Issues](https://github.com/ZJU-REAL/AgEval/issues) | 增量交付与验收跟踪 |
+| [GitHub Issues](https://github.com/ZJU-REAL/ageval/issues) | 增量交付与验收跟踪 |

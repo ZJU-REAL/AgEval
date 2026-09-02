@@ -110,7 +110,7 @@ for call in reply.get("tool_calls") or ():
     )
 ```
 
-`record_observation` 不消耗 invoke 配额、不是 PASS。缺 session / invocation 则 fail-closed（`no_invocation` / `unknown_session`）。
+`record_observation` 不消耗 invoke 配额、不是 PASS。缺 session / invocation 则拒绝（`no_invocation` / `unknown_session`）。
 
 ## 薄 task
 

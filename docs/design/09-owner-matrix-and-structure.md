@@ -94,6 +94,6 @@ Target 未全部兑现：`plugins/defaults` 与 `contrib/defaults` 不要两套�
 7. **PASS / 身份 / cleanup 不是服务。** 插件 `exports` 不得覆盖这三样。cleanup 必须在 `try/finally`。
 8. **adapter 按机制命名**（`docker` / `ssh` / `acp`），禁止按 bench / task 名分支。
 9. **layout 字符串只在 `evidence/`。** lock / evidence / 默认环境禁止写入 host token。
-10. **inject 在 lock 完成。** executor 只通过已 inject 的 `environment` 服务调用 Protocol。ACP 要 `attach_stdio`；环境内 worker 要 `exec` / `upload`。缺则 fail closed，不在 invoke 时探测管子。`exec` 不是独立 service。
+10. **inject 在 lock 完成。** executor 只通过已 inject 的 `environment` 服务调用 Protocol。ACP 要 `attach_stdio`；环境内 worker 要 `exec` / `upload`。缺则拒绝，不能进入运行，不在 invoke 时探测管子。`exec` 不是独立 service。
 
 决策检查：改树先改 ARCHITECTURE；改红线先改 design；不要在代码里发明第二套 owner。

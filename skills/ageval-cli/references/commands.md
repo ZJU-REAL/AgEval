@@ -39,7 +39,7 @@ Stdout JSON (high level):
 - No secret values.
 - Does not create Run/Attempt or start Agent.
 - Rejects unknown format (`invalid_format` at `/format`), unknown `executor` kinds, and ACP profiles missing `- plugin: acp` / `options.entry`.
-- `--probe` on **run** (not a second lock mode that starts a box): lock plus observational readiness. Exit non-zero when the selected `environment` path is unsatisfied. Checks declared `host_requires`, Docker daemon when kind is docker, locator **names** (never values). ACP entries add `credential_missing` (fail-closed when the entry requires a key; warning-only when `keyless_auth`). HTTP executors report `credential_missing` only when the locked `base_url` is not loopback. `AGEVAL_OFFLINE_AGENT=1` is reported; probe still does not spawn.
+- `--probe` on **run** (not a second lock mode that starts an environment): lock plus observational readiness. Exit non-zero when the selected `environment` path is unsatisfied. Checks declared `host_requires`, Docker daemon when kind is docker, locator **names** (never values). ACP entries add `credential_missing` (if the entry requires a key, the check fails and the run does not start; warning-only when `keyless_auth`). HTTP executors report `credential_missing` only when the locked `base_url` is not loopback. `AGEVAL_OFFLINE_AGENT=1` is reported; probe still does not spawn.
 
 ## `ageval run`
 

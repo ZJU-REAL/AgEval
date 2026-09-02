@@ -33,9 +33,9 @@ A kind that cannot `exec` / `upload` fails at `ageval lock`, not mid-invoke.
 
 | Name | Default | Purpose |
 | --- | --- | --- |
-| `options.composition` | `slim` | Bundled `compositions/<name>.cordis.yml`. Path separators and leading `.` fail closed. Setting `permission` with omit/`slim` switches to `sandboxed`. |
-| `options.permission` | unset | `read-only` / `workspace-write` / `danger-full-access`. Omit → unrestricted slim tools. Invalid values fail closed at materialize. Sets `DSH_PERMISSION_MODE`. File-tool writes are fenced; bash redirect can still write. |
-| `options.max_tokens` | unset | Omit / blank / `null` → do not pass `max_tokens` (adapter default). A positive int is forwarded. `≤0`, bool, string, float fail closed. |
+| `options.composition` | `slim` | Bundled `compositions/<name>.cordis.yml`. Path separators and leading `.` are rejected. Setting `permission` with omit/`slim` switches to `sandboxed`. |
+| `options.permission` | unset | `read-only` / `workspace-write` / `danger-full-access`. Omit → unrestricted slim tools. Invalid values are rejected at materialize. Sets `DSH_PERMISSION_MODE`. File-tool writes are fenced; bash redirect can still write. |
+| `options.max_tokens` | unset | Omit / blank / `null` → do not pass `max_tokens` (adapter default). A positive int is forwarded. `≤0`, bool, string, float values are rejected. |
 | `options.provider` | `deepseek-official` | Provider id on `initialize`. |
 | `model` | `deepseek-v4-flash` | Passed on `initialize`. |
 | `api_key` | `DEEPSEEK_API_KEY` / `deepseek_api_key` / `litellm_api_key` | Env **locator name**. Projected as `DEEPSEEK_API_KEY`. Omit on loopback `base_url` (`127.0.0.1` / `localhost` / `::1`). |
@@ -75,7 +75,7 @@ agent_profiles:
 `dsh-sandbox-policy` + `dsh-sandbox-local`). GLM Coding Plan’s completion
 window is 131072; the adapter default 256000 is rejected there — set
 `max_tokens: 8192` (or another value in range) on that profile. Defaults
-and fail-closed cases: Parameters above.
+and rejected cases: Parameters above.
 
 ```yaml
         options:

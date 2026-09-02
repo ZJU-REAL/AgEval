@@ -38,7 +38,7 @@ Missing `attach_stdio` fails at **lock**, not mid-invoke.
 | `api_key` | unset | Env **locator name** projected into the attach env. Value never enters the lock or the generated overlay. |
 | `base_url` | unset | `${ENV_NAME}` (lock stores the locator; spawn reads env) or a literal `http(s)` URL (lock stores the URL). Included in the generated overlay when set. |
 
-Rejected on `options` (entry-registry truth; fail closed): `command`, `args`, `detect_command`, `install_command`, `version`, `acp_command`, `engine_command`, `acp_version`, `credential_env_names`.
+Rejected on `options` (entry-registry truth): `command`, `args`, `detect_command`, `install_command`, `version`, `acp_command`, `engine_command`, `acp_version`, `credential_env_names`.
 
 Python ACP SDK stays on the parent. It does not go into the Attempt image.
 

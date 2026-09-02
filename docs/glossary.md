@@ -75,7 +75,7 @@ public 只许出现「public」或「both」行的规范名。internal 词出现
 | BYOK / BYOA | BYOK / BYOA | internal | 密钥 / 本机 auth 投影 | public 不必教这两个缩写 |
 | composition root | composition root | internal | `application/composition.py` | 不必中译 |
 | 控制面 | Control Plane | internal | — | public 出现 |
-| fail-closed | fail-closed | internal | 缺则失败，不继续 | fail closed 两种拼法；public 写成「lock 失败」即可 |
+| 检查不过就不能进入运行 | the check fails; the run does not start | both | 探测或配置检查不过，就不能进入真正运行 | fail-closed、fail closed |
 | bake | bake | internal | 镜像在 build 期写入 | 烘焙；public 写「写入镜像」 |
 | isolated | isolated | — | 禁止单独出现。证据等级写 `runnable-mvp` 等全名；字段写 `evaluate_host.isolated` | isolated 当形容词裸用 |
 

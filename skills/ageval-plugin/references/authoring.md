@@ -51,7 +51,7 @@ Hub: `package_kind=plugin`. Dataset vs plugin fail-closes.
 README is the Hub detail contract (previewed next to `plugin.yaml`). A plugin that
 omits capability or parameter tables is unfinished. See **README contract** below.
 
-`host_requires` allowlist keys: `import`, `file`, `hint`. Unknown keys fail closed.
+`host_requires` allowlist keys: `import`, `file`, `hint`. Unknown keys are rejected.
 `import:` is `importlib.util.find_spec` (no spawn). Core does not map plugin-id → pip extra.
 docker kind does **not** consume `host_requires` (image bake does).
 
@@ -167,7 +167,7 @@ Rules:
 
 - If the plugin reads it, the row exists. If it does not read it, do not list it.
 - Required knobs use `*(required)*` as Default. Omit / blank / `null` behaviour goes in Purpose.
-- Allowed values and fail-closed cases go in Purpose, not a prose dump above the table.
+- Allowed values and rejected cases go in Purpose, not a prose dump above the table.
 - Rejected keys (ACP `command` / `engine_command` / …) get their own short table, or a Purpose note “rejected”.
 - `config.image_layers` is bake input, not a job parameter — list it under Capabilities, not here.
 - Do not document Core-owned fields (`environment:`, `executor:`) as this plugin's parameters.
