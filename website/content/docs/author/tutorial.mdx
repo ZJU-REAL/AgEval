@@ -49,4 +49,4 @@ uv run ageval run  examples/datasets/minimal-demo --task hello
 
 ACP 缺 entry：先 `ageval executors -v`。详见 [ACP Profiles](/docs/agents/acp-profiles)。
 
-评测默认是脚本比对 gold。若要用 LLM-as-judge，在同一份 `profiles.yaml` 加角色，gold 进环境后再 `Agent.session`；多只打分镜像（不同闭包、顺序 stage）见 [编写 Evaluator](/docs/author/write-evaluator) 的「多 stage 打分 Host」。
+评测默认是脚本比对 gold。若要用 LLM-as-judge，在同一份 `profiles.yaml` 加角色，gold 进环境后再 `Agent.session`；多只打分镜像（不同安装内容、顺序 stage）见 [编写 Evaluator](/docs/author/write-evaluator) 的「多 stage 打分 Host」。

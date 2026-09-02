@@ -2,13 +2,13 @@
 
 ageval 把一次评测收成可见的 Attempt：锁定 **dataset**，打开一个 **环境**，跑题包 `run.py`，再由独立 `evaluator.py` 出分。编排始终在本机 `ageval run`；环境可以在本机、本机 Docker、E2B、SSH 或 Daytona 上。
 
-未发版硬切，不留别名。题包根叫 **dataset**，不是 SQL，也不是侧车 Postgres。
+未发版不兼容旧名，不留别名。题包根叫 **dataset**，不是 SQL，也不是侧车 Postgres。
 
 本文件吸收产品模型（目标、非目标、用户故事、三层、命名、术语对照）。机制细节在 [01](01-ageval-core.md) 与 [05-runtime/](05-runtime/)。结构地图：[ARCHITECTURE.md](../../ARCHITECTURE.md)。施工红线：[AGENTS.md](../../AGENTS.md)。
 
 **权威只在本仓 `docs/`。** 不要去仓外 BRIEF / vault 找第二套产品形状。
 
-## 产品更名（硬切）
+## 产品更名（不兼容旧名）
 
 | 面 | 值 |
 | --- | --- |
@@ -77,7 +77,7 @@ ageval.yaml (ageval.dataset/1)
 
 1. 一次 Attempt 的链写在产品包 `attempt/`：串行调 phase；每个 phase 文件内串行 `emit(slot)`。打开就能看见。
 2. **phase**（提供默认实现，可换独占赢家）与 **slot**（链）分开。插件改绑定，不改 `run_attempt` 的默认顺序。
-3. 环境一张口：独占槽 `environment`（`local` / `docker` / `e2b` / `ssh` / `daytona`）。能力 `requires ⊆ capabilities`，缺则 lock 失败。
+3. 环境只有一个入口：独占槽 `environment`（`local` / `docker` / `e2b` / `ssh` / `daytona`）。能力 `requires ⊆ capabilities`，缺则 lock 失败。
 4. `environment/Dockerfile`（或 `docker_image`）对 docker 与 e2b 同一配方。`setup.sh` 是 environment 的末槽，不是单独 phase。
 5. **Task 不包含流水线文件。** 业务只在 `run.py`，打分在 `evaluator.py`。`task.yaml` **缺省有文件就认**。
 6. Agent 仍是 `executor: acp` + `options.entry`。附着 `host.attach_stdio`。PASS 只来自独立 evaluate。
@@ -163,7 +163,7 @@ Agent / `run.py` 阶段 **不得** `upload` `evaluation/`。evaluate phase 开�
 9. CLI 只 import `ageval.application.composition`。
 10. 一次 Attempt 只 `new_run` 一次。
 11. 测试面 = 真实 kind + 公开 CLI。无凭证 skip 该 job，不标完成。
-12. inject 在 lock 完成。缺 `attach_stdio` 就 lock 失败，不在 invoke 时探测管子。
+12. inject 在 lock 完成。缺 `attach_stdio` 就 lock 失败，不要等到 invoke 才检查 attach_stdio。
 
 ## 可见性
 

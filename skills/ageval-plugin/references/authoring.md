@@ -18,7 +18,7 @@ plugins/my-mech/
 │   ├── factory.py
 │   ├── hooks.py
 │   └── trajectory.py           # optional: native → ageval.trajectory.event/1
-└── worker/                     # optional: in-box entry
+└── worker/                     # optional: in-environment entry
 ```
 
 ```yaml
@@ -65,7 +65,7 @@ Host factory: `build_executor(**kwargs)`. Common kwargs: `options`, `profile_id`
 
 ACP attaches with `host.attach_stdio`. dsh / nooa run a baked (or uploaded)
 worker with `host.exec` and `host.upload`. Missing capability → lock fails.
-Core must not reconstruct a container executor by kind. No silent host fallback.
+Core must not reconstruct a container executor by kind. Do not silently fall back to the host.
 
 `describe()` keys already in production (copy semantics):
 
@@ -77,7 +77,7 @@ credential_env_names, binary
 ## Trajectory
 
 Layer B: each event row has `schema: ageval.trajectory.event/1`, `source` = this plugin id, `session_id`.
-Layer C: the `trajectory_seal` winner writes `trajectory.jsonl` (engine default). Plugins must not emit layer-C rows unless they won that slot.
+trajectory.jsonl: the `trajectory_seal` winner writes `trajectory.jsonl` (engine default). Plugins must not emit layer-C rows unless they won that slot.
 
 `trajectory_collect` may map **this** plugin's vendor dump into layer B.
 Never stamp `trajectory_source` onto another plugin's `source`. Never emit ACP `session_update`.
@@ -222,7 +222,7 @@ Job knobs are `environment_options` (not `extensions[].options`).
 | --- | --- |
 | `unknown_extension_slot` | `plugin.yaml` names a slot not in `slots.py` |
 | `extension_materialize_failed` | factory/options invalid (e.g. ACP missing `options.entry`) |
-| executor unbound | no in-box bind on docker |
+| executor unbound | no in-environment bind on docker |
 | bake unsatisfied | bound external executor but no `image_layers` file |
 | `unsupported executor` | not installed |
 

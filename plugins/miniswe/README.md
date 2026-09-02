@@ -3,7 +3,7 @@
 External `ageval.plugin/1`. **Not** first-party ageval core.
 
 Drives [mini-swe-agent](https://github.com/SWE-agent/mini-swe-agent) as a
-**host-loop**: the LLM client stays on the parent; every bash action goes
+**The model stays on the host:** the LLM client stays on the parent; every bash action goes
 through the injected `environment` service (`host.exec`). This is **not** ACP.
 Name is the mechanism (`miniswe`), not a benchmark.
 

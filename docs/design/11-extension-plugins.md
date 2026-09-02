@@ -34,7 +34,7 @@
 
 `environment` / `evaluation_runtime` / `trajectory_seal` 是 Attempt 级一份赢家。`executor` 按 `agent_profiles` 每行一份：同一 Attempt 上 solver 与 judge 可以选不同 executor 插件（仍各是该 graph 上的独占赢家）。两个插件抢**同一 graph** 的同一独占槽或同一 export id → rejected。
 
-`profiles.environment` / `agent_profiles.<id>.executor` = 选独占槽赢家。`evaluation_runtime` / `trajectory_seal` **没有** job 字段糖；默认赢家即可，替换只能走显式 `extensions` 行（`slot` + `plugin`）。`extensions` 也是链槽 opt-in。未列入 `extensions` 的不进链、不进服务表（引擎默认除外）。不开 `evaluation_collect` 一类新槽；evaluate 相位 SDK invoke 复用现有 invoke → 层 B → fold。
+`profiles.environment` / `agent_profiles.<id>.executor` = 选独占槽赢家。`evaluation_runtime` / `trajectory_seal` **没有** job 单独的配置字段；默认赢家即可，替换只能走显式 `extensions` 行（`slot` + `plugin`）。`extensions` 也是链槽 opt-in。未列入 `extensions` 的不进链、不进服务表（引擎默认除外）。不开 `evaluation_collect` 一类新槽；evaluate 相位 SDK invoke 复用现有 invoke → 层 B → fold。
 
 Current 独占槽：`environment`、`executor`、`evaluation_runtime`、`trajectory_seal`。后两者默认是引擎（`plugin_id: default`）。PASS 仍只经 `bind_evaluation` 进入；`pass` / `identity` / `cleanup` / `evidence` 不准 export。
 
@@ -88,7 +88,7 @@ agent_profiles:
 - `ageval plugin install` 只写 `~/.ageval/plugins`，永不改 profiles。
 - 按机制命名（`acp` / `acp-oneshot` / `docker` / `e2b` / `daytona` / `ssh` / `nooa`）。禁止按 bench 名。
 
-独占槽默认赢家（Current）：`environment` 由 job `environment:` 选出（缺省常见 local 或 docker，以 profiles 为准）；`executor` 由 **各** `agent_profiles.*.executor` 选出（coding-agent 默认 acp；judge 行可以是 `openai-http` 或 `anthropic-http`）；`evaluation_runtime` / `trajectory_seal` 由引擎 `plugin_id: default` 赢（parent `evaluator.py` / 层 C writer）。缺默认注册 → lock 失败，不能进入运行。lock 记录 **per-profile** executor 绑定。
+独占槽默认赢家（Current）：`environment` 由 job `environment:` 选出（缺省常见 local 或 docker，以 profiles 为准）；`executor` 由 **各** `agent_profiles.*.executor` 选出（coding-agent 默认 acp；judge 行可以是 `openai-http` 或 `anthropic-http`）；`evaluation_runtime` / `trajectory_seal` 由引擎 `plugin_id: default` 赢（parent `evaluator.py` / 轨迹文件 writer）。缺默认注册 → lock 失败，不能进入运行。lock 记录 **per-profile** executor 绑定。
 
 链默认：`after_environment_ready`（ACP 探测安装 + HOME overlay）；`environment_setup`（`setup.sh`，引擎 defaults）。
 
@@ -126,6 +126,6 @@ async def trajectory_collect(ctx, value, nxt):
     return out
 ```
 
-`trajectory_collect` / `trajectory_enrich` 可以在 payload 的兄弟字段 `extra` 增补或合并键（JSON-safe）。不得剥掉自己不拥有的一等 usage 字段（`prompt_tokens` / `completion_tokens` / `cached_tokens` / `cost_usd`）。invoke 这袋不要新开槽。`turn_rows` 把 `extra` 拷到密封 `terminal` 行；`trajectory_seal` 仍写层 C。
+`trajectory_collect` / `trajectory_enrich` 可以在 payload 的兄弟字段 `extra` 增补或合并键（JSON-safe）。不得剥掉自己不拥有的一等 usage 字段（`prompt_tokens` / `completion_tokens` / `cached_tokens` / `cost_usd`）。invoke 这袋不要新开槽。`turn_rows` 把 `extra` 拷到密封 `terminal` 行；`trajectory_seal` 仍写轨迹文件。
 
 Attempt 级观察袋走另一条链：`summary_enrich`。`trajectory_seal` 成功之后 emit 一次，`value` 是 `summary.extra` 袋（引擎起点 `{}`）。插件只写 `extra[<plugin_id>]`，不得剥自己不拥有的键。空袋不进 `summary.json`。不是 PASS。详见 [05-runtime/evidence.md](05-runtime/evidence.md)。

@@ -22,7 +22,8 @@ public 只许出现「public」或「both」行的规范名。internal 词出现
 5. 中文「锁定」只用于 `ageval lock` / digest。口号里不要把 lock 当营销动词。
 6. 禁止单独写 `isolated`。证据等级写全名；打分容器写 `evaluate_host.isolated` 或「另起打分容器」。
 7. 全仓不写「硬顶」。中英都写 `limits`。
-8. ageval 自己不叫 harness。外部运行时说 coding agent / Agent 运行时；包身份说 Agent 包。项目名（dsh、Harbor）可保留原词。
+8. 家喻户晓且不是本项目切口的词可以留英文：Agent、Harness、PASS、skip、BYOK、BYOA。ageval 自己不是一种 Harness；包身份说 Agent 包。项目名（dsh、Harbor）可保留原词。
+9. 禁止自造组合词当普通中英文用：fail-closed、fail-open、host-loop、in-box、in-image、oneshot（插件 id `acp-oneshot` 除外）、机制卡、字段糖、硬切、一层 C、探测管子、密封轨迹。Inbox、plaza 是普通英文，可留。
 
 ## 写法（public）
 

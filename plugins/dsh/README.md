@@ -34,7 +34,7 @@ A kind that cannot `exec` / `upload` fails at `ageval lock`, not mid-invoke.
 | Name | Default | Purpose |
 | --- | --- | --- |
 | `options.composition` | `slim` | Bundled `compositions/<name>.cordis.yml`. Path separators and leading `.` are rejected. Setting `permission` with omit/`slim` switches to `sandboxed`. |
-| `options.permission` | unset | `read-only` / `workspace-write` / `danger-full-access`. Omit → unrestricted slim tools. Invalid values are rejected at materialize. Sets `DSH_PERMISSION_MODE`. File-tool writes are fenced; bash redirect can still write. |
+| `options.permission` | unset | `read-only` / `workspace-write` / `danger-full-access`. Omit → unrestricted slim tools. Invalid values are rejected when applied. Sets `DSH_PERMISSION_MODE`. File-tool writes are fenced; bash redirect can still write. |
 | `options.max_tokens` | unset | Omit / blank / `null` → do not pass `max_tokens` (adapter default). A positive int is forwarded. `≤0`, bool, string, float values are rejected. |
 | `options.provider` | `deepseek-official` | Provider id on `initialize`. |
 | `model` | `deepseek-v4-flash` | Passed on `initialize`. |
@@ -116,7 +116,7 @@ Evidence for a successful invoke includes worker metadata
 ## Recognition ≠ this host can run ≠ image baked
 
 - **install** → Recognition only (`plugin list` / executor visible)
-- **`host_requires`** → local kind needs `deepseek_harness` on this interpreter (`uv sync --extra dsh`); docker bake installs the wheels in-image
+- **`host_requires`** → local kind needs `deepseek_harness` on this interpreter (`uv sync --extra dsh`); docker writes the wheels into the image
 - **profiles `executor: dsh`** → exclusive slot winner (+ model / api_key locator)
 - **`extensions: [{plugin: dsh}]`** → opt-in bake / trajectory collect
 - **`--probe`** → binding-aware feasibility; no Agent, no bake

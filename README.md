@@ -88,7 +88,7 @@ Write a dataset once. Swap the environment and the Agent without rewriting `run.
 **Composition**
 
 - **One `run.py` under each binding.** Environment and Agent combine through plugins. Default is [ACP](https://agentclientprotocol.com); [nooa](https://github.com/NVIDIA-NeMo/labs-OO-Agents), [dsh](https://github.com/deepseek-ai/deepseek-harness), and [miniswe](https://github.com/SWE-agent/mini-swe-agent) join through the same plugin path and the same Attempt path and leaderboard.
-- **Agent packages.** Format `ageval.agent/1` (executor, entry, overlays). Shipped mechanism cards bind with `--agent pi` (no install). Custom overlay packs still `ageval agent install` then `--agent org/name@version`. `binding.model` is the default; `--model` overrides this run.
+- **Agent packages.** Format `ageval.agent/1` (executor, entry, overlays). Built-in packages bind with `--agent pi` (no install). Custom overlay packs still `ageval agent install` then `--agent org/name@version`. `binding.model` is the default; `--model` overrides this run.
 - **Multiple roles and sessions.** The task owns dialog, tools, and handoff; the runtime supplies the environment and the Agent inlet.
 - **Validate before invoke.** Capabilities and credentials are checked before the Agent is called; absence fails and invoke does not start.
 

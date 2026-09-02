@@ -59,10 +59,10 @@ apps/* / services/* README  ← SPA / 服务开发细节；非产品教程权威
 | 项 | 状态 |
 | --- | --- |
 | 设计 | `docs/`（PRD + design 00–14 + glossary）**自包含**；不要读仓外 BRIEF |
-| production 源码 | Config → `attempt.run_attempt` 五相位 → 环境 kind → ACP `attach_stdio` → 环境内 evaluate → evidence；`src/ageval/plugins/` 注册表 + contrib；外置 `plugins/` |
+| production 源码 | Config → `attempt.run_attempt` 五个阶段 → 环境 kind → ACP `attach_stdio` → 环境内 evaluate → evidence；`src/ageval/plugins/` 注册表 + contrib；外置 `plugins/` |
 | 公开 entrypoint | `ageval lock` / `run` / `campaign` / `view` / `evidence` / `plugin` / `jobs` / `results` 等（以 `ageval --help` 为准；`ageval run` 输出 `logs` locator） |
 | 环境 | `local` / `docker` 有公开真 run；`e2b` / `ssh` / `daytona` 代码在，缺钥则 `--probe` 过不了，不能进入运行，**不得**标完成 |
-| 证据等级 | **限定 `runnable-mvp`**（core local/docker ACP、`minimal-demo` 点名题）；见 [examples/README.md](examples/README.md)；**不得**扩写全 suite `isolated` |
+| 证据等级 | **限定 `runnable-mvp`**（core local/docker ACP、`minimal-demo` 明确列出的示例）；见 [examples/README.md](examples/README.md)；**不得**扩写全 suite `isolated` |
 | 交付跟踪 | **GitHub Issues** |
 | 文档站 | [`website/`](website/) 读者向 Fumadocs；机制权威仍在 `docs/` |
 | ACP | `executor: acp` + `options.entry`；parent 唯一 JSON-RPC client |
@@ -74,7 +74,7 @@ apps/* / services/* README  ← SPA / 服务开发细节；非产品教程权威
 
 ### 1. 不向后兼容
 
-硬切。没有迁移层、没有双读、没有旧名别名。
+不兼容旧名。没有迁移层、没有双读、没有旧名别名。
 
 - format 只认 `ageval.dataset/1`、`ageval.task/1`、`ageval.plugin/1`、`ageval.profiles/1`。
 - 未知 format：**一个**错误（`invalid_format` 于 `/format`），停。不要在报错里教映射。
@@ -116,8 +116,8 @@ apps/* / services/* README  ← SPA / 服务开发细节；非产品教程权威
 
 ### 架构与所有权
 
-- **Core：** Config `load_and_lock`；Attempt 五相位；环境 Protocol；Capability；Evaluator barrier 与结果绑定。
-- **可见性投影**是一等能力；gold 靠 **不 mount + 评测前 upload**，禁止只靠「配置里删字段」。
+- **Core：** Config `load_and_lock`；Attempt 五个阶段；环境 Protocol；Capability；停写后再打分 与结果绑定。
+- **Agent 只能看见允许的文件**是能力；gold 靠 **不 mount + 评测前 upload**，禁止只靠「配置里删字段」。
 - **题包 `run.py`** 拥有 Attempt 内业务 workflow（loop、角色、本地 Tool、handoff）。
 - **SDK** 可选；可被 upstream Framework 替代；**不**拥有 Run identity、环境控制、credential、final PASS。
 - Control Plane **不** import/execute 题包 `run.py` 或 evaluator **模块**；经进程/适配器边界调用。
@@ -132,7 +132,7 @@ apps/* / services/* README  ← SPA / 服务开发细节；非产品教程权威
 
 ### 结构红线（design §4.10）
 
-1. `attempt/` 是深模块。打开 `attempt/__init__.py` 能说出相位。禁止再摊成按隔离档分叉的生命周期文件。
+1. `attempt/` 打开 `attempt/__init__.py` 就能说出阶段。禁止再摊成按隔离档分叉的生命周期文件。
 2. 测试面 = **真实 kind + 公开 CLI**。docker / e2b 的 seam 成立条件是两个真实赢家，不是 FakeHost。
 3. **禁止文案 grep 测试。** 不要 `read_text` 落地页 / `website/` snippet / README，再 `assert "某字符串" in/not in text`。那不证明 invoke、lock 或 Protocol，改一句宣传就假红。读者向对了就改文档；行为对了就测 `ageval lock` / `run` / 环境方法。架构测试只钉运行时红线（import、slot、composition root）。
 4. locality：`docker exec` 只在 docker contrib。ACP / `attempt` / `run.py` 不见 `container_id`、不见 `if kind == e2b`。
@@ -157,14 +157,14 @@ apps/* / services/* README  ← SPA / 服务开发细节；非产品教程权威
 
 - Coding-agent **Target inlet**：`executor: acp` + `- plugin: acp` / `options.entry`；parent **唯一** ACP JSON-RPC client → evidence。
 - Vendor 私有格式翻译在 **进程外** ACP entry（Mode 1 shim / Mode 2 原生 / Mode 3 厂商包）；**禁止**在 ageval 内再写第二套 vendor stdout scrape。
-- **官方基座** `docker/attempt` 在 **build 期** bake-in 最低 entry 的 engine + ACP 入口（Mode 1 **双装**：codex/claude/**pi** + 各自 adapter）；禁止 invoke 时 `npm i` / floating `npx`。Python ACP SDK **只在 parent**，不进 Attempt 镜像。
+- **官方 Attempt 镜像** `docker/attempt` 在 **build 期** 写入镜像 最低 entry 的 engine + ACP 入口（Mode 1 **同时装 engine 和 adapter**：codex/claude/**pi** + 各自 adapter）；禁止 invoke 时 `npm i` / floating `npx`。Python ACP SDK **只在 parent**，不进 Attempt 镜像。
 - Pi：官方 registry **`pi-acp`**（npm `pi-acp`，桥 `pi --mode rpc`）；勿与反向桥 `pi-shell-acp` 混淆。
 - **可见性**：mount + `docker exec -u/-w` + UID/GID（只在 docker contrib）。**Permission**：batch 默认 ACP auto-approve，**不**提权、**不**突破未投影路径；evidence 记录 decision。
 - 权威：[docs/design/05-runtime/agent-service.md](docs/design/05-runtime/agent-service.md)。
 
 ### 多 Agent 调度
 
-- docker 上多 actor 必须与 local 相同 SDK 表面：`Agent.session(...).invoke`；**禁止** silent host fallback。
+- docker 上多 actor 必须与 local 相同 SDK 表面：`Agent.session(...).invoke`；**禁止**悄悄改回宿主机。
 - YAML 只声明逻辑 isolation（`shared-container` / `container-per-group`、groups、actors、`shared_write`）；container id / UID 由 Runtime 拥有。
 - 详见 [`docs/design/05-runtime/`](docs/design/05-runtime/) 与 ARCHITECTURE Current。本轮 **不**承诺多 group 真调度 run（lock 有 topology 即可）。
 
@@ -278,7 +278,7 @@ uv run pytest tests/registry -q
 | [README.md](README.md) | 人类入口与状态 |
 | [website/](website/) | 读者向产品文档（中/英） |
 | [docs/design/00-overview-and-product.md](docs/design/00-overview-and-product.md) | 产品模型、US1–US12、命名 |
-| [docs/design/01-ageval-core.md](docs/design/01-ageval-core.md) | Core：lock + 五相位 + 环境 |
+| [docs/design/01-ageval-core.md](docs/design/01-ageval-core.md) | Core：lock + 五个阶段 + 环境 |
 | [docs/design/09-owner-matrix-and-structure.md](docs/design/09-owner-matrix-and-structure.md) | Owner 矩阵 |
 | [ARCHITECTURE.md](ARCHITECTURE.md) | 源码树、依赖、生命周期图 |
 | [GitHub Issues](https://github.com/ZJU-REAL/ageval/issues) | 增量交付与验收跟踪 |

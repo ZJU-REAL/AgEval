@@ -135,7 +135,7 @@ export const landingCopy = {
       neLeft: "completed",
       neRight: "PASS",
       steps: [
-        ["01 封场", "停掉还在写的进程。"],
+        ["01 停写", "停掉还在写的进程。"],
         ["02 注入", "evaluation/ 此刻才 upload。"],
         ["03 绑定", "环境内跑 evaluator.py。cleanup 失败不改分数。"],
       ] as const,
@@ -370,7 +370,7 @@ export const landingCopy = {
       neRight: "PASS",
       steps: [
         ["01 seal", "Stop writers."],
-        ["02 materialize", "evaluation/ uploads now."],
+        ["02 放入环境", "evaluation/ uploads now."],
         ["03 bind", "evaluator.py runs in the environment. Cleanup cannot rewrite the score."],
       ] as const,
     },

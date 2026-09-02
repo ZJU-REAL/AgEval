@@ -135,7 +135,7 @@ Regenerate the in-repo cut:
 ## `agents/` (`ageval.agent/1`)
 
 Catalog Agent **harness** packages (`binding.model` is the default, not identity).
-Mechanism cards (`pi`, `opencode`, …) ship with ageval. These trees are custom
+Built-in Agent packages (`pi`, `opencode`, …) ship with ageval. These trees are custom
 overlay examples: install, then bind with `--agent` (mutually exclusive with
 `--profiles`). Optional `--model` overrides this run:
 

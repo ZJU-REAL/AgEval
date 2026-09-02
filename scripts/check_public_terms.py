@@ -43,6 +43,18 @@ BANNED = (
     "实现自由",
     "fail-closed",
     "fail closed",
+    "fail-open",
+    "host-loop",
+    "in-box",
+    "in-image",
+    "机制卡",
+    "字段糖",
+    "硬切",
+    "一层 C",
+    "层 C",
+    "探测管子",
+    "密封轨迹",
+    "oneshot",
 )
 
 # These fire only when not part of a longer allowed token.
@@ -57,6 +69,7 @@ ALLOW_IF_LINE_HAS = (
     "deepseek-harness",
     "kind: port",
     "kind:port",
+    "acp-oneshot",
 )
 
 

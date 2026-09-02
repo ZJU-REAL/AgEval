@@ -27,8 +27,8 @@ a parent path does not satisfy this seam. Contract: `docs/design/11`.
 ```bash
 uv run ageval plugin install plugins/nooa
 # or: uv run ageval plugin install plugins/dsh
-# or: uv run ageval plugin install plugins/miniswe   # host-loop; bash via environment.exec
-# or: uv run ageval plugin install plugins/acp-oneshot  # in-box oneshot ACP pair; exec only
+# or: uv run ageval plugin install plugins/miniswe   # model on the host; bash via environment.exec
+# or: uv run ageval plugin install plugins/acp-oneshot  # one-shot ACP pair in the environment; exec only
 uv run ageval plugin list
 ```
 
@@ -66,23 +66,23 @@ uv run ageval run examples/datasets/minimal-demo --task terminal-jsonl-agg \
   --profiles examples/datasets/minimal-demo/profiles.dsh.yaml --probe
 ```
 
-`--probe` checks whether this **`environment`** can open here: `host_requires`, Docker daemon (docker), locator **names**. Unsatisfied paths exit non-zero. Skip ≠ pass.
+`--probe` checks whether this **`environment`** can open here: `host_requires`, Docker daemon (docker), locator **names**. Unsatisfied paths exit non-zero. Skip is not a pass.
 
-## Recognition ≠ this host can run ≠ image baked
+## Recognition ≠ this host can run ≠ layers written into the image
 
 | Stage | Meaning |
 | --- | --- |
 | **install / list** | Host recognizes the plugin |
-| **host-ready** | Declared `host_requires` satisfied |
-| **profiles bind** | Job selects that executor / environment |
-| **image bake** | docker: `image_layers` present and bake succeeded |
+| **host can run** | Declared `host_requires` satisfied |
+| **profiles bind** | This profiles file selected that executor / environment |
+| **image layers** | docker: `image_layers` present and written |
 
-`ageval executors.host_ready` is not “installed” and not “image will bake”. Unlisted installed plugins stay off the Attempt image.
+`ageval executors.host_ready` is not “installed” and not “layers are in the image”. Installed plugins that are not listed in `extensions` stay off the Attempt image.
 
 ## Relation to ACP
 
-The default coding-agent path remains `executor: acp` + `options.entry` (parent JSON-RPC, needs `attach_stdio`). `acp-oneshot` is the other coding inlet: an in-environment oneshot client+server over `exec` only. Plugins are optional mechanisms; the same `run.py` switches only via profiles. miniswe is a host-loop: the LLM stays on the parent; bash goes only through `host.exec`. Missing `exec` fails at lock.
+The default coding-agent path remains `executor: acp` + `options.entry` (parent JSON-RPC, needs `attach_stdio`). `acp-oneshot` is the other path: a one-shot client+server inside the environment, over `exec` only. Plugins are optional; the same `run.py` switches only via profiles. miniswe keeps the model on the host; bash goes only through `host.exec`. Missing `exec` fails at lock.
 
-In-environment `evaluator.py` and layer-C trajectory writes default to `evaluation_runtime` / `trajectory_seal` (no job-field sugar). PASS still binds only in the engine.
+In-environment `evaluator.py` and trajectory writes default to `evaluation_runtime` / `trajectory_seal` (no extra config field). PASS still binds only in the engine.
 
 Contracts: `docs/design/11`. This page does not raise evidence grades.

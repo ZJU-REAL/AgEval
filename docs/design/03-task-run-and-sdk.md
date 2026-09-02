@@ -56,11 +56,11 @@ from ageval_sdk import (
 | `Agent.session(profile_id)` | 经 unix socket 调 parent Agent Service |
 | `ToolSet` / `CallLimit` | 题包软限，不替代 Runtime limits |
 
-`AgentSession.record_observation` 是补充口：域工具由 `run.py` 执行后，把 observation 挂到刚结束的 invoke。parent 写入该 invoke 的 `events.jsonl`；record 相位折进 `trajectory.jsonl`。SDK **不**自己写 layer C。
+`AgentSession.record_observation` 是补充口：域工具由 `run.py` 执行后，把 observation 挂到刚结束的 invoke。parent 写入该 invoke 的 `events.jsonl`；record 相位折进 `trajectory.jsonl`。SDK **不**自己写 trajectory.jsonl。
 
 `run.py` 通过 `ctx.agent.session(...).invoke` 调 Agent。ACP attach 发生在第一次 invoke。SDK 不拥有 `host.start`、凭据文件内容、final PASS。
 
-evaluate 相位同样可以用 SDK：`evaluator.py` 是 parent 子进程（与 `run.py` 一样），gold 已 materialize 之后可以 `Agent.session(<role>).invoke`（role 须在同一份 `profiles.yaml` 里，且不得复用 solver 的 key locator）。invoke 走本机 Parent Agent Service；ACP `attach_stdio` 打当时的 environment 服务（isolated = 打分 Host）。有 `evaluation.environments` 时，ACP / 环境内 exec 必须 `Agent.session(id, environment=<name>)`（未知名、run 相位点名、或省略名字一次失败 `unknown_evaluate_environment`，不 start）。省略 `environment=` 只在无名表时等于今日单只打分 Host。`executor: openai-http` / `anthropic-http` 忽略 `environment=`（出站仍在 parent）。密封进 `evaluation/observation.jsonl`，省略 `user` 行。`evaluator.py` **不得** bind PASS；仍返回 `{status, score, metrics}`。不调 `Agent.session` = 无 observation 文件。invoke kwargs 仍不得改 `profile_id` / executor。SDK **仍然** 没有 `host.start` / `host.upload` / `host.stop` / `dockerfile=`。
+evaluate 相位同样可以用 SDK：`evaluator.py` 是 parent 子进程（与 `run.py` 一样），gold 已 upload 之后可以 `Agent.session(<role>).invoke`（role 须在同一份 `profiles.yaml` 里，且不得复用 solver 的 key locator）。invoke 走本机 Parent Agent Service；ACP `attach_stdio` 打当时的 environment 服务（isolated = 打分 Host）。有 `evaluation.environments` 时，ACP / 环境内 exec 必须 `Agent.session(id, environment=<name>)`（未知名、run 相位点名、或省略名字一次失败 `unknown_evaluate_environment`，不 start）。省略 `environment=` 只在无名表时等于今日单只打分 Host。`executor: openai-http` / `anthropic-http` 忽略 `environment=`（出站仍在 parent）。密封进 `evaluation/observation.jsonl`，省略 `user` 行。`evaluator.py` **不得** bind PASS；仍返回 `{status, score, metrics}`。不调 `Agent.session` = 无 observation 文件。invoke kwargs 仍不得改 `profile_id` / executor。SDK **仍然** 没有 `host.start` / `host.upload` / `host.stop` / `dockerfile=`。
 
 脚本阶梯用 Runtime 注入的 `inputs["scoring"]`（不是 SDK 类型、不是第二套 docker 客户端）：
 

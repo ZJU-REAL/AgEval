@@ -6,13 +6,13 @@
 
 单 Attempt `results upload` 通常上不了榜。正确路径：`ageval run <dataset>`（无 `--task`）→ `ageval results upload-suite --suite-run <id> --with-attempts`。申请人是 suite `uploaded_by`；不完备或 draft-bound 申请上榜会被拒绝。批准只写 listing 标记，不改 lock / fingerprint / overlay。
 
-`--agent` 投影进 profiles 通道，与 `--profiles` 互斥。`agent_ref` 是 harness 溯源不是身份，不进 `config_fingerprint`（机制卡 vs 定制卡与 `--model` 见 [14](14-agent-hub.md)）。已上传 suite 允许延后把 published `org/name@version` 写入 **Registry 存的** `job_overlay`。Hub Share Attach：左侧 overlay role（`all` 或一个 role），再一个 Model `Select`（选项 = 该 overlay 的 matcher 命中；owner / Maintainer 可改挑 pin 里另一条 canonical；不是自由文本），再填 agent。Attach **资格**仍是 harness（executor + ACP entry），不含 model。所有 role 的 harness 相同时默认 `all`；否则默认从前往后第一个有匹配 agent 的 role，并填入该 agent。点名一个 role 时只写该 role 的 `agent_ref`，不要把同一 suite 里其它同 harness 的 role 一起 stamp。申请行的 `agent_ref` 保留 `role=` 前缀，批准走同一条 attach；`agent_performance` 另带 proposed `canonical_model`（可空）。Unique join 且申请人是 Agent owner / Maintainer：attach 成功并记下 canonical 桶。Unique join 且申请人不是 owner：开 / 建 `agent_performance`，带 proposed canonical，仍 **pending**，不 silent-stamp。无 unique join：申请人仍可提交、**不能**指定桶；owner / Maintainer 批准时必须挑 canonical 或拒绝。批准可 override Model Select。Agent owner（内置 = Maintainer，定制 = org owner）可从 Performance 行打开与 Leaderboard 相同的 suite inspector，设置里 Remove：只剥该 role 的 `agent_ref`（最后一条则撤 consent）。canonical 桶是展示 / join，不是第二份包。不是黑名单；再 attach 重新 stamp 即可。Collect 开关仍管 plaza 自动采集。同一 suite 一旦有指向本卡的 `agent_ref`，Performance 只列那些已 stamp 的 role，不再把未 stamp 的同 harness 队友一并归堆。Performance 对齐尺子：executor + ACP entry（**不含** model，也不含其余 secret-free plugin options；`reasoning_effort` 等同 model 的 run 参数）。**展示桶**在 join 之后按 canonical（见 [14](14-agent-hub.md)）；plaza 自动采集用同一 matcher，unique join 不另留前缀孤儿组。suite 可比性仍走 `_binding_role_key`（含实际 model 与 options）。不改 Attempt `lock.json`、digest、PASS。`local/` 与 `file:` 不能当 Hub 溯源。plaza 源行（官方 Dataset + public + complete + release）的定义不变。
+`--agent` 投影进 profiles 通道，与 `--profiles` 互斥。`agent_ref` 是 harness 溯源不是身份，不进 `config_fingerprint`（内置 Agent 包 vs 定制卡与 `--model` 见 [14](14-agent-hub.md)）。已上传 suite 允许延后把 published `org/name@version` 写入 **Registry 存的** `job_overlay`。Hub Share Attach：左侧 overlay role（`all` 或一个 role），再一个 Model `Select`（选项 = 该 overlay 的 matcher 命中；owner / Maintainer 可改挑 pin 里另一条 canonical；不是自由文本），再填 agent。Attach **资格**仍是 harness（executor + ACP entry），不含 model。所有 role 的 harness 相同时默认 `all`；否则默认从前往后第一个有匹配 agent 的 role，并填入该 agent。点名一个 role 时只写该 role 的 `agent_ref`，不要把同一 suite 里其它同 harness 的 role 一起 stamp。申请行的 `agent_ref` 保留 `role=` 前缀，批准走同一条 attach；`agent_performance` 另带 proposed `canonical_model`（可空）。Unique join 且申请人是 Agent owner / Maintainer：attach 成功并记下 canonical 桶。Unique join 且申请人不是 owner：开 / 建 `agent_performance`，带 proposed canonical，仍 **pending**，不经同意就写入。无唯一匹配：申请人仍可提交、**不能**指定桶；owner / Maintainer 批准时必须挑 canonical 或拒绝。批准可 override Model Select。Agent owner（内置 = Maintainer，定制 = org owner）可从 Performance 行打开与 Leaderboard 相同的 suite inspector，设置里 Remove：只剥该 role 的 `agent_ref`（最后一条则撤 consent）。canonical 桶是展示 / join，不是第二份包。不是黑名单；再 attach 重新 stamp 即可。Collect 开关仍管 plaza 自动采集。同一 suite 一旦有指向本卡的 `agent_ref`，Performance 只列那些已 stamp 的 role，不再把未 stamp 的同 harness 队友一并归堆。Performance 对齐尺子：executor + ACP entry（**不含** model，也不含其余 secret-free plugin options；`reasoning_effort` 等同 model 的 run 参数）。**展示桶**在 join 之后按 canonical（见 [14](14-agent-hub.md)）；plaza自动采集用同一 matcher，唯一匹配不另留前缀孤儿组。suite 可比性仍走 `_binding_role_key`（含实际 model 与 options）。不改 Attempt `lock.json`、digest、PASS。`local/` 与 `file:` 不能当 Hub 溯源。plaza 源行（官方 Dataset + public + complete + release）的定义不变。
 
-机制卡（builtin 短 id）的 **Performance** 默认自动采集 plaza 源行，按 overlay `resolve_agent_id` 归堆；model 展示桶再按 [14](14-agent-hub.md) 的 matcher join 到 canonical（无 unique hit 则仍按 overlay 原文）。Maintainer（`AGEVAL_REGISTRY_MAINTAINERS`，逗号分隔 GitHub login，与 official org 无关）是内置插件与内置 agent 的所有者：详情页右上角按钮打开 modal，采集模式为 `off` / `official`（默认）/ `official_and_personal`。`official` = 当前 plaza。`official_and_personal` = plaza 再加非 official org Dataset 上同样 public + complete + release-bound 的 suite。`off` = 不自动采集，只收已同意的 `agent_ref`（Maintainer 直连 attach，或批准 `agent_performance` 申请）。非 Maintainer 不能直连内置短 id（Share / `PATCH …/agent-ref` 都拒绝）；他们发 Inbox 申请。定制 upload 包的 Performance 仍要该包 org 同意：owner 自己 attach，或批准 `agent_performance`。Leaderboard 上榜门（listing）不因此放宽。
+内置 Agent 包（builtin 短 id）的 **Performance** 默认自动采集 plaza 源行，按 overlay `resolve_agent_id` 归堆；model 展示桶再按 [14](14-agent-hub.md) 的 matcher join 到 canonical（无 unique hit 则仍按 overlay 原文）。Maintainer（`AGEVAL_REGISTRY_MAINTAINERS`，逗号分隔 GitHub login，与 official org 无关）是内置插件与内置 agent 的所有者：详情页右上角按钮打开 modal，采集模式为 `off` / `official`（默认）/ `official_and_personal`。`official` = 当前plaza。`official_and_personal` = plaza，再加非 official org Dataset 上同样 public + complete + release-bound 的 suite。`off` = 不自动采集，只收已同意的 `agent_ref`（Maintainer 直连 attach，或批准 `agent_performance` 申请）。非 Maintainer 不能直连内置短 id（Share / `PATCH …/agent-ref` 都拒绝）；他们发 Inbox 申请。定制 upload 包的 Performance 仍要该包 org 同意：owner 自己 attach，或批准 `agent_performance`。Leaderboard 上榜门（listing）不因此放宽。
 
-Leaderboard 两列保持 Harness / Model。plaza 行上的 `agent_refs` 变链：机制卡短 id（`--agent pi` / attach `pi`）不经 Agent org 同意；定制 `org/name` 仍要同意。Harness 打开 `/agents/{package_id}`，Model 打开同一 harness 页 `?model=`（overlay `model`）。已 join 时可另链 `/models/{canonical}`，不挡这条落地。无 ref 则两列都是观测文本，不要按 executor / overlay 文案猜包。不要 `/agents/…/models/…`。Environment 仍是机制标。
+Leaderboard 两列保持 Harness / Model。plaza 行上的 `agent_refs` 变链：内置 Agent 包短 id（`--agent pi` / attach `pi`）不经 Agent org 同意；定制 `org/name` 仍要同意。Harness 打开 `/agents/{package_id}`，Model 打开同一 harness 页 `?model=`（overlay `model`）。已 join 时可另链 `/models/{canonical}`，不挡这条落地。无 ref 则两列都是观测文本，不要按 executor / overlay 文案猜包。不要 `/agents/…/models/…`。Environment 仍是机制标。
 
-Inbox：Registry 一等 request 行（`pending` / `approved` / `rejected`）。两种 kind：`leaderboard_list`（收件人 = Dataset org owner）、`agent_performance`（收件人 = Agent 包 org owner；内置短 id 的收件人 = Maintainer，`owner_org_id=_maintainers`）。`agent_performance` 载荷带 proposed `canonical_model`（可空）。Inbox 批准必须出示并可改 Model Select：unique join 可预填；无 unique join 时 owner / Maintainer **必须**挑一条或拒绝，申请人不能指定桶。批准只跑已有写入（listing 标记，或同一条 attach 路径记下 canonical 桶）。申请人已是该 Agent org owner / Maintainer 时走 attach、不建请求。加入 org 仍是 invite key。搜索栏右侧 Kind / Dataset 过滤。History 标题右侧删除：对本用户隐藏已处理行（不删请求、不撤销 listing/attach、其他决策人仍可见）。
+Inbox：Registry 一等 request 行（`pending` / `approved` / `rejected`）。两种 kind：`leaderboard_list`（收件人 = Dataset org owner）、`agent_performance`（收件人 = Agent 包 org owner；内置短 id 的收件人 = Maintainer，`owner_org_id=_maintainers`）。`agent_performance` 载荷带 proposed `canonical_model`（可空）。Inbox批准必须出示并可改 Model Select：唯一匹配可预填；无唯一匹配时 owner / Maintainer **必须**挑一条或拒绝，申请人不能指定桶。批准只跑已有写入（listing 标记，或同一条 attach 路径记下 canonical 桶）。申请人已是该 Agent org owner / Maintainer 时走 attach、不建请求。加入 org 仍是 invite key。搜索栏右侧 Kind / Dataset 过滤。History 标题右侧删除：对本用户隐藏已处理行（不删请求、不撤销 listing/attach、其他决策人仍可见）。
 
 ## 身份页
 
@@ -20,7 +20,7 @@ Inbox：Registry 一等 request 行（`pending` / `approved` / `rejected`）。�
 
 组织：`display_name` 与可选 `description`。owner `PATCH /v1/orgs/{id}` 可改其中任一；创建时可带 `description`。
 
-组织图标与 plugin / agent 同一套闭包标：owner `PATCH /v1/orgs/{id}` 可带 `icon_key` / `icon_github`（校验与清除语义同包；无 uploader 兜底，默认回字母标）。列表与详情的 org 行都带这两个字段；Hub 组织详情页标题旁用与包详情同一套 Choose icon modal，datasets 首页组头、组织列表等展示处按 icon_key → icon_github → 字母标解析。
+组织图标与 plugin / agent 同一套预设彩色图标：owner `PATCH /v1/orgs/{id}` 可带 `icon_key` / `icon_github`（校验与清除语义同包；无 uploader 兜底，默认回字母标）。列表与详情的 org 行都带这两个字段；Hub 组织详情页标题旁用与包详情同一套 Choose icon modal，datasets 首页组头、组织列表等展示处按 icon_key → icon_github → 字母标解析。
 
 未知键拒绝。空 description 表示清除。
 
@@ -76,14 +76,14 @@ Owner `PATCH /v1/packages/{id}` 可改写（与 `display_name` 同权，不进 b
 
 | 字段 | 含义 |
 | --- | --- |
-| `icon_key` | 闭包目录 id。未知 key：**一条** `invalid_request` |
+| `icon_key` | 图标目录 id。未知 key：**一条** `invalid_request` |
 | `icon_github` | GitHub login。从 `github.com/{login}` 或 `github.com/{login}/{repo}` 取出 owner；非法 login 一条 `invalid_request` |
 
 空字符串清除该字段。两个都空 = 回到 uploader 头像。一次 PATCH 可同时带两键（picker 保存时：选用录则清 github，填 link 则清 key）。
 
 解析顺序：已存 `icon_key` → 已存 `icon_github` → `uploaded_by` 的 `https://github.com/{login}.png?size=64` → 字母占位。裂图走字母。不把图片字节写入 Registry。
 
-闭包目录是 **彩色真实标**（官方 kit / Lobe static SVG / Simple Icons 路径 + 官方 hex）。禁止自造厂商 logo。黑标（ink，如 OpenAI）固定白底；白标（paper，如 Kimi）固定黑底。底板不跟主题反相。改标是包级写，不在列表卡上开 picker。Viewer 本轮不做。
+图标目录是 **彩色真实标**（官方 kit / Lobe static SVG / Simple Icons 路径 + 官方 hex）。禁止自造厂商 logo。黑标（ink，如 OpenAI）固定白底；白标（paper，如 Kimi）固定黑底。底板不跟主题反相。改标是包级写，不在列表卡上开 picker。Viewer 本轮不做。
 
 机制标（Leaderboard Environment 的 `docker` / `e2b` 等）仍走闭包精确 id，不是 uploader 头像。
 

@@ -31,7 +31,7 @@ open_session → pin graph → before/after_agent_open
 invoke       → before_agent_invoke → executor.invoke → after_agent_invoke
              → normalize_agent_result
 record       → trajectory_collect → enrich → trajectory_seal writes trajectory.jsonl
-             → summary_enrich (fail-open; Attempt summary.extra)
+             → summary_enrich (later steps still run if this hook fails; Attempt summary.extra)
 close        → before_agent_close → executor.close → after_agent_close
 ```
 

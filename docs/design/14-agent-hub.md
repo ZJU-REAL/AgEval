@@ -4,7 +4,7 @@ format `ageval.agent/1`。不要 `ageval.harness/1`，不要第二套 `package_k
 
 ## 两种卡
 
-**机制卡（builtin catalog overlay，不是 upload）。** 与 `/plugins` 内置行同构：`src/ageval/agents/builtin/catalog.json` 手写清单 + 同目录文件树预览。 CLI `--agent pi` 与 Hub 详情共用这棵树。`builtin: true`，无 `org_id`，无 blob / digest / 下载。Registry **不** `import ageval.plugins.contrib`。短 id：
+**内置 Agent 包（builtin catalog overlay，不是 upload）。** 与 `/plugins` 内置行同构：`src/ageval/agents/builtin/catalog.json` 手写清单 + 同目录文件树预览。 CLI `--agent pi` 与 Hub 详情共用这棵树。`builtin: true`，无 `org_id`，无 blob / digest / 下载。Registry **不** `import ageval.plugins.contrib`。短 id：
 
 - ACP：`options.entry`（`pi` / `opencode` / `codex` / `claude-code` / `grok-build`）。运输名 `acp` 不是卡。
 - 非运输 executor：`openai-http`、`anthropic-http`。
@@ -18,7 +18,7 @@ format `ageval.agent/1`。不要 `ageval.harness/1`，不要第二套 `package_k
 
 `ageval agent install …` 写入 `~/.ageval/agents` 之后，按 `binding.extensions[].plugin` 安装尚未在本机的插件（复用 `ageval plugin install`；只写 `~/.ageval/plugins`）。contrib（如 `acp`）跳过。缺插件或 `host_requires` 不满足则整条 install 失败，不能进入运行，不把「agent 已装、插件跳过」当成功。不新增 `ageval.agent/1` 字段，不改 profiles / task.yaml。
 
-`--agent pi` 解析仓内机制树（不必 `agent install`）。`--agent org/name@version` 仍是 upload 包。`--agent` 与 `--profiles` 互斥。`--model` 是 run 参数（`lock` / `run` / `campaign`）：先投影 `--agent`，再改已绑角色的 `binding.model`。省略则用包缺省（机制卡可以没有缺省）。不要 `--api-key` / `--base-url`。`ageval results --model` 仍是上传观测标签。不要把 Agent 包当成第二套 lock 权威。
+`--agent pi` 解析仓内机制树（不必 `agent install`）。`--agent org/name@version` 仍是 upload 包。`--agent` 与 `--profiles` 互斥。`--model` 是 run 参数（`lock` / `run` / `campaign`）：先投影 `--agent`，再改已绑角色的 `binding.model`。省略则用包缺省（内置 Agent 包可以没有缺省）。不要 `--api-key` / `--base-url`。`ageval results --model` 仍是上传观测标签。不要把 Agent 包当成第二套 lock 权威。
 
 ## 溯源与可比性
 
@@ -51,14 +51,14 @@ Matcher（确定性，无编辑距离）：
 
 ### `/agents` 与 harness 页
 
-`/agents` Explore：机制卡在前，再是 upload。卡片仍是 harness 包（`CatalogCard`），不是模型。
+`/agents` Explore：内置 Agent 包在前，再是 upload。卡片仍是 harness 包（`CatalogCard`），不是模型。
 
-- 机制卡：plaza overlay 上 `resolve_agent_id` 等于该短 id 的 `model`，受该卡 Performance 采集设置约束（默认 `official`）。Maintainer 可改采集；非 Maintainer 把 suite 挂到内置卡必须走 `agent_performance` 申请。
+- 内置 Agent 包：plaza overlay 上 `resolve_agent_id` 等于该短 id 的 `model`，受该卡 Performance 采集设置约束（默认 `official`）。Maintainer 可改采集；非 Maintainer 把 suite 挂到内置卡必须走 `agent_performance` 申请。
 - 定制卡：同意出场的 `agent_ref` 行（owner attach 或批准 `agent_performance`）。
 
 落地 `/agents/{id}?model=` 是同一详情页 query，值仍是 overlay invoke id（CommandStrip `--model` 可跑；Leaderboard Model 格仍落这里）。二级 **不是** wrapping `Chip`、也不是按 lab 分组：复用搜索 palette 的 `ModelItem`（lab 标 + 名 + 模态徽章 + canonical/overlay）。宽屏两列，高度最多三行，超出列表内滚动。每项 hairline 边框。右侧只放 context 和价格两个 chip（released 只留在搜索 palette）。选中是本页 query。Default 标仍挂在该项上。未 join：原样 overlay + 字母标，无徽章无目录价。
 
-Performance **对齐尺子**仍是 harness（executor + ACP entry，**不含** model）。**展示桶**在 join 之后按 canonical；plaza 自动采集用同一 matcher，unique join 不另留前缀孤儿组。机制卡仍不按 agent package version 分组；没有 `agent_ref` 不渲染 version（不要 `unknown`）。定制卡仍按所 attach 的 `org/name@version` 的 version 分组。Share Attach 与 Inbox 的 Model Select 见 [12](12-hub-dataset-and-leaderboard.md)。
+Performance **对齐尺子**仍是 harness（executor + ACP entry，**不含** model）。**展示桶**在 join 之后按 canonical；plaza自动采集用同一 matcher，唯一匹配不另留前缀孤儿组。内置 Agent 包仍不按 agent package version 分组；没有 `agent_ref` 不渲染 version（不要 `unknown`）。定制卡仍按所 attach 的 `org/name@version` 的 version 分组。Share Attach 与Inbox的 Model Select 见 [12](12-hub-dataset-and-leaderboard.md)。
 
 ### Models plaza
 

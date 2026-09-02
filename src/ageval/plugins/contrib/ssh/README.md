@@ -73,7 +73,7 @@ Until the official remote transport is consumable from the parent client:
 
 ## Other verbs
 
-`exec` / `upload` / `download` are the Protocol surface for in-box workers.
+`exec` / `upload` / `download` are the Protocol surface for in-environment workers.
 Directory `upload` / `download` copy **contents** (not a nested `dest/src`).
 Agent Service does not harvest the box workspace after every invoke. After
 writers stop, the run phase downloads **missing** publishable files from

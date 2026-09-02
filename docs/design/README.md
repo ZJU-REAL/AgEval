@@ -16,7 +16,7 @@ Issues / 代码
 | 文档 | 内容 |
 | --- | --- |
 | [00-overview-and-product.md](00-overview-and-product.md) | 产品、US1–US12、命名、红线 |
-| [01-ageval-core.md](01-ageval-core.md) | lock + 五相位 + Protocol |
+| [01-ageval-core.md](01-ageval-core.md) | lock + 五个阶段 + Protocol |
 | [02-task-package-and-config.md](02-task-package-and-config.md) | `ageval.yaml` / `task.yaml` / profiles |
 | [03-task-run-and-sdk.md](03-task-run-and-sdk.md) | 题包 `run.py` 与 `ageval_sdk` |
 | [05-runtime/](05-runtime/) | 执行链 |

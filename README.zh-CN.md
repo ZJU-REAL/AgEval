@@ -87,20 +87,20 @@
 **组合**
 
 - **同一份 `run.py`，换绑定。** 环境和 Agent 经插件组合。默认 [ACP](https://agentclientprotocol.com)；[nooa](https://github.com/NVIDIA-NeMo/labs-OO-Agents)、[dsh](https://github.com/deepseek-ai/deepseek-harness)、[miniswe](https://github.com/SWE-agent/mini-swe-agent) 同样经插件接入，走同一套运行路径和榜单。
-- **Agent 包。** format `ageval.agent/1`（executor、entry、overlays）。机制卡用 `--agent pi` 绑定（不必 install）。定制 overlays 包仍先 `ageval agent install`，再 `--agent org/name@version`。`binding.model` 是缺省；`--model` 改这次 run。
+- **Agent 包。** format `ageval.agent/1`（executor、entry、overlays）。内置包用 `--agent pi` 绑定（不必 install）。定制 overlays 包仍先 `ageval agent install`，再 `--agent org/name@version`。`binding.model` 是缺省；`--model` 改这次 run。
 - **多角色与多 session。** 对话、工具与 handoff 写在 task 里；runtime 提供环境和 Agent 入口。
 - **调用前校验。** 能力与凭证在 Agent 调用之前核验；缺了就失败，不会开始 invoke。
 
 **环境**
 
 - **本机、容器、云沙箱、远端。** local、docker、[e2b](https://e2b.dev)、ssh、[daytona](https://www.daytona.io)：`upload` / `exec` / `attach_stdio`。
-- **Agent 只能看见投影后的工作区。** gold 与宿主凭据不进 dataset 的默认环境。
+- **Agent 只能看见允许的文件。** gold 与宿主凭据不进 dataset 的默认环境。
 - **官方运行镜像。** Docker 在 build 期装入 ACP 入口，invoke 时不再安装。
 
 **结果与协作**
 
 - **本机 Viewer。** 按 Jobs → Tasks 查阅轨迹、环境与评分。
-- **密封轨迹。** 导出副本，不修改分数。
+- **导出轨迹。** 导出一份副本，不修改分数。
 - **Hub。** 发布 dataset、插件与 Agent 包，上传整份 dataset 的结果。组织管理成员、公开范围与版本；公开榜只收录发过版、跑完整份 dataset 的结果。部署可用 `docker compose -f services/registry/docker-compose.yml up -d`（Postgres、对象存储、Registry、Hub），发版标签会把 `ghcr.io/zju-real/ageval-hub` / `ageval-registry` 推到 GHCR。
 
 **编写**

@@ -36,7 +36,7 @@ the upstream bench’s Python or pinned wheels. If the package Dockerfile `FROM`
 2. **Pin to what the checkout imports.**
 3. **Gate at image build**, not first eval: `python -c "from …"` so a bad pin fails `docker build`.
 4. Collection / conftest ImportError is eval ERROR, not FAIL.
-5. `host_requires` / `--probe` do not catch in-image eval deps — those are the package Dockerfile’s job.
+5. `host_requires` / `--probe` do not catch eval deps inside the image — those are the package Dockerfile’s job.
 
 ### `data/` seed
 

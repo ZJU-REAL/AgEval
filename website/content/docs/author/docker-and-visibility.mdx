@@ -33,4 +33,4 @@ environment: docker    # 或 local / e2b / ssh / daytona
 
 真隔离靠 **不 mount + 评测前 upload**，不是靠删配置字段。这不是 `path_views`。打分 Host 的 work root 不是 Agent 的 bind-mount：harvest 的 tree 快照（含 `exclude`）在第一次 `exec` / `session(environment=)` 时拷到那只 Host。
 
-多 actor topology、镜像 bake-in 见 [环境](/docs/agents/environments)。
+多 actor topology、镜像 构建时写入镜像 见 [环境](/docs/agents/environments)。

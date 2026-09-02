@@ -28,7 +28,7 @@ agent_profiles:
       - plugin: docker   # 与 environment 赢家一致
 ```
 
-ACP `inject: [service: environment]`（按服务名拿 host，**不**绑 `plugin_id: e2b`），要求 capability `attach_stdio`。缺则 lock 失败，不在 invoke 时探测管子。这是稳定接口：docker / e2b / ssh / daytona 都登记为同一个服务名；内部运输收在 `attach_stdio` 里。`exec` 是同一服务上的另一个方法（环境内一次性命令），不是第二 service。dsh / nooa inject `exec` / `upload`；`acp-oneshot` 只要 `exec`。三者都经 `host.exec` 跑环境内 worker，不得在 parent 里假定本机 POSIX 路径。环境没有 `attach_stdio` 时 **`executor: acp` 仍 lock 失败**；改走 `acp-oneshot`（或其它 exec 赢家），不是给 ACP 插件加 fallback。
+ACP `inject: [service: environment]`（按服务名拿 host，**不**绑 `plugin_id: e2b`），要求 capability `attach_stdio`。缺则 lock 失败，不要等到 invoke 才检查 attach_stdio。这是稳定接口：docker / e2b / ssh / daytona 都登记为同一个服务名；内部运输收在 `attach_stdio` 里。`exec` 是同一服务上的另一个方法（环境内一次性命令），不是第二 service。dsh / nooa inject `exec` / `upload`；`acp-oneshot` 只要 `exec`。三者都经 `host.exec` 跑环境内 worker，不得在 parent 里假定本机 POSIX 路径。环境没有 `attach_stdio` 时 **`executor: acp` 仍 lock 失败**；改走 `acp-oneshot`（或其它 exec 赢家），不是给 ACP 插件加 fallback。
 
 ```python
 host = ctx.services.require("environment")
@@ -78,7 +78,7 @@ run.py / evaluator.py  Agent.session(profile).invoke
                         或 anthropic-http POST /messages
        after_agent_invoke
        normalize_agent_result
-  → 层 C：run 相位 → trajectory.jsonl
+  → 轨迹文件：run 相位 → trajectory.jsonl
            evaluate 相位 → evaluation/observation.jsonl（省略 user）
 ```
 
@@ -122,7 +122,7 @@ tau2-class harness（`minimal-demo` 的 `tau2-dialog-min`、`examples/datasets/t
 
 `openai-http` 的 executor events 用 Core 合同：`kind: tool` + `phase: start` + `tool_call_id` / `function_name` / `args`。环境观察是 `phase: update`（source `ageval`），不是 HTTP 响应的一部分。
 
-`AgentResult.usage` 与层 C `terminal.usage` 同一形状（见 [evidence.md](evidence.md)）：一等 `prompt_tokens` / `completion_tokens` / `cached_tokens` / `cost_usd`（未知省略）。厂商 leftover 与插件袋在兄弟字段 `extra`。`openai-http` 从 Chat Completions `usage` 映射；`anthropic-http` 从 Messages `usage` 映射；ACP 从 `PromptResponse.usage` + `usage_update` 映射。缺 usage 就省略，不编造。usage / extra 是观察，不是 PASS。
+`AgentResult.usage` 与轨迹文件 `terminal.usage` 同一形状（见 [evidence.md](evidence.md)）：一等 `prompt_tokens` / `completion_tokens` / `cached_tokens` / `cost_usd`（未知省略）。厂商 leftover 与插件袋在兄弟字段 `extra`。`openai-http` 从 Chat Completions `usage` 映射；`anthropic-http` 从 Messages `usage` 映射；ACP 从 `PromptResponse.usage` + `usage_update` 映射。缺 usage 就省略，不编造。usage / extra 是观察，不是 PASS。
 
 ## anthropic-http 原生 tools
 
@@ -173,7 +173,7 @@ kind 名是 `anthropic-http`（api-client，Anthropic Messages）。与 `openai-
 2. `host.exec` 探测三件事：名字（`which`）、钉死的 npm 包版本（`npm ls -g pkg@pin`）、一次便宜的 stdio JSON-RPC `initialize`（不是 `session/prompt`）。同名但协议不是 stdio ACP（例如只开 TCP 的旧 `opencode`）算未命中。
 3. **三件都齐就跳过。** 任一不对再按 **ACP entry 自己的** `install_command` `exec`，装完再探一次。失败 = environment 相位失败。不把「怎么装 opencode」下放到 environment 插件。
 4. 不把安装写进 task `setup.sh`。`setup.sh` 只本题依赖。
-5. docker 官方基座已 bake 且版本+stdio 对得上时，探测命中；云上瘦镜像或 snapshot 里是错版本/错协议才会走到安装。invoke 禁止 `npm i` / 浮动 `npx`。
+5. docker 官方 Attempt 镜像已 bake 且版本+stdio 对得上时，探测命中；云上瘦镜像或 snapshot 里是错版本/错协议才会走到安装。invoke 禁止 `npm i` / 浮动 `npx`。
 
 Python ACP SDK 只在 parent，不进 Attempt 镜像。
 
@@ -183,4 +183,4 @@ batch 默认 auto-approve，不提权、不突破未投影路径。decision 进 
 
 Pi：官方 registry `pi-acp`（npm `pi-acp`，桥 `pi --mode rpc`）。勿与反向桥 `pi-shell-acp` 混淆。
 
-官方基座 `docker/attempt` 在 **build 期** bake-in 最低 entry 的 engine + ACP 入口（Mode 1 双装：codex/claude/**pi** + 各自 adapter）。
+官方 Attempt 镜像 `docker/attempt` 在 **build 期** 写入镜像 最低 entry 的 engine + ACP 入口（Mode 1 同时装 engine 和 adapter：codex/claude/**pi** + 各自 adapter）。
