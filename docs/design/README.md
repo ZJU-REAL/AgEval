@@ -7,7 +7,7 @@
 PRD + 00     产品
 01–03        Attempt、dataset、run.py、SDK
 05-runtime   环境、ACP、evaluate、evidence、campaign
-06–09        可见性、硬顶、转换、owner
+06–09        可见性、limits、转换、owner
 11–14        插件、Hub、UI 令牌、Agent 对象
 ARCHITECTURE.md
 Issues / 代码
@@ -22,7 +22,7 @@ Issues / 代码
 | [05-runtime/](05-runtime/) | 执行链 |
 | [05-runtime-core.md](05-runtime-core.md) | stub → `05-runtime/` |
 | [06-capability-adapter-visibility.md](06-capability-adapter-visibility.md) | 能力与 gold |
-| [07-budget-evaluation-failure.md](07-budget-evaluation-failure.md) | 硬顶与失败 |
+| [07-budget-evaluation-failure.md](07-budget-evaluation-failure.md) | limits 与失败 |
 | [08-conversion-security-testing.md](08-conversion-security-testing.md) | 转换与安全 |
 | [09-owner-matrix-and-structure.md](09-owner-matrix-and-structure.md) | Owner 与目标树 |
 | [10-examples-database-52.md](10-examples-database-52.md) | 点名示例 |

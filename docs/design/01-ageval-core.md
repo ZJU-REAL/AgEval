@@ -2,7 +2,7 @@
 
 结构地图见 [ARCHITECTURE.md](../../ARCHITECTURE.md)。产品故事与命名见 [00](00-overview-and-product.md)。
 
-Core 拥有：配置锁定、Attempt 身份、环境 Protocol、硬顶、evaluate 绑定、evidence 布局。不拥有题业务、厂商 SDK、PASS 算法。
+Core 拥有：配置锁定、Attempt 身份、环境 Protocol、limits、evaluate 绑定、evidence 布局。不拥有题业务、厂商 SDK、PASS 算法。
 
 ## 五组（映射到当前模块）
 
@@ -33,7 +33,7 @@ CLI --task / --profiles / --set
 
 未知 format：`invalid_format` 于 `/format`。`api_key` 只留 locator 名。两个插件抢同一独占槽或同一 export id → fail closed。绑定图进 lock digest。未列入 `extensions` 的不进链、不进服务表。
 
-`--profiles` 整份替换 job 文档。`--agent` 与 `--profiles` 互斥。`--model` 是 run 参数（须配合 `--agent`），改已绑角色的 `binding.model`；省略则用包缺省。`--set` 白名单见 [02](02-task-package-and-config.md)。`limits.*` 不可 `--set`。
+`--profiles` 整份替换配置文件。`--agent` 与 `--profiles` 互斥。`--model` 是 run 参数（须配合 `--agent`），改已绑角色的 `binding.model`；省略则用包缺省。`--set` 白名单见 [02](02-task-package-and-config.md)。`limits.*` 不可 `--set`。
 
 ## Attempt 流水线（可见链）
 

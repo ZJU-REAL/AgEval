@@ -4,7 +4,7 @@
 
 环境内路径合同：`/attempt/workspace`、`/attempt/home`、`/attempt/artifacts`、`/attempt/evaluation`。
 
-job 文档：
+配置文件：
 
 ```yaml
 # profiles.yaml — 选独占槽 environment 的赢家

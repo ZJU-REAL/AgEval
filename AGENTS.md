@@ -149,7 +149,7 @@ apps/* / services/* README  ← SPA / 服务开发细节；非产品教程权威
 - `RunTerminal.completed` **≠** PASS；PASS 只能来自独立 evaluator。
 - Runtime outcome、Agent 结果、evaluator raw、最终 evaluation 保持为**独立事实**。
 - 不复制、序列化或把 host credential / token 写入 lock、evidence 或题包默认环境；仅 scoped projection 给获准进程。
-- 硬顶由 Runtime **执行前**强制；`run.py` 不可自提。事后 token/cost 默认只作观测。
+- `limits` 由 Runtime **执行前**强制；`run.py` 不可自提。事后 token/cost 默认只作观测。
 - Adapter / 插件按**协议、资源类型或执行机制**命名；**禁止**按 Benchmark / task / domain 名分支。
 - 插件模型 = entry point + 包安装；**不是**开放应用商店。Agent Service 留主仓。
 

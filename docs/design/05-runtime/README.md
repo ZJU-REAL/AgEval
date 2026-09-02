@@ -11,7 +11,7 @@ Runtime 在这里指：**环境、ACP、evaluate、evidence、campaign**。结�
 | [evidence.md](evidence.md) | `.ageval/runs/`；`evaluation/observation.jsonl` |
 | [campaign-suite.md](campaign-suite.md) | campaign 与 suite |
 
-Core 保留：身份、deadline、硬顶、cleanup、PASS 入口。题包保留 loop。插件填槽。
+Core 保留：身份、deadline、limits、cleanup、PASS 入口。题包保留 loop。插件填槽。
 
 ## emit 总图（与 slots.py 对齐）
 

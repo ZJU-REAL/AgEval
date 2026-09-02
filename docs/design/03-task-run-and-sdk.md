@@ -11,7 +11,7 @@ SDK 可被 upstream 替代。**不**拥有 Run identity、环境、credential、
 | loop、角色、本地 Tool、`ctx.publish_json` / 可选 `ctx.publish_tree` | 最终 PASS |
 | `ctx.agent.session(profile_id).invoke` | 持有 host 凭据 |
 | 读 `ctx.params`、workspace | 再读一份「真配置」覆盖 lock |
-| 返回 `completed` / `failed` | 自己提硬顶、按 bench 名分支 |
+| 返回 `completed` / `failed` | 自己改 `limits`、按 bench 名分支 |
 | 业务 Tool、handoff | `host.start` / `host.upload` / `host.stop`、`apt`、装 agent CLI、读 `evaluation/` |
 
 控制面不 import 题包模块。worker 是控制面子进程；Agent 经 Parent Agent Service + `attach_stdio` 进环境。环境在 `run.py` 被调用前已经就绪（environment 相位已跑完 `start` + seed + `setup.sh`）。
@@ -54,7 +54,7 @@ from ageval_sdk import (
 | `RunContext` | params、workspace、artifact_dir、agent、publish |
 | `RunTerminal` | `completed` / `failed`；不是 PASS |
 | `Agent.session(profile_id)` | 经 unix socket 调 parent Agent Service |
-| `ToolSet` / `CallLimit` | 题包软限，不替代 Runtime 硬顶 |
+| `ToolSet` / `CallLimit` | 题包软限，不替代 Runtime limits |
 
 `AgentSession.record_observation` 是补充口：域工具由 `run.py` 执行后，把 observation 挂到刚结束的 invoke。parent 写入该 invoke 的 `events.jsonl`；record 相位折进 `trajectory.jsonl`。SDK **不**自己写 layer C。
 

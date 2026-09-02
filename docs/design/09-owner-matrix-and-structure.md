@@ -61,7 +61,7 @@ src/ageval/
     defaults/               # environment_setup 认 setup.sh；透传链
   environments/             # 只有 Protocol + caps，无厂商 SDK
     protocol.py
-  runtime/                  # 身份、协调、硬顶、ParentAgentService
+  runtime/                  # 身份、协调、limits、ParentAgentService
     identity.py             # 一次 Attempt 一次 new_run
     parent_agent.py         # 只认 executor 服务 + host.attach_stdio
     task_launch.py / task_worker.py

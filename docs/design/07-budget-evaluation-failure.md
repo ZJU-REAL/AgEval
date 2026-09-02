@@ -1,6 +1,6 @@
-# 07 — 硬顶与失败
+# 07 — limits 与失败
 
-硬顶由 Runtime 在效果前强制：`limits.wall_time_seconds`、`limits.agent_invocations` 等。值为 0 表示不得 attach。题包软限（max_turns）不能替代硬顶。事后 token/cost 只作观测。
+`limits` 由 Runtime 在效果前强制：`limits.wall_time_seconds`、`limits.agent_invocations` 等。值为 0 表示不得 attach。dataset 软限（max_turns）不能替代 `limits`。事后 token/cost 只作观测。
 
 完整失败归属表：[ARCHITECTURE.md](../../ARCHITECTURE.md) § Failure and Privacy Boundary。
 
