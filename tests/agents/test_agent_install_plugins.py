@@ -111,7 +111,8 @@ def test_host_requires_message_names_import_and_hint(
             "version: 0.1.0\n"
             "host_requires:\n"
             "  - import: definitely_not_a_real_module\n"
-            "    hint: \"uv tool install 'ageval-cli[nooa]' (repo checkout: uv sync --extra nooa)\"\n"
+            "    hint: \"uv tool install 'ageval-cli[nooa]'"
+            ' (repo checkout: uv sync --extra nooa)"\n'
             "slots:\n"
             "  chain:\n"
             "    - id: after_environment_ready\n"

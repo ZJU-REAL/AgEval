@@ -400,7 +400,8 @@ def _import_sdk() -> Any:
     except ImportError as exc:  # pragma: no cover — depends on the install extra
         raise EnvironmentFailure(
             "environment_preflight_failed",
-            "the e2b kind needs the e2b extra: uv tool install 'ageval-cli[e2b]' (repo checkout: uv sync --extra e2b)",
+            "the e2b kind needs the e2b extra: "
+            "uv tool install 'ageval-cli[e2b]' (repo checkout: uv sync --extra e2b)",
         ) from exc
     return e2b
 

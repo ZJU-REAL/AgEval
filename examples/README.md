@@ -96,8 +96,7 @@ write on the bundled jsonrpc runtime. That is not ageval isolation.
 ### Other environment kinds
 
 ```bash
-uv run ageval run examples/datasets/minimal-demo --task terminal-jsonl-agg \
-  --profiles examples/datasets/minimal-demo/profiles.e2b-acp.yaml --probe
+ageval run examples/datasets/minimal-demo --task terminal-jsonl-agg --probe
 # live ACP stdio over ssh A is unsupported
 ```
 

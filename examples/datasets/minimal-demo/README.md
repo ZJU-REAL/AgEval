@@ -30,11 +30,8 @@ see each `task.yaml` for per-task detail).
 ageval.yaml               # dataset manifest (dataset_id / version)
 env.example               # copy to .env; locator names only, never real keys
 profiles.yaml             # default job: environment=docker, executor=acp
-profiles.e2b-acp.yaml     # cloud sandbox e2b + ACP
-profiles.e2b-nooa.yaml    # e2b + external nooa plugin
 profiles.nooa.yaml        # NVIDIA OO-Agents harness (LiteLLM)
-profiles.dsh.yaml         # DeepSeek harness
-profiles.miniswe.yaml     # mini-swe-agent
+profiles.dsh.yaml         # DeepSeek harness (wildcard role row)
 overlays/                 # per-entry overlay packs (pi / opencode litellm)
 tasks/<task_id>/
   task.yaml / run.py / evaluator.py
@@ -61,9 +58,7 @@ ageval run  official/minimal-demo@0.1.3 --task terminal-jsonl-agg
 Other bindings:
 
 ```bash
-uv run ageval run examples/datasets/minimal-demo --task tau2-dialog-min \
-  --profiles examples/datasets/minimal-demo/profiles.e2b-acp.yaml --probe
-uv run ageval run examples/datasets/minimal-demo --task multiagent-env-min \
+ageval run examples/datasets/minimal-demo --task multiagent-env-min \
   --profiles examples/datasets/minimal-demo/profiles.dsh.yaml
 ```
 

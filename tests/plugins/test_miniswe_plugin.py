@@ -271,6 +271,30 @@ def test_lock_cli_miniswe_profile_records_inject(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     env = _isolated_home(tmp_path, monkeypatch, "miniswe")
+    profiles = tmp_path / "profiles.miniswe.yaml"
+    profiles.write_text(
+        "\n".join(
+            [
+                "format: ageval.profiles/1",
+                "environment: docker",
+                "agent_profiles:",
+                "  solver:",
+                "    executor: miniswe",
+                "    extensions:",
+                "      - plugin: miniswe",
+                "        options:",
+                "          step_limit: 20",
+                "          cost_limit: 0",
+                "          cmd_timeout: 60",
+                "      - plugin: docker",
+                "    model: openai/glm-5.3",
+                "    api_key: ${litellm_api_key}",
+                "    base_url: ${litellm_base_url}",
+            ]
+        )
+        + "\n",
+        encoding="utf-8",
+    )
     proc = subprocess.run(
         [
             sys.executable,
@@ -281,7 +305,7 @@ def test_lock_cli_miniswe_profile_records_inject(
             "--task",
             "terminal-jsonl-agg",
             "--profiles",
-            str(ROOT / "examples/datasets/minimal-demo/profiles.miniswe.yaml"),
+            str(profiles),
         ],
         cwd=ROOT,
         capture_output=True,

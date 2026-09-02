@@ -148,8 +148,7 @@ uv run ageval -V
 uv run ageval tasks examples/datasets/minimal-demo
 uv run ageval lock examples/datasets/minimal-demo --task terminal-jsonl-agg
 uv run ageval run  examples/datasets/minimal-demo --task terminal-jsonl-agg
-uv run ageval run  examples/datasets/minimal-demo --task terminal-jsonl-agg \
-  --profiles examples/datasets/minimal-demo/profiles.e2b-acp.yaml --probe
+uv run ageval run  examples/datasets/minimal-demo --task terminal-jsonl-agg --probe
 uv run ageval view examples/datasets/minimal-demo --no-browser
 ```
 
