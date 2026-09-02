@@ -119,10 +119,14 @@ def test_build_argv_forwards_pip_index_only_on_plugin_layer(
     )
 
     recipe_argv, plugin_argv = fake.builds
+    recipe_tag = recipe_argv[recipe_argv.index("-t") + 1]
     assert "--build-arg" not in recipe_argv
-    joined = " ".join(plugin_argv)
-    assert f"--build-arg PIP_INDEX_URL={index}" in joined
-    assert "--build-arg BASE_IMAGE=" in joined
+    args = list(plugin_argv)
+    assert args.count("--build-arg") == 2
+    pip_at = args.index(f"PIP_INDEX_URL={index}")
+    base_at = args.index(f"BASE_IMAGE={recipe_tag}")
+    assert args[pip_at - 1] == "--build-arg"
+    assert args[base_at - 1] == "--build-arg"
 
 
 def test_pip_index_changes_plugin_layer_tag_not_recipe_only(
@@ -155,6 +159,11 @@ def test_contrib_bake_recipes_declare_pip_index_arg() -> None:
     root = Path(__file__).resolve().parents[2] / "plugins"
     bakes = sorted(root.glob("*/docker/Dockerfile.bake"))
     assert bakes, "expected contrib Dockerfile.bake files"
+    pip_bakes = []
     for bake in bakes:
         text = bake.read_text(encoding="utf-8")
         assert "ARG PIP_INDEX_URL=" in text, bake
+        if "pip install" in text:
+            pip_bakes.append(bake)
+            assert "unset PIP_INDEX_URL" in text, bake
+    assert pip_bakes, "expected at least one pip-installing bake recipe"
