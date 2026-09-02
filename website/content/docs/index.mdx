@@ -1,12 +1,12 @@
 ---
 title: ageval 是什么
-description: 一份 dataset 写一次，换环境和 Agent 不用改 run.py。
+description: 一份 dataset 写一次，换环境和 Agent 只改配置。
 icon: BookOpen
 ---
 
 大多数 Agent 评测仍停留在**模型**：同一套提示、同一套工具约定，比较不同权重或不同 API。可交付的 Agent 是模型加上它的运行时。同一套权重接到不同的 coding agent、工具策略或环境上，行为和成本都会变。分数要带上用了哪个 Agent 运行时、哪套环境，不能只报模型名。
 
-**ageval**（agent eval）把环境和 Agent 经插件写进配置。同一份 `run.py` 在不同绑定下运行。
+**ageval**（agent eval）把环境和 Agent 写进配置。换哪边都不必改 dataset 里的题面。
 
 CLI 与包名是 `ageval`。交付单位是 dataset。
 
@@ -19,8 +19,8 @@ CLI 与包名是 `ageval`。交付单位是 dataset。
 | 编写 dataset | [Task 编写教程](/docs/author/tutorial) |
 | 接入 coding agent | [ACP Profiles](/docs/agents/acp-profiles) · [切换 Agent](/docs/run/switch-agent) |
 | 环境 | [环境](/docs/agents/environments) |
-| 机制插件 | [机制插件](/docs/run/plugins) |
+| 用插件换 Agent 或环境 | [插件](/docs/run/plugins) |
 | 命令与字段 | [CLI](/docs/reference/cli) · [配置字段](/docs/reference/config-fields) |
 | 本机结果 / Hub | [本地查看器](/docs/run/local-viewer) · [Hub](/docs/share/hub) |
 
-机制设计在仓库 [`docs/design/`](https://github.com/ZJU-REAL/ageval/tree/main/docs/design)。本站按使用路径组织。
+设计说明在仓库 [`docs/design/`](https://github.com/ZJU-REAL/ageval/tree/main/docs/design)。本站按使用路径组织。

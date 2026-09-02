@@ -1,12 +1,12 @@
 ---
 title: What is ageval
-description: Write a dataset once. Swap the environment and the Agent without rewriting run.py.
+description: Write a dataset once. Swap the environment and the Agent in config.
 icon: BookOpen
 ---
 
 Most agent evaluation still measures the **model**: same prompts, same tool contract, different weights or APIs. A shippable agent is a model plus its runtime. The same weights on a different coding agent, tool policy, or environment behave differently and cost differently. A score has to name which agent runtime and which environment ran it, not only the model.
 
-**ageval** (agent eval) binds environment and Agent through plugins. One `run.py` runs under each binding.
+**ageval** (agent eval) puts environment and Agent in config. Switching either does not rewrite the dataset.
 
 The CLI and packages are `ageval`. The delivery unit is a dataset.
 
@@ -19,8 +19,8 @@ The CLI and packages are `ageval`. The delivery unit is a dataset.
 | Author a dataset | [Task authoring](/docs/author/tutorial) |
 | Coding agents | [ACP profiles](/docs/agents/acp-profiles) · [Switch agent](/docs/run/switch-agent) |
 | Environments | [Environments](/docs/agents/environments) |
-| Plugins | [Mechanism plugins](/docs/run/plugins) |
+| Swap Agent or environment with plugins | [Plugins](/docs/run/plugins) |
 | Commands and fields | [CLI](/docs/reference/cli) · [Config](/docs/reference/config-fields) |
 | Local results / Hub | [Viewer](/docs/run/local-viewer) · [Hub](/docs/share/hub) |
 
-Mechanism design lives under [`docs/design/`](https://github.com/ZJU-REAL/ageval/tree/main/docs/design).
+Design notes live under [`docs/design/`](https://github.com/ZJU-REAL/ageval/tree/main/docs/design).
