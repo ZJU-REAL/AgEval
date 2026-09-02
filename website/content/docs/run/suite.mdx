@@ -27,7 +27,7 @@ ageval run examples/datasets/minimal-demo --task terminal-jsonl-agg -k 5
 # 补跑：并进已有 suite job，重算指标（可加 --task 只补一题）
 ageval run examples/datasets/minimal-demo --resume-suite <suite_run_id> --task terminal-jsonl-agg -k 5
 
-# 点名换槽（PASS / FAIL / ERROR）：新 Attempt，同一 suite id
+# 指定要换的槽（PASS / FAIL / ERROR）：新 Attempt，同一 suite id
 ageval run examples/datasets/minimal-demo --resume-suite <suite_run_id> --task terminal-jsonl-agg --replace-slot
 # Always-k：只换一格 (task_id, attempt_index)
 # ageval run examples/datasets/minimal-demo --resume-suite <id> --task terminal-jsonl-agg --replace-slot --attempt-index 1

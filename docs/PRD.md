@@ -47,7 +47,7 @@ ageval **统一** lock、开环境、invoke、评测、存证、拆环境；**�
 
 | 层 | 能力 |
 | --- | --- |
-| **Core** | Config `load_and_lock`；Attempt 五相位；环境 Protocol；Capability；Evaluator barrier + 结果绑定；可见性投影；Attempt evidence / 轨迹落盘 |
+| **Core** | Config `load_and_lock`；Attempt 五个阶段；环境 Protocol；Capability；停写后再打分 + 结果绑定；Agent 只能看见允许的文件；Attempt evidence / 轨迹落盘 |
 | **SDK** | 可选：`RunContext`、AgentSession、Tool/Guard |
 | **题包** | 业务 workflow、本地 Tool、upstream bridge、`evaluator.py` |
 | **Application** | CLI、Campaign/matrix、内置/插件接线 |

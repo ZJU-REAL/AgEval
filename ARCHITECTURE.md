@@ -4,10 +4,10 @@ This document maintains **implementation structure** only: current vs target lay
 
 - Do **not** write product essays, version checklists, or Phase task tables.
 - Product and mechanism design authority: [docs/](docs/README.md) (especially [docs/design/](docs/design/)). **Self-contained**; do not read an out-of-repo BRIEF.
-- Incremental delivery and acceptance tracking: [GitHub Issues](https://github.com/ZJU-REAL/AgEval/issues).
+- Incremental delivery and acceptance tracking: [GitHub Issues](https://github.com/ZJU-REAL/ageval/issues).
 - Reader-facing docs: [website/](website/) (not design authority).
 
-GitHub: [`ZJU-REAL/AgEval`](https://github.com/ZJU-REAL/AgEval). The product name, packages, and CLI are **ageval**.
+GitHub: [`ZJU-REAL/ageval`](https://github.com/ZJU-REAL/ageval). The product name, packages, and CLI are **ageval**.
 
 ## Document Status
 
@@ -27,7 +27,7 @@ GitHub: [`ZJU-REAL/AgEval`](https://github.com/ZJU-REAL/AgEval). The product nam
 
 ageval locks a **dataset**, opens a **box** (exclusive slot `environment`), runs the task `run.py` on a visible Attempt pipeline, then — after writers stop — an independent `evaluator.py` scores and binds a flat Result.
 
-Coding agents enter the box through the parent **ACP** client + `host.attach_stdio`, or through the external `acp-oneshot` executor (`host.exec` of an in-box ACP pair). Other execution mechanisms fill the exclusive slot `executor` via `ageval.plugin/1`.
+Coding agents enter the box through the parent **ACP** client + `host.attach_stdio`, or through the external `acp-oneshot` executor (`host.exec` of an in-environment ACP pair). Other execution mechanisms fill the exclusive slot `executor` via `ageval.plugin/1`.
 
 ### Main participants
 
@@ -39,7 +39,7 @@ Coding agents enter the box through the parent **ACP** client + `host.attach_std
 | Attempt host | `run_attempt`: environment → run → evaluate → record; `finally` cleanup | Vendor SDKs, the task loop |
 | Box (environment winner) | `preflight` / `start` / `exec` / `upload` / `download` / `attach_stdio` / `stop` | ACP protocol, PASS |
 | Capability | Authorized operation surface exposed to `run.py` | Issuing final PASS |
-| Evaluation | Barrier, in-box evaluator, `bind_evaluation`, evidence | Unifying every scoring algorithm |
+| Evaluation | Barrier, in-environment evaluator, `bind_evaluation`, evidence | Unifying every scoring algorithm |
 | SDK (`ageval_sdk`) | `RunContext`, `AgentSession`, Tool soft limits | Run identity, credentials, verdict |
 | Task `run.py` | Business loop, local Tools, `ctx.params` | Docker, credentials, final PASS |
 | Plugins | Exclusive / chain slot implementations; `src/ageval/plugins/` registry + first-party contrib | Branching by Benchmark name; a second resolve path |
@@ -105,7 +105,7 @@ Earlier intermediate checkpoints follow code and examples. **Do not** treat Targ
 ### Current Source Layout
 
 ```text
-ageval/                              # GitHub: ZJU-REAL/AgEval
+ageval/                              # GitHub: ZJU-REAL/ageval
 ├── AGENTS.md
 ├── ARCHITECTURE.md
 ├── README.md
@@ -155,7 +155,7 @@ ageval/                              # GitHub: ZJU-REAL/AgEval
 │   │   ├── parent_agent.py          # executor service + host.attach_stdio only
 │   │   ├── task_launch.py           # Control Plane subprocess runs run.py
 │   │   └── task_worker.py
-│   ├── evaluation/                  # barrier + in-box runner + bind PASS
+│   ├── evaluation/                  # barrier + in-environment runner + bind PASS
 │   ├── evidence/                    # sole owner of layout strings
 │   ├── capabilities/
 │   ├── registry/                    # Hub client
@@ -182,13 +182,13 @@ ageval/                              # GitHub: ZJU-REAL/AgEval
 ├── plugins/                         # external ageval.plugin/1
 │   ├── nooa/ / dsh/ / miniswe/ / acp-oneshot/
 │   └── home-files/ / agent-skills/
-├── docker/attempt/                  # official base: ACP entries bake-in
+├── docker/attempt/                  # official base: ACP entries written at image build
 ├── tests/
 ├── docs/
 └── website/
 ```
 
-Hub Agent Performance is a **derived view** of plaza / consented `job_overlay.agent_ref` rows, not a Core object. Builtin cards default to official plaza auto-collect; Maintainers (`AGEVAL_REGISTRY_MAINTAINERS`) own that setting and builtin attach approval. There is no `/runtimes` product surface. Public Leaderboard listing is a Registry flag (`board_listed`), not visibility. Delayed `agent_ref` attach and request decide share one ResultService write path; CLI `build_results_commands` is the Hub/CLI use-case root.
+Hub Agent Performance is a **derived view** of plaza / consented `job_overlay.agent_ref` rows, not a Core object. Builtin cards default to official public suites auto-collect; Maintainers (`AGEVAL_REGISTRY_MAINTAINERS`) own that setting and builtin attach approval. There is no `/runtimes` product surface. Public Leaderboard listing is a Registry flag (`board_listed`), not visibility. Delayed `agent_ref` attach and request decide share one ResultService write path; CLI `build_results_commands` is the Hub/CLI use-case root.
 
 Production Attempt: `application/run.py` mints identity once, then `attempt.run_attempt`. Cleanup is in `try/finally`. Parent Agent Service and hard ceilings share the same quota object.
 
@@ -238,7 +238,7 @@ src/ageval/
 | `plugins/contrib/acp/` | Parent ACP client, entry registry, consumer of `attach_stdio` | Layer-C writer; vendor stdout scrape |
 | `plugins/defaults/` | `environment_setup` recognizes `setup.sh`; default winners for `evaluation_runtime` / `trajectory_seal` | Fake executor; PASS |
 | `runtime/` | identity, parent Agent Service, task-worker subprocess, cancel/timeout | Box implementations, scoring |
-| `evaluation/` | Barrier order, in-box runner, flat Result | Task scoring algorithms |
+| `evaluation/` | Barrier order, in-environment runner, flat Result | Task scoring algorithms |
 | `evidence/` | store / redaction / layer-C `trajectory.jsonl` | Vendor protocol parsing; PASS |
 | `registry/` + `services/registry/` | PackageRef, publish, verified cache; standalone HTTP | PASS; handing store credentials to the CLI |
 | `ageval_sdk` | Task types and thin helpers | Control Plane internal types, verdict |
@@ -285,7 +285,7 @@ Third-party workflow SDKs: allowed only as a task or **explicit** external plugi
 | New public use case | Must have a matching `build_*` |
 | CLI | Imports only `ageval.application.composition` (and `ageval.cli` itself) |
 | Tests | May use test-only wiring; public smoke must go through production CLI |
-| Plugin discovery | Extension registry + `ageval plugin install` local cache; fail closed; no `ageval.agent_executors` dual path |
+| Plugin discovery | Extension registry + `ageval plugin install` local cache; missing plugins are rejected and the run does not start; no `ageval.agent_executors` dual path |
 
 ## Extension emit map (Current)
 
@@ -327,10 +327,10 @@ evaluate phase
   after_evaluate               # must not change status
 
 record phase
-  trajectory_collect → enrich  # fail-open chain
+  trajectory_collect → enrich  # later steps still run if this hook fails
   trajectory_seal              # exclusive-slot winner writes run-phase trajectory.jsonl
-  evaluation/observation.jsonl # evaluate-phase layer C when SDK invoked (omit user)
-  summary_enrich               # fail-open; Attempt summary.extra (omit when empty)
+  evaluation/observation.jsonl # evaluate-phase trajectory.jsonl when SDK invoked (omit user)
+  summary_enrich               # later steps still run if this hook fails; Attempt summary.extra (omit when empty)
 
 cleanup (finally)
   cleanup_report
@@ -376,7 +376,7 @@ Phase detail: [docs/design/05-runtime/lifecycle.md](docs/design/05-runtime/lifec
 | Agent prompt / tools | `run.py` | ACP / other executor | Must not include secrets by default |
 | Credential material | Host env | Approved executor subprocess only | Locator; never in lock/evidence |
 | Workspace bytes | Box upload/bind | Agent and `run.py` visibility | Contract path `/attempt/workspace` |
-| Published artifacts | `ctx.publish_json` | evaluate materialize | Logical name + allowlist |
+| Published artifacts | `ctx.publish_json` | evaluate upload | Logical name + allowlist |
 | Evaluator raw | Task `evaluator.py` | `bind_evaluation` | Independent materialization; same box |
 | Flat Result | Evaluation | CLI / evidence / aggregation | `status`/`score`/`kind`/`logs` |
 | Evidence tree | `evidence/` | Humans and later tools | No secrets; locatable |

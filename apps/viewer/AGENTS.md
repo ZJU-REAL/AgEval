@@ -134,7 +134,7 @@ usage). Cache hit rate uses inclusion/disjoint heuristics; never treat
 SPA file preview: JSON/JSONL pretty-print + lightweight syntax highlight (no extra deps).
 
 Package-file browse routes were removed with the old SPA.  
-All paths confined to the opened dataset root (`job_id` / `task_id` / `run_id` single-segment; file paths fail closed on `..`). No Registry required.  
+All paths confined to the opened dataset root (`job_id` / `task_id` / `run_id` single-segment; file paths reject paths that contain `..`). No Registry required.  
 Evidence roots: `{dataset}/.ageval/runs/{run_id}` or task-local `.ageval/runs/`; lock `task_id` must match when present.
 
 ## Build & serve

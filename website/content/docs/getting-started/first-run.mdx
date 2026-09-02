@@ -1,6 +1,6 @@
 ---
 title: 首次运行
-description: 锁定配置、执行 task，并定位结果目录。
+description: lock 配置、跑 task，并找到结果目录。
 ---
 
 CLI 的 dataset 参数始终是 **dataset 根**（含 `ageval.yaml` 的目录）或 **registry ref**（`<dataset_id>@<version>`），不是 `tasks/<id>/`。
@@ -17,7 +17,7 @@ registry ref 会把已发布的 dataset 下载并缓存到本机（`ageval cache
 
 ## 仓库内示例
 
-公开示例 [`examples/datasets/minimal-demo`](https://github.com/ZJU-REAL/AgEval/tree/main/examples/datasets/minimal-demo) 随仓库 checkout 提供：
+公开示例 [`examples/datasets/minimal-demo`](https://github.com/ZJU-REAL/ageval/tree/main/examples/datasets/minimal-demo) 随仓库 checkout 提供：
 
 ```bash
 ageval tasks examples/datasets/minimal-demo
@@ -26,17 +26,17 @@ ageval run  examples/datasets/minimal-demo --task terminal-jsonl-agg
 ageval run  examples/datasets/minimal-demo --task terminal-jsonl-agg --probe
 ```
 
-`ageval run` 在 TTY 下打印短 recap（单题含 `logs` 路径，整包含 `summary` 路径）。管道或 `--json` 仍输出 JSON 文档。证据在 `.ageval/runs/<id>/`。
+`ageval run` 在 TTY 下打印短 recap（单题含 `logs` 路径，整份 dataset 含 `summary` 路径）。管道或 `--json` 仍输出 JSON 文档。证据在 `.ageval/runs/<id>/`。
 
-| 术语 | 说明 |
+| 词 | 说明 |
 | --- | --- |
 | **dataset** | 根 `ageval.yaml` + 若干 task |
-| **Attempt** | 一次锁定配置下的执行 |
-| **environment** | 环境 kind：local / docker / e2b / ssh / daytona |
+| **一次运行** | 一次 lock 之后的执行；目录 `.ageval/runs/<id>/` |
+| **环境** | 本机 / Docker / e2b / ssh / daytona |
 
 ```bash
 ageval executors -v
 ageval view examples/datasets/minimal-demo --no-browser
 ```
 
-`--probe` 只做 lock + preflight，不 invoke。`--profiles` 整份替换 job 文档。`--agent` 与 `--profiles` 互斥。`--model` 须配合 `--agent`。
+`--probe` 只做 lock + preflight，不 invoke。`--profiles` 整份替换配置文件。`--agent` 与 `--profiles` 互斥。`--model` 须配合 `--agent`。

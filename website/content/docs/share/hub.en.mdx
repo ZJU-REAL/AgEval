@@ -25,8 +25,8 @@ Hub (`apps/hub`) is the web UI on top of Registry—browse shared packages and r
 - List search sits with the scope tabs; file-tree pane height is stable; trajectory tool-call rows collapse; steps follow sealed file order; a step shows duration only when `elapsed_ms` is on the sealed row  
 
 - **Models plaza**: the sidebar **Models** is a model directory grouped by lab (one hairline table per lab: Model / Released / Context / Output / Price per MTok, sortable headers). Data comes from a models.dev snapshot pinned per Hub release; prices are directory prices, not bills and not PASS. Modality tabs (Text / Image / Video / PDF / Transcription / Speech) filter the tables; Cmd/Ctrl+F opens a search palette, Enter opens the encyclopedia. A row name opens `/models/{canonical}`: an Overview spec table plus Performance (the HF mark shows only when the pin has a Hugging Face weights URL). Leaderboard / Share Attach model buckets join to canonical (longest unique; unmatched keeps the overlay text).
-- Agent detail: published package (binding + files, including bundled `overlays/`) plus **Performance** (mechanism cards default-collect official plaza; a Maintainer can turn collection off or include non-official orgs; custom cards still need consented `agent_ref`). Suites run with `--profiles` only stay on the Dataset Leaderboard until attached.
-- **Inbox**: Dataset org owners, Agent org owners, and platform Maintainers batch-approve or reject pending listing and Performance requests. Org join stays invite keys. Kind / Dataset filters; History can hide processed rows for the current user.
+- Agent detail: published package (binding + files, including bundled `overlays/`) plus **Performance** (built-in Agent packages default-collect official plaza; a Maintainer can turn collection off or include non-official orgs; custom cards still need consented `agent_ref`). Suites run with `--profiles` only stay on the Dataset Leaderboard until attached.
+- **Inbox:** Dataset org owners, Agent org owners, and platform Maintainers batch-approve or reject pending listing and Performance requests. Org join stays invite keys. Kind / Dataset filters; History can hide processed rows for the current user.
 
 - **Sign in with GitHub** (browser OAuth; CLI stays on Device Flow)
 
@@ -53,7 +53,7 @@ Or `docker compose -f services/registry/docker-compose.yml up -d` for Hub at `ht
 | `/datasets/:id/tasks/:task` | README · Files (Local \| Shared \| Overlays) · Jobs |
 | `/plugins` | Plugin marketplace |
 | `/plugins/:id` | Plugin detail (declared-slot timeline · file preview · CLI install) |
-| `/agents` | Agent catalog (builtin mechanism cards, then uploads) |
+| `/agents` | Agent catalog (built-in Agent packages, then uploads) |
 | `/inbox` | Pending listing and Performance requests the caller can decide |
 | `/agents/:id` | Binding, files, registered models, Performance |
 | `/models` | Models plaza (lab-grouped directory tables · modality filter · Cmd/Ctrl+F search) |

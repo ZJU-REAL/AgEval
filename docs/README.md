@@ -6,13 +6,13 @@
 
 不要去仓外 BRIEF、Obsidian vault 找第二套产品形状。那些材料若存在，只是历史施工 brief；产品模型已写进本目录。
 
-题包根叫 **dataset**，不是 SQL。
+交付单位叫 **dataset**，不是 SQL。口语「题包」只留在 internal。术语约束见 [glossary.md](glossary.md)。
 
 | 问题 | 归属 |
 | --- | --- |
 | 产品是什么、成功标准、非目标、用户故事 | [PRD.md](PRD.md)、[design/00](design/00-overview-and-product.md) |
 | 机制如何设计、边界如何切 | [`design/`](design/) |
-| 术语 | [glossary.md](glossary.md) |
+| 术语与 public 用词 | [glossary.md](glossary.md)（约束：规范名 + Avoid + 表面） |
 | 当前/目标代码结构 | [../ARCHITECTURE.md](../ARCHITECTURE.md) |
 | Agent 交付路由、红线、校验 | [../AGENTS.md](../AGENTS.md) |
 | 增量交付与验收跟踪 | GitHub Issues |
@@ -27,12 +27,12 @@
 | 文档 | 内容 |
 | --- | --- |
 | [design/00-overview-and-product.md](design/00-overview-and-product.md) | 产品、更名、dataset、目标/非目标、US1–US12、命名、红线 |
-| [design/01-ageval-core.md](design/01-ageval-core.md) | Core：lock、Attempt 五相位、phase/slot、环境 Protocol |
+| [design/01-ageval-core.md](design/01-ageval-core.md) | Core：lock、Attempt 五个阶段、phase/slot、环境 Protocol |
 | [design/02-task-package-and-config.md](design/02-task-package-and-config.md) | dataset / task / profiles；缺省有文件就认 |
-| [design/03-task-run-and-sdk.md](design/03-task-run-and-sdk.md) | 题包 `run.py` 与 `ageval_sdk` |
+| [design/03-task-run-and-sdk.md](design/03-task-run-and-sdk.md) | dataset `run.py` 与 `ageval_sdk` |
 | [design/05-runtime/](design/05-runtime/) | 环境 kind、ACP、evaluate、evidence、campaign |
 | [design/06-capability-adapter-visibility.md](design/06-capability-adapter-visibility.md) | 能力、可见性、gold |
-| [design/07-budget-evaluation-failure.md](design/07-budget-evaluation-failure.md) | 硬顶、失败语义 |
+| [design/07-budget-evaluation-failure.md](design/07-budget-evaluation-failure.md) | limits、失败语义 |
 | [design/08-conversion-security-testing.md](design/08-conversion-security-testing.md) | 转换、安全、测试 |
 | [design/09-owner-matrix-and-structure.md](design/09-owner-matrix-and-structure.md) | Owner 矩阵、目标树、§4.10 结构规范 |
 | [design/10-examples-database-52.md](design/10-examples-database-52.md) | 点名示例（非进度） |

@@ -292,7 +292,7 @@ not visibility.
 Read-only. No Runtime table, no Performance table, and no upload. Plaza source
 rows are **public**, **complete**, **release-bound** suites on an official
 Dataset. Uploaded packs group by ``org/name`` and need Agent-org consent (owner
-attach or an approved `agent_performance` request). Builtin mechanism cards
+attach or an approved `agent_performance` request). Builtin built-in Agent packages
 group by harness short id. Default collect mode is ``official`` (plaza, no
 consent). Maintainers (``AGEVAL_REGISTRY_MAINTAINERS``) can set ``off``
 (request/attach only) or ``official_and_personal`` (plaza plus non-official-org

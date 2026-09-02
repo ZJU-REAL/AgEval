@@ -32,18 +32,18 @@ evaluation:
 
 | 点 | 说明 |
 | --- | --- |
-| 屏障 | `run.py` 结束后才 materialize 输入 |
-| gold | 放 `evaluation/`，evaluate 相位才 upload |
+| 屏障 | `run.py` 结束后才进入环境 输入 |
+| gold | 放 `evaluation/`，evaluate 阶段才 upload |
 | artifact id | 必须和 `run.py` 实际写出的文件对上 |
 | `tmpfs_mb` | 只改环境内 evaluator `/tmp`；省略 32 MiB。大 snapshot 在 **task** 上声明，不要写进 `limits` |
 
-`evaluator.py` 由独占槽 `evaluation_runtime` 的默认赢家在 **parent 子进程**里跑（与 `run.py` 同一形态），不是再 `host.exec` 进环境。PASS 仍只经引擎 bind。读结果时 runtime 与 evaluation 是分开的事实。job 可写 `evaluate_host.isolated: true`（Current：docker）另起打分环境；gold 只上打分 Host。需要**多只、闭包不同**的打分镜像时，在 `task.yaml` 写 `evaluation.environments`，用 `inputs["scoring"].exec(<name>, argv)` 或 `Agent.session(..., environment=<name>)` 点名；未点到的名字不 start。省略该表 = 今日单只 isolated Host（或同一环境）。`scoring.exec` 只在有名表时可用。见 [结果与 PASS](/docs/reference/results-and-pass)、[环境](/docs/agents/environments)。
+`evaluator.py` 在 **parent 子进程**里跑（与 `run.py` 同一形态），不是再 `host.exec` 进环境。PASS 仍只经引擎 bind。读结果时 runtime 与 evaluation 是分开的事实。配置可写 `evaluate_host.isolated: true`（Current：docker）另起打分环境；gold 只上打分 Host。需要**多只、安装内容不同**的打分镜像时，在 `task.yaml` 写 `evaluation.environments`，用 `inputs["scoring"].exec(<name>, argv)` 或 `Agent.session(..., environment=<name>)` 指定名字；未用到的名字不 start。省略该表 = 今日单只打分 Host（或同一环境）。`scoring.exec` 只在有名表时可用。见 [结果与 PASS](/docs/reference/results-and-pass)、[环境](/docs/agents/environments)。
 
 ## 两种评测
 
 缺省是**确定性脚本**：读产物和 `evaluation/` 里的 gold，返回 `{status, score, metrics}`。不必调 Agent。没有 `evaluation/observation.jsonl`，Verifier 仍是 `result.json` 与文件树。
 
-可选 **LLM-as-judge**：同一份 job `profiles.yaml` 再写一个角色（如 `judge`），`task.yaml` 的 `agent_profiles` 列入同一 id。gold **已经** upload 之后，`evaluator.py` 可以 `Agent.session("judge").invoke(...)`。提示词归题包。`invoke` 不得改 `profile_id` / executor。
+可选 **LLM-as-judge**：同一份 job `profiles.yaml` 再写一个角色（如 `judge`），`task.yaml` 的 `agent_profiles` 列入同一 id。gold **已经** upload 之后，`evaluator.py` 可以 `Agent.session("judge").invoke(...)`。提示词归 dataset。`invoke` 不得改 `profile_id` / executor。
 
 ```python
 def evaluate(inputs):
@@ -57,13 +57,13 @@ def evaluate(inputs):
 | 点 | 说明 |
 | --- | --- |
 | PASS | 仍只看这次返回值；judge 文本 / `observation.jsonl` 不是分数 |
-| 轨迹 | evaluate 相位的步写入 `evaluation/observation.jsonl`（省略 `user` 行，避免 gold 进 evidence）。不并进根 `trajectory.jsonl` |
+| 轨迹 | evaluate 阶段的步写入 `evaluation/observation.jsonl`（省略 `user` 行，避免 gold 进 evidence）。不并进根 `trajectory.jsonl` |
 | 调用预算 | `limits.agent_invocations` 要覆盖 solver **和** judge |
 | 环境 | SDK session 走 parent 的 Unix socket。ACP `attach_stdio` 打 **打分 Host**（缺省 = run 环境；job `evaluate_host.isolated: true` 时是 docker 第二实例）。有 `evaluation.environments` 时 ACP 必须 `session(id, environment=<name>)`；`openai-http` / `anthropic-http` 忽略 `environment=`（出站仍在 parent）。不要把 Agent Service socket bind-mount 进容器 |
 
 ## 多 stage 打分 Host
 
-顺序阶梯（审计 / 行为 / 编译）需要**不同已装闭包**时，不要复用 `environment/evaluate.Dockerfile`。成员 yaml：
+顺序阶梯（审计 / 行为 / 编译）需要**不同已装内容**时，不要复用 `environment/evaluate.Dockerfile`。成员 yaml：
 
 ```yaml
 evaluation:
@@ -87,6 +87,6 @@ async def evaluate(inputs):
     return {"status": "PASS" if reply.get("ok") else "FAIL", "score": 1.0 if reply.get("ok") else 0.0}
 ```
 
-`exec` 的 argv 是列表；stdout / stderr / exit_code 来自**那只容器内**。第一次点到某名字才 start 并 upload 快照 + gold。未知名、run 相位点名、或有名表时 ACP 省略名字：一次失败，不 start。v1 只顺序 stage，不要并发 `exec` 与 `session` 打同一名字。start / `exec` 退出 / observation 文件都不是 PASS。
+`exec` 的 argv 是列表；stdout / stderr / exit_code 来自**那只容器内**。第一次用到某名字才 start 并 upload 快照 + gold。未知名、run 阶段写了名字、或表里有名字时 ACP 省略名字：一次失败，不 start。v1 只顺序 stage，不要并发 `exec` 与 `session` 打同一名字。start / `exec` 退出 / observation 文件都不是 PASS。
 
 不调 `Agent.session` = 今日脚本路径。Verifier 有 observation 时复用 Trajectory 那种步骤卡片；没有则保持文件树。见 [本地 Viewer](/docs/run/local-viewer)。

@@ -2,7 +2,7 @@
 name: ageval-cli
 description: >
   Operate ageval CLI (lock/run/plugin/view/publish/release/executors/campaign/evidence/status/cancel/jobs/results):
-  flags, --set pointers, exit codes, --probe, offline fail-closed (AGEVAL_OFFLINE_AGENT),
+  flags, --set pointers, exit codes, --probe, offline agent path (AGEVAL_OFFLINE_AGENT),
   ACP entry readiness, plugin install, suite upload. Use when running ageval lock/run, PASS/FAIL/ERROR,
   trajectory export, Hub upload. Do not invent flags.
 ---

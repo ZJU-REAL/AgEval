@@ -4,14 +4,14 @@ Runtime 在这里指：**环境、ACP、evaluate、evidence、campaign**。结�
 
 | 文件 | 内容 |
 | --- | --- |
-| [lifecycle.md](lifecycle.md) | Run / Trial / Attempt 身份与五相位状态机 |
+| [lifecycle.md](lifecycle.md) | Run / Trial / Attempt 身份与五个阶段状态机 |
 | [environment.md](environment.md) | Protocol 与四 kind |
 | [agent-service.md](agent-service.md) | parent ACP client + `attach_stdio`；executor 按 profile 绑；openai-http / anthropic-http 原生 `tools=` |
 | [evaluation.md](evaluation.md) | 停 solver writer、upload gold、可选 judge SDK invoke、绑定 PASS |
 | [evidence.md](evidence.md) | `.ageval/runs/`；`evaluation/observation.jsonl` |
 | [campaign-suite.md](campaign-suite.md) | campaign 与 suite |
 
-Core 保留：身份、deadline、硬顶、cleanup、PASS 入口。题包保留 loop。插件填槽。
+Core 保留：身份、deadline、limits、cleanup、PASS 入口。题包保留 loop。插件填槽。
 
 ## emit 总图（与 slots.py 对齐）
 
@@ -46,7 +46,7 @@ record
   trajectory_collect → enrich
   trajectory_seal             # 独占槽；run 相位 → trajectory.jsonl
                               # evaluate 相位 → evaluation/observation.jsonl（有才写；省略 user）
-  summary_enrich              # fail-open；Attempt summary.extra，空则省略
+  summary_enrich              # 失败不挡后续；Attempt summary.extra，空则省略
 
 cleanup (finally)
   cleanup_report

@@ -31,22 +31,22 @@ uv tool install 'ageval-cli[all]'   # everything at once
 | `registry` | Self-hosted Registry / Hub service |
 | `nooa` / `dsh` / `miniswe` | The matching external harness plugins |
 
-Missing extras or credentials fail closed at lock/run with the exact install command.
+Missing extras or credentials fail the check at lock/run and the run does not start; the error includes the exact install command.
 
 ## Develop from source (contributors)
 
 Clone only when changing ageval itself or running the in-repo examples:
 
 ```bash
-git clone https://github.com/ZJU-REAL/AgEval.git
-cd AgEval
+git clone https://github.com/ZJU-REAL/ageval.git
+cd ageval
 uv sync --frozen --all-packages
 uv run ageval -V
 ```
 
 ## Skills
 
-In-repo [`skills/`](https://github.com/ZJU-REAL/AgEval/tree/main/skills):
+In-repo [`skills/`](https://github.com/ZJU-REAL/ageval/tree/main/skills):
 
 | Skill | Use |
 | --- | --- |

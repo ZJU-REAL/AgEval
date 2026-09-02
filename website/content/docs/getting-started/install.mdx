@@ -31,22 +31,22 @@ uv tool install 'ageval-cli[all]'   # 一次装全
 | `registry` | 自托管 Registry / Hub 服务 |
 | `nooa` / `dsh` / `miniswe` | 对应外部 harness 插件 |
 
-缺 extras 或凭据时 lock/run **fail-closed**，报错信息带准确的安装命令。
+缺 extras 或凭据时 lock/run 检查不过就不能进入运行，报错信息带准确的安装命令。
 
 ## 从源码开发（贡献者）
 
 修改 ageval 本体或运行仓库内示例时才需要 clone：
 
 ```bash
-git clone https://github.com/ZJU-REAL/AgEval.git
-cd AgEval
+git clone https://github.com/ZJU-REAL/ageval.git
+cd ageval
 uv sync --frozen --all-packages
 uv run ageval -V
 ```
 
 ## Skills
 
-仓库 [`skills/`](https://github.com/ZJU-REAL/AgEval/tree/main/skills)：
+仓库 [`skills/`](https://github.com/ZJU-REAL/ageval/tree/main/skills)：
 
 | Skill | 用途 |
 | --- | --- |

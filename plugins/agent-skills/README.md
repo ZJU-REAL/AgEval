@@ -49,10 +49,10 @@ extensions:
 
 | Name | Default | Purpose |
 | --- | --- | --- |
-| `options.dest_roots` | `[home]` | `home` and/or `workspace`. Empty / non-list / unknown root fail closed. |
+| `options.dest_roots` | `[home]` | `home` and/or `workspace`. Empty / non-list / unknown root are rejected. |
 | `options.skills` | `[]` | One folder per row. Folder must contain `SKILL.md`. Folder name is the skill name. |
 | `options.skills[].src` | *(required per row)* | Relative to the overlay root (Agent package when `agent_ref` is set, else Dataset root). No `..`, no absolute path, no host `~`. `dest` is not author-written. |
-| `options.instructions` | `[]` | Source files copied as `AGENTS.md` / `CLAUDE.md` (see dest table). Other filenames fail closed. |
+| `options.instructions` | `[]` | Source files copied as `AGENTS.md` / `CLAUDE.md` (see dest table). Other filenames are rejected. |
 | `options.instructions[].src` | *(required per row)* | Same path rules as `skills[].src`. `dest` is not author-written. |
 
 Skills copy `<src>` → `<root>/<prefix>/<skill-name>/`. Dests are deduped.

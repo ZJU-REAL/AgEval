@@ -46,7 +46,7 @@ empty in the image.
 | --- | --- |
 | `VITE_REGISTRY_URL` | Absolute Registry origin (production SPA). Empty = same origin (dev proxy). |
 | `VITE_REGISTRY_PROXY_TARGET` | Dev proxy target (default `http://127.0.0.1:8080` — use **8700** for local Registry). |
-| `VITE_GITHUB_URL` | Sidebar GitHub link. Unset = `https://github.com/ZJU-REAL/AgEval`. Empty = hide. |
+| `VITE_GITHUB_URL` | Sidebar GitHub link. Unset = `https://github.com/ZJU-REAL/ageval`. Empty = hide. |
 | `VITE_DOCS_URL` | Sidebar documentation link. Unset = `http://localhost:3000/zh-CN`. Empty = hide. |
 
 ### Login (browser OAuth)

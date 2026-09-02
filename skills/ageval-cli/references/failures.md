@@ -6,12 +6,12 @@
 | lock `unsupported_capability` / `unsupported executor` | Kind not in `ageval executors` `.supported` — coding agents need `executor: acp` |
 | lock `options.entry required` | ACP profile missing `- plugin: acp` / `options.entry` |
 | Agent ERROR offline | Expected under `AGEVAL_OFFLINE_AGENT=1` |
-| executor unbound on docker | Plugin did not bind to the box (`attach_stdio` / in-box worker). Do not silent host-fallback |
+| executor unbound on docker | Plugin did not bind to the environment (`attach_stdio` / in-environment worker). Do not silently fall back to the host |
 | `image_contribute_unsatisfied` / missing bake | Bound external executor but `config.image_layers` / `Dockerfile.bake` empty — `$ageval-plugin` |
-| `nooa_package_missing` / `No module named 'nooa'` | Host needs `uv sync --extra nooa`; docker image bake installs it in-image |
+| `nooa_package_missing` / `No module named 'nooa'` | Host needs `uv sync --extra nooa`; docker writes the package into the image |
 | ACP entry not ready | `ageval executors -v` → that `entry_id` `host_ready` / install pin; no invoke-time `npm i` |
 | `credential_missing` | Declared credential env names unset and no `api_key` locator. Required ACP entries fail at `--probe` / session-open; keyless (OAuth) warn only. HTTP executors (`openai-http` / `anthropic-http` / `dsh` / `nooa` / `miniswe`) skip this when locked `base_url` host is `127.0.0.1` / `localhost` / `::1` |
-| e2b / ssh probe not ready | Missing `E2B_API_KEY` or SSH locator — fail-closed, `started: false`. Skip ≠ pass |
+| e2b / ssh probe not ready | Missing `E2B_API_KEY` or SSH locator — the check fails and the run does not start; `started: false`. Skip is not a pass |
 | PASS without real model | Forbidden — do not use fixtures as public proof |
 | Trajectory empty | Non-empty `agent_profiles` + `run.py` `Agent.session`/`invoke` |
 | Resume skipped an ERROR | Default `--resume-suite` skips finished PASS / FAIL / ERROR. Use `--replace-slot --task T` |

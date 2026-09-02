@@ -11,7 +11,7 @@ authoring agents only; it does not own new contract.
 - `extensions:` is the opt-in list (`- plugin: nooa`, or `slots: [...]`, or `{slot, plugin}`). Installed-but-unlisted plugins stay off MULTI chains and off the image.
 - Local path install and `ageval run` use the short `plugin.yaml` id. Hub publish/install uses `org/name`.
 - README is the public contract Hub previews: export / inject capabilities, and the parameters this plugin reads. `plugin.yaml` is the machine manifest; the README tables are what authors bind against.
-- Resolve: explicit binding > lower priority wins; a tie with no explicit pick fail-closes.
+- Resolve: explicit binding > lower priority wins; a tie with no explicit pick is rejected.
 - `ageval lock` writes the resolved graph as `extension_bindings` (plugin_id / slot / source / priority / digest).
 
 Do not revive the deleted `ageval.agent_executors` entry-point bypass.
@@ -31,7 +31,7 @@ open_session → pin graph → before/after_agent_open
 invoke       → before_agent_invoke → executor.invoke → after_agent_invoke
              → normalize_agent_result
 record       → trajectory_collect → enrich → trajectory_seal writes trajectory.jsonl
-             → summary_enrich (fail-open; Attempt summary.extra)
+             → summary_enrich (later steps still run if this hook fails; Attempt summary.extra)
 close        → before_agent_close → executor.close → after_agent_close
 ```
 

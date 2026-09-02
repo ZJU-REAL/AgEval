@@ -17,7 +17,7 @@ A registry ref downloads the published dataset into the local cache (`ageval cac
 
 ## In-repo examples
 
-The public smoke [`examples/datasets/minimal-demo`](https://github.com/ZJU-REAL/AgEval/tree/main/examples/datasets/minimal-demo) ships with a repo checkout:
+The public smoke [`examples/datasets/minimal-demo`](https://github.com/ZJU-REAL/ageval/tree/main/examples/datasets/minimal-demo) ships with a repo checkout:
 
 ```bash
 ageval tasks examples/datasets/minimal-demo
@@ -26,17 +26,17 @@ ageval run  examples/datasets/minimal-demo --task terminal-jsonl-agg
 ageval run  examples/datasets/minimal-demo --task terminal-jsonl-agg --probe
 ```
 
-On a TTY, `ageval run` prints a short recap (single task: `logs`; suite: `summary` path). A pipe or `--json` still writes the JSON document. Evidence lives under `.ageval/runs/<id>/`.
+On a TTY, `ageval run` prints a short recap (single task: `logs`; full dataset: `summary` path). A pipe or `--json` still writes the JSON document. Evidence lives under `.ageval/runs/<id>/`.
 
 | Term | Meaning |
 | --- | --- |
 | **dataset** | Root `ageval.yaml` plus task members |
-| **Attempt** | One execution under a locked config |
-| **environment** | Kind: local / docker / e2b / ssh / daytona |
+| **Attempt** | One execution after lock; directory `.ageval/runs/<id>/` |
+| **environment** | Host / Docker / e2b / ssh / daytona |
 
 ```bash
 ageval executors -v
 ageval view examples/datasets/minimal-demo --no-browser
 ```
 
-`--probe` is lock + preflight only. `--profiles` replaces the job document. `--agent` and `--profiles` are mutually exclusive. `--model` requires `--agent`.
+`--probe` is lock + preflight only. `--profiles` replaces the profiles file. `--agent` and `--profiles` are mutually exclusive. `--model` requires `--agent`.

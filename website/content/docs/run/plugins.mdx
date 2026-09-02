@@ -3,11 +3,11 @@ title: 机制插件
 description: 安装 ageval.plugin/1、绑定 executor、Recognition 与本机能跑的区别。
 ---
 
-机制插件扩展 **如何** 执行 Agent / 环境 / 轨迹，不改变题包 `run.py` 的业务循环。槽只有独占与链。
+机制插件扩展 **如何** 执行 Agent / 环境 / 轨迹，不改变 dataset 里 `run.py` 的业务循环。
 
-## executor 与 environment：按名 inject，不绑 kind
+## executor 与 environment：按名取服务
 
-`executor` 不 import docker / e2b / ssh / daytona。它声明需要名为 `environment` 的服务，并列出要用的能力；环境赢家以该槽名 **export** 进服务表。lock 核过再跑。
+`executor` 不 import docker / e2b / ssh / daytona。它声明需要名为 `environment` 的服务，并列出要用的能力；环境实现以该名进入服务表。lock 核过再跑。
 
 | | 含义 |
 | --- | --- |
@@ -15,14 +15,14 @@ description: 安装 ageval.plugin/1、绑定 executor、Recognition 与本机能
 | **inject** | Agent 后端说「我要 `environment`，且要 `attach_stdio` 或 `exec`」 |
 | **调用** | 只打 Protocol：`attach_stdio`（长会话）或 `exec` / `upload`（跑完收结果） |
 
-换 `environment: docker` 为 `e2b` / `ssh` / `daytona` 时，ACP 的 profiles 只改环境赢家，不必改 ACP 代码。`exec` 不是独立服务。本机 SDK 绑宿主机路径不算走通这条接口。契约见 `docs/design/11`。
+换 `environment: docker` 为 `e2b` / `ssh` / `daytona` 时，ACP 的 profiles 只改环境，不必改 ACP 代码。`exec` 不是独立服务。本机 SDK 绑宿主机路径不算走通这条接口。契约见 `docs/design/11`。
 
 ## 安装（只写本地缓存）
 
 ```bash
 ageval plugin install plugins/nooa
 # 或：ageval plugin install plugins/dsh
-# 或：ageval plugin install plugins/miniswe   # host-loop；bash 走 environment.exec
+# 或：ageval plugin install plugins/miniswe   # 模型在本机，bash 走 environment.exec
 # 或：ageval plugin install plugins/acp-oneshot  # 环境内一次性 ACP client+server，只要 exec
 ageval plugin list
 ```
@@ -54,7 +54,7 @@ agent_profiles:
           method: "run"
 ```
 
-`executor:` 选独占槽赢家，**不**自动 bake。插件 knobs 只写在该插件的 `extensions` 行上。docker 镜像层由 environment 赢家在 `host.start()` 读 `config.image_layers`。ACP 的 `entry` 写在 `- plugin: acp` / `options.entry`。
+`executor:` 选出这个配置里的 Agent 实现，**不**自动 bake。插件 knobs 只写在该插件的 `extensions` 行上。docker 镜像层由环境在 `host.start()` 读 `config.image_layers`。ACP 的 `entry` 写在 `- plugin: acp` / `options.entry`。
 
 运行时用备用 profiles 文件切换，不必改 dataset 默认 ACP 配置：
 
@@ -70,23 +70,23 @@ ageval run examples/datasets/minimal-demo --task terminal-jsonl-agg \
   --profiles examples/datasets/minimal-demo/profiles.dsh.yaml --probe
 ```
 
-`--probe` 按 **`environment`** 检查本机能否开这个环境：`host_requires`、Docker daemon（docker kind）、locator **名**。缺项非零退出。skip ≠ 通过。
+`--probe` 按 **`environment`** 检查本机能否开这个环境：`host_requires`、Docker daemon（docker）、locator **名**。缺项非零退出。没跑不要标完成。
 
-## Recognition ≠ 本机能跑 ≠ 镜像已 bake
+## Recognition ≠ 本机能跑 ≠ 镜像层已写入
 
 | 阶段 | 含义 |
 | --- | --- |
 | **install / list** | 本机认得这个插件 |
-| **host-ready** | 声明的 `host_requires` 满足，能在本机构造 |
-| **profiles 绑定** | Job 选择该 executor / environment |
-| **image bake** | docker kind 下 `image_layers` 存在且 bake 成功 |
+| **本机具备条件** | 声明的 `host_requires` 满足，能在本机构造 |
+| **profiles 绑定** | 这份配置选了该 executor / environment |
+| **写入镜像** | docker 下 `image_layers` 存在且已写入 |
 
-`ageval executors.host_ready` 不是「已安装」也不是「镜像已 bake」。已安装但未写入 `extensions` 的插件不会进 Attempt 镜像。
+`ageval executors.host_ready` 不是「已安装」也不是「镜像层已写入」。已安装但未写入 `extensions` 的插件不会进 Attempt 镜像。
 
 ## 与 ACP 的关系
 
-默认 coding-agent 路径仍是 `executor: acp` + `options.entry`（parent JSON-RPC，要 `attach_stdio`）。`acp-oneshot` 是另一条 coding inlet：环境内一次性 client+server，只要 `exec`。插件是 **可选** 机制；同一 `run.py` 只靠 profiles 切换。miniswe 是 host-loop：LLM 留在 parent，bash 只经 `host.exec`；缺 `exec` 在 lock 失败。
+默认 coding-agent 路径仍是 `executor: acp` + `options.entry`（parent JSON-RPC，要 `attach_stdio`）。`acp-oneshot` 是另一条路径：环境内一次性 client+server，只要 `exec`。插件是可选的；同一 `run.py` 只靠 profiles 切换。miniswe 把模型放在本机，bash 只经 `host.exec`；缺 `exec` 则 lock 失败。
 
-环境内 `evaluator.py` 与层 C 轨迹写入是独占槽 `evaluation_runtime` / `trajectory_seal`（引擎 default 赢，没有 job 字段糖）。PASS 仍只经引擎 bind。
+环境内 `evaluator.py` 与轨迹写入默认走 `evaluation_runtime` / `trajectory_seal`（没有单独的配置字段）。PASS 仍只经引擎 bind。
 
 机制契约见仓库 `docs/design/11`。本页不改变证据等级。

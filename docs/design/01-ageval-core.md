@@ -2,19 +2,19 @@
 
 结构地图见 [ARCHITECTURE.md](../../ARCHITECTURE.md)。产品故事与命名见 [00](00-overview-and-product.md)。
 
-Core 拥有：配置锁定、Attempt 身份、环境 Protocol、硬顶、evaluate 绑定、evidence 布局。不拥有题业务、厂商 SDK、PASS 算法。
+Core 拥有：配置锁定、Attempt 身份、环境 Protocol、limits、evaluate 绑定、evidence 布局。不拥有题业务、厂商 SDK、PASS 算法。
 
 ## 五组（映射到当前模块）
 
 | 组 | 模块 | 职责 |
 | --- | --- | --- |
 | Config | `src/ageval/config/` | `load_and_lock`、digest、profiles、能力校验 |
-| Lifecycle | `src/ageval/attempt/` + `runtime/identity.py` | Run/Trial/Attempt 身份；五相位顺序 |
+| Lifecycle | `src/ageval/attempt/` + `runtime/identity.py` | Run/Trial/Attempt 身份；五个阶段顺序 |
 | Box | `environments/protocol.py` + `plugins/contrib/{local,docker,e2b,daytona,ssh}` | 物理隔离与运输 |
 | Capability | `capabilities/` + lock `requires` | 已授权操作面；缺 cap 则 lock 失败 |
 | Evaluation | `evaluation/` | barrier、parent `evaluator.py`、`bind_evaluation` |
 
-另：`evidence/` 是布局与轨迹层 C 的唯一主人；`plugins/` 是槽表，不是第六组 Core。
+另：`evidence/` 是布局与轨迹轨迹文件 的唯一主人；`plugins/` 是槽表，不是第六组 Core。
 
 ## lock
 
@@ -31,9 +31,9 @@ CLI --task / --profiles / --set
   → LockedTaskConfig（冻结）
 ```
 
-未知 format：`invalid_format` 于 `/format`。`api_key` 只留 locator 名。两个插件抢同一独占槽或同一 export id → fail closed。绑定图进 lock digest。未列入 `extensions` 的不进链、不进服务表。
+未知 format：`invalid_format` 于 `/format`。`api_key` 只留 locator 名。两个插件抢同一独占槽或同一 export id → 拒绝。绑定图进 lock digest。未列入 `extensions` 的不进链、不进服务表。
 
-`--profiles` 整份替换 job 文档。`--agent` 与 `--profiles` 互斥。`--model` 是 run 参数（须配合 `--agent`），改已绑角色的 `binding.model`；省略则用包缺省。`--set` 白名单见 [02](02-task-package-and-config.md)。`limits.*` 不可 `--set`。
+`--profiles` 整份替换配置文件。`--agent` 与 `--profiles` 互斥。`--model` 是 run 参数（须配合 `--agent`），改已绑角色的 `binding.model`；省略则用包缺省。`--set` 白名单见 [02](02-task-package-and-config.md)。`limits.*` 不可 `--set`。
 
 ## Attempt 流水线（可见链）
 
@@ -51,7 +51,7 @@ async def run_attempt(ctx) -> None:
         await cleanup.run(ctx)
 ```
 
-environment / run 失败记 `phase_failed` 并跳过未跑的相；**environment 一旦 start，evaluate 无论成败都进 record**，把已有 invoke scratch 封成 `trajectory.jsonl`（Viewer / 上传读层 C）。record 自己再失败且前面已有 `phase_failed` 时记 `record_warning`，不覆盖原相位。取消（`BaseException`）仍传播；cleanup 总是跑。相位失败是结果，不是静默吞掉。
+environment / run 失败记 `phase_failed` 并跳过未跑的相；**environment 一旦 start，evaluate 无论成败都进 record**，把已有 invoke scratch 封成 `trajectory.jsonl`（Viewer / 上传读轨迹文件）。record 自己再失败且前面已有 `phase_failed` 时记 `record_warning`，不覆盖原相位。取消（`BaseException`）仍传播；cleanup 总是跑。相位失败是结果，不是静默吞掉。
 
 `emit(slot)` 走 `lock.extension_bindings` 已排好的链。插件改的是绑定，不是运行时改写 `run_attempt`。
 
@@ -71,7 +71,7 @@ environment / run 失败记 `phase_failed` 并跳过未跑的相；**environment
 
 槽名权威：`src/ageval/plugins/slots.py`。新**时间线**槽仍要改 attempt 宿主；插件不可自造槽名。
 
-Current 独占槽：`environment`、`executor`、`evaluation_runtime`、`trajectory_seal`。后两者的默认赢家是引擎（`plugin_id: default`，`is_default=True`）：parent 子进程跑 `evaluator.py`（与 `run.py` 同一 JSON-RPC 口）与层 C 写入（run 相位 `trajectory.jsonl`；evaluate 相位若有 SDK invoke 则另写 `evaluation/observation.jsonl`）。没有 job 字段糖；替换只能走显式 `extensions` 行（`slot` + `plugin`）。缺默认注册 → lock fail-closed。
+Current 独占槽：`environment`、`executor`、`evaluation_runtime`、`trajectory_seal`。后两者的默认赢家是引擎（`plugin_id: default`，`is_default=True`）：parent 子进程跑 `evaluator.py`（与 `run.py` 同一 JSON-RPC 口）与轨迹文件 写入（run 相位 `trajectory.jsonl`；evaluate 相位若有 SDK invoke 则另写 `evaluation/observation.jsonl`）。没有单独的配置字段；替换只能走显式 `extensions` 行（`slot` + `plugin`）。缺默认注册 → lock 失败，不能进入运行。
 
 PASS 仍只经 `AttemptCtx.bind_evaluation` 进入 Result。`evaluation_runtime` 赢家返回 raw，不得自己写 verdict。`pass` / `identity` / `cleanup` / `evidence` 仍不是服务。
 
@@ -81,7 +81,7 @@ PASS 仍只经 `AttemptCtx.bind_evaluation` 进入 Result。`evaluation_runtime`
 | --- | --- |
 | `environment` | `host.start` + upload seed + 槽（见下） |
 | `run` | 调 task `run.py`；内含 agent open/invoke/close **子槽**。结束时停 solver writer，**保持** Agent Service |
-| `evaluate` | 选打分 Host（缺省 = run 环境；job `evaluate_host.isolated` 则另起同 kind 实例：一份配方 = 一只；`evaluation.environments` = 按名懒启动多只）、materialize gold **只进打分 Host**、调 `evaluation_runtime` 赢家（可选 SDK `Agent.session` / `scoring.exec`）、`bind_evaluation` |
+| `evaluate` | 选打分 Host（缺省 = run 环境；job `evaluate_host.isolated` 则另起同 kind 实例：一份配方 = 一只；`evaluation.environments` = 按名懒启动多只）、放入环境 gold **只进打分 Host**、调 `evaluation_runtime` 赢家（可选 SDK `Agent.session` / `scoring.exec`）、`bind_evaluation` |
 | `record` | collect/enrich → `trajectory_seal` 写 run 相位 `trajectory.jsonl`；evaluate 相位 invoke 另封 `evaluation/observation.jsonl`（省略 user） |
 | `cleanup` | `host.stop`；isolated 时停 **每一只** 已启动的打分 Host 再停 Agent Host。实现可加报告，不能选择跳过 |
 
@@ -140,7 +140,7 @@ async def run(ctx) -> None:
 | --- | --- |
 | run | `before_run` / `after_run`；`before/after_agent_open\|invoke\|close`；`normalize_agent_result` |
 | evaluate | `before_evaluate` / `after_evaluate`（可注 metrics，**不能改 PASS**）。**upload gold 是引擎代码**，不是 `evaluation_runtime` 的方法。独占槽 `evaluation_runtime` 默认 parent 跑 `evaluator.py` |
-| record | `trajectory_collect` / `trajectory_enrich`（fail-open）；独占槽 `trajectory_seal` 写 run 相位层 C（fail-closed：丢文件即相位失败）；evaluate 相位 invoke 封到 `evaluation/observation.jsonl`（有才写；省略 user）；`summary_enrich`（fail-open，seal 成功后一次，写 Attempt `summary.extra`） |
+| record | `trajectory_collect` / `trajectory_enrich`（失败不挡后续）；独占槽 `trajectory_seal` 写 run 相位轨迹文件（丢文件即阶段失败）；evaluate 相位 invoke 封到 `evaluation/observation.jsonl`（有才写；省略 user）；`summary_enrich`（失败不挡后续，seal 成功后一次，写 Attempt `summary.extra`） |
 | cleanup | `cleanup_report`（链）；cleanup phase 本身由 finally 调用 |
 
 `executor` 是 **profile graph 里的独占槽**（run 与 evaluate 的 `Agent.session` 都走它），不是 attempt 上的独立 phase。ACP attach 发生在该 profile 第一次 invoke，不是独立 phase。

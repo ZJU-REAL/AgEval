@@ -57,9 +57,9 @@ ageval = "ageval.cli.main:app"
 ae = "ageval.cli.main:app"
 
 [project.urls]
-Homepage = "https://github.com/ZJU-REAL/AgEval"
-Repository = "https://github.com/ZJU-REAL/AgEval"
-Issues = "https://github.com/ZJU-REAL/AgEval/issues"
+Homepage = "https://github.com/ZJU-REAL/ageval"
+Repository = "https://github.com/ZJU-REAL/ageval"
+Issues = "https://github.com/ZJU-REAL/ageval/issues"
 
 [build-system]
 requires = ["hatchling>=1.26"]

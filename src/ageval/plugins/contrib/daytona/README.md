@@ -25,7 +25,7 @@ Job knobs are `environment_options` (not `extensions[].options`).
 | `environment_options.snapshot_name` | `ageval-attempt` | Name used when this plugin creates a snapshot from a recipe. |
 | `environment_options.image` | unset | Public OCI tag/digest. `latest` / `lts` / `stable` are rejected. Alias: `docker_image`. With no `snapshot`, this is snapshot-from-OCI; otherwise the task `environment/Dockerfile` is used. |
 | `environment_options.timeout_seconds` | `900` | Sandbox lifetime (Daytona `auto_stop_interval`, minutes rounded up). |
-| `DAYTONA_API_KEY` | *(required at preflight)* | Host env. Alias: `daytona_api_key`. Missing extra or key: lock/run skip or fail-closed. |
+| `DAYTONA_API_KEY` | *(required at preflight)* | Host env. Alias: `daytona_api_key`. Missing extra or key: lock/run skip, or the probe fails and the run does not start. |
 
 ## Bind
 
@@ -39,8 +39,8 @@ This host needs:
 - `DAYTONA_API_KEY` (or the scoped locator alias)
 
 Floating tags such as `latest` / `lts` / `stable` are rejected. Missing
-extra or key: lock/run **skip or fail-closed**. A Hub card is not
+extra or key: lock/run **skip, or the probe fails and the run does not start**. A Hub card is not
 evidence that this machine can run Daytona.
 
-Not a Hub install. `ageval plugin install daytona` fail-closes: the id is
+Not a Hub install. `ageval plugin install daytona` is rejected: the id is
 reserved.

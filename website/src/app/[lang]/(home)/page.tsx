@@ -338,7 +338,7 @@ export default async function HomePage({ params }: { params: Promise<HomeParams>
                   {"\n"}
                   {"    "}EXCLUSIVE = <span className="cs">&quot;exclusive&quot;</span>
                   {"  "}
-                  <span className="cc"># 一个赢家</span>
+                  <span className="cc"># one implementation</span>
                   {"\n\n"}
                   ENVIRONMENT: Final = <span className="cs">&quot;environment&quot;</span>
                   {"\n"}

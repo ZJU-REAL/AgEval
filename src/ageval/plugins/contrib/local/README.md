@@ -33,5 +33,5 @@ environment: local
 No extra Python package. The process must be able to write the work root.
 This is a production kind, not a mock box.
 
-Not a Hub install. `ageval plugin install local` fail-closes: the id is
+Not a Hub install. `ageval plugin install local` is rejected: the id is
 reserved.

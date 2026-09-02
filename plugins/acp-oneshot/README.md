@@ -1,4 +1,4 @@
-# acp-oneshot — in-box ACP client+server over `exec`
+# acp-oneshot — in-environment ACP client+server over `exec`
 
 External `ageval.plugin/1`. **Not** first-party `executor: acp`.
 

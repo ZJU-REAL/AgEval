@@ -24,7 +24,7 @@ Job knobs are `environment_options` (not `extensions[].options`).
 | `environment_options.template_id` | unset | Exact E2B dashboard alias; skip recipe hash / Dockerfile. |
 | `environment_options.template` | `ageval-attempt` | Name prefix when this plugin hashes a recipe into `name__digest`. |
 | `environment_options.timeout_seconds` | `900` | Sandbox lifetime passed to `Sandbox.create`. |
-| `E2B_API_KEY` | *(required at preflight)* | Host env. Alias: `e2b_api_key`. Missing extra or key: lock/run skip or fail-closed. |
+| `E2B_API_KEY` | *(required at preflight)* | Host env. Alias: `e2b_api_key`. Missing extra or key: lock/run skip, or the probe fails and the run does not start. |
 
 ## Bind
 
@@ -37,8 +37,8 @@ This host needs:
 - `uv tool install 'ageval-cli[e2b]'` (repo checkout: `uv sync --extra e2b`)
 - an E2B API key in the scoped credential locator
 
-Missing extra or key: lock/run **skip or fail-closed**. Do not treat a
+Missing extra or key: lock/run **skip, or the probe fails and the run does not start**. Do not treat a
 Hub catalog card as “this machine can run e2b”.
 
-Not a Hub install. `ageval plugin install e2b` fail-closes: the id is
+Not a Hub install. `ageval plugin install e2b` is rejected: the id is
 reserved.

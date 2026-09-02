@@ -1,14 +1,11 @@
 ---
-title: Environment kinds
-description: local / docker / e2b / ssh / daytona on one ACP chain.
+title: Environments
+description: Host, Docker, e2b, ssh, daytona on one ACP chain.
 ---
 
-The environment is the exclusive job slot `environment`. The winner is exported under that
-name. ACP **injects** the name plus `attach_stdio` — never `plugin_id: docker`.
-Changing kind does not change ACP. `exec` is a one-shot method on the same service,
-not a second environment.
+Set the environment in `profiles.yaml` with `environment:`. ACP only needs `attach_stdio`. Do not write `plugin_id: docker`. Changing the environment does not change ACP. `exec` is a one-shot method on the same service, not a second environment.
 
-| kind | Opens | To actually run |
+| Environment | Opens | To actually run |
 | --- | --- | --- |
 | `local` | Host directory | Default `examples/datasets/tau3-airline-5` |
 | `docker` | Local container | Default `examples/datasets/minimal-demo` `profiles.yaml` |
@@ -27,6 +24,6 @@ Missing extras or keys: `--probe` must report `ready: false` and `started: false
 
 **ssh A does not support live ACP stdio.** dsh / nooa on that surface use `host.exec`, not a long ACP session.
 
-`environment/setup.sh` is the last environment slot, not its own phase. Gold (`evaluation/`) enters the scoring host at evaluate. `profiles.yaml` may set `evaluate_host.isolated: true` (Current: `docker`) to start a second scoring box so gold never enters the Agent box; omit it to stay on the run box.
+`environment/setup.sh` is the last step of the environment phase, not its own phase. Gold (`evaluation/`) enters the scoring host at evaluate. `profiles.yaml` may set `evaluate_host.isolated: true` (Current: `docker`) to start a second scoring environment so gold never enters the Agent environment; omit it to stay on the run environment.
 
-Several scoring images (different installed closures, sequential stages) are declared on the member as `evaluation.environments`: each name has a `dockerfile` and/or `docker_image` under `environment/evaluate/<name>/`, never under the gold tree. Runtime starts a host on first `scoring.exec` / `session(environment=)`; unused names are not built. Setting the map requires isolated + docker and ignores `environment/evaluate.Dockerfile`. ACP attaches to the named host; HTTP judges ignore `environment=`. `--agent` and `--profiles` are mutually exclusive. `--model` requires `--agent`.
+Several scoring images (different installed closures, sequential stages) are declared on the member as `evaluation.environments`: each name has a `dockerfile` and/or `docker_image` under `environment/evaluate/<name>/`, never under the gold tree. Runtime starts a host on first `scoring.exec` / `session(environment=)`; unused names are not built. Setting the map requires `evaluate_host.isolated` + docker and ignores `environment/evaluate.Dockerfile`. ACP attaches to the named host; HTTP judges ignore `environment=`. `--agent` and `--profiles` are mutually exclusive. `--model` requires `--agent`.

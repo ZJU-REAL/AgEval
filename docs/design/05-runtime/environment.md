@@ -4,7 +4,7 @@
 
 环境内路径合同：`/attempt/workspace`、`/attempt/home`、`/attempt/artifacts`、`/attempt/evaluation`。
 
-job 文档：
+配置文件：
 
 ```yaml
 # profiles.yaml — 选独占槽 environment 的赢家
@@ -36,14 +36,14 @@ environment: e2b    # local | docker | e2b | ssh | daytona
 
 `environment/Dockerfile`（或 `docker_image`）对 docker 与 e2b 是同一配方。docker 本机编；e2b `Template.from_dockerfile` 再 `Sandbox.create`。daytona 把同一配方编成 **snapshot**（`Image.from_dockerfile` 或公开 OCI tag），再 `Sandbox.create` from snapshot。OCI tag 须带具体 tag/digest；Daytona 拒绝 `latest` / `lts` / `stable`。
 
-官方基座由 `docker/attempt/` 构建。题包 Dockerfile 用 `FROM ageval-attempt:base`。invoke 时禁止 `npm i` / 浮动 `npx`。Python ACP SDK 只在 parent，不进 Attempt 镜像。
+官方 Attempt 镜像由 `docker/attempt/` 构建。题包 Dockerfile 用 `FROM ageval-attempt:base`。invoke 时禁止 `npm i` / 浮动 `npx`。Python ACP SDK 只在 parent，不进 Attempt 镜像。
 
 docker `environment_options`：
 
 - `image` / `docker_image` — 已有 tag，跳过本机构建
 - `platform` — 缺省跟本机
 - `network` — 缺省 `bridge`。这是 **原始 docker 网络名**。`none` 也是原始名：它会一并挡住环境内进程访问模型 API，**不是**下面的 LLM egress 模式。
-- `egress` — 省略 = 今日 `bridge`。`egress: llm`（Current：仅 docker contrib）：Agent 环境出站 HTTP(S) 只能到达已绑定 profile 的 `base_url` 主机（parent 侧代理 + 环境内 `HTTPS_PROXY` / `HTTP_PROXY`，或等价物）。ACP stdio 仍是 parent `attach_stdio`，不走这条代理。不能兑现的 kind 写了该键 → lock 失败。依赖仍 bake 在题包 `environment/Dockerfile`；官方基座 invoke 时禁止 `npm i` / 浮动 `npx`。
+- `egress` — 省略 = 今日 `bridge`。`egress: llm`（Current：仅 docker contrib）：Agent 环境出站 HTTP(S) 只能到达已绑定 profile 的 `base_url` 主机（parent 侧代理 + 环境内 `HTTPS_PROXY` / `HTTP_PROXY`，或等价物）。ACP stdio 仍是 parent `attach_stdio`，不走这条代理。不能兑现的 kind 写了该键 → lock 失败。依赖仍 bake 在题包 `environment/Dockerfile`；官方 Attempt 镜像 invoke 时禁止 `npm i` / 浮动 `npx`。
 - `user` — 环境内身份，`docker run --user` 与 `exec`/`attach_stdio` 同一值。缺省 `10001:10001`。`root` / `0` / `0:0` 开 root（Harbor 式终端题要 `apt` 或写 `/usr/local` 时用）。其它值必须是 `uid` 或 `uid:gid`。未知字符串一次失败。默认仍带 `no-new-privileges`。
 
 `egress` 约束的是 **Agent 环境**。两只盒子两份策略：打分 Host 有自己的
@@ -140,8 +140,8 @@ contrib/local    → 本机目录
 
 | 项 | Current | Target（未宣称完成） |
 | --- | --- | --- |
-| local / docker | 公开真 `ageval run`（core ACP、`minimal-demo` 点名题） | — |
-| e2b / ssh / daytona | 代码在；缺钥 `--probe` fail-closed | 有凭证时同一题公开 `ageval run`（ssh 含 A+B） |
+| local / docker | 公开真 `ageval run`（core ACP、`minimal-demo` 明确列出的示例） | — |
+| e2b / ssh / daytona | 代码在；缺钥则 `--probe` 过不了，不能进入运行 | 有凭证时同一题公开 `ageval run`（ssh 含 A+B） |
 | Protocol seam | docker 已是真实赢家 | 第二个云赢家（e2b **或** ssh）真跑后 seam 才算成立 |
 
-默认 CI **无**真 E2B/SSH/Daytona。skip ≠ 通过。不得从 docker 一次 PASS 推导 `isolated`。
+默认 CI **无**真 E2B/SSH/Daytona。没跑不要标完成。不得从 docker 一次 PASS 推导 `isolated`。

@@ -69,8 +69,8 @@ uv run ageval run examples/datasets/minimal-demo --profiles examples/datasets/mi
 
 Package agents under each task’s `lib/agents.py` are `nooa.Agent` subclasses
 (generation methods). Invoke runs the in-environment worker through `host.exec` and
-projects locators into that exec env. Docker bake installs `nooa` so the box
-Python can import it.
+projects locators into that exec env. Docker bake installs `nooa` so the
+environment Python can import it.
 
 ### External dsh plugin (optional profiles)
 
@@ -135,7 +135,7 @@ Regenerate the in-repo cut:
 ## `agents/` (`ageval.agent/1`)
 
 Catalog Agent **harness** packages (`binding.model` is the default, not identity).
-Mechanism cards (`pi`, `opencode`, …) ship with ageval. These trees are custom
+Built-in Agent packages (`pi`, `opencode`, …) ship with ageval. These trees are custom
 overlay examples: install, then bind with `--agent` (mutually exclusive with
 `--profiles`). Optional `--model` overrides this run:
 
