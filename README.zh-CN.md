@@ -14,10 +14,12 @@
   <a href="https://github.com/ZJU-REAL/ageval/commits"><img alt="last commit" src="https://shieldcn.dev/github/last-commit/ZJU-REAL/ageval.svg?variant=secondary&size=sm&logo=ri%3AGoGitCommit&logoColor=A78BFA"></a>
 </p>
 
-**ageval** 在统一运行基座上用插件切换待评测 Agent；装上 CLI 和 skill，Agent 能设计、转化 benchmark 并自动跑评测；在 Hub 上分享或复用 dataset、插件和 Agent 配置，并上传评测结果。
+如何避免为 Agent 运行时、模型与环境的海量组合重复编写脚手架？
+
+**ageval** 在统一运行基座上用插件切换待评测 Agent；装上 CLI 和 skill，Agent 能设计、转化 benchmark 并自动跑评测；还能将评测结果上传到开放平台，分享或复用公开的 dataset、插件和 Agent 配置。
 
 <p align="center">
-  <img src="docs/assets/why-ageval.jpg" alt="N 种环境 × M 种 Agent 运行时：逐个组合需要 N·M 份定制脚手架；ageval 用插件组合环境和 Agent，一份 dataset 到处跑。" width="800">
+  <img src="docs/assets/why-ageval.svg" alt="N 种环境 × M 种 Agent 运行时：逐个组合需要 N·M 份定制脚手架；ageval 用插件组合环境和 Agent，一份 dataset 到处跑。" width="100%">
 </p>
 
 ## 快速开始
@@ -86,64 +88,70 @@ skill 会告诉你的 coding agent 怎么使用 CLI、怎么写 dataset；之后
 
 ## 如何运行
 
-```text
-            你 ── lock / run ──►  ┌─────────────────┐
-                                  │    一次运行     │  lock dataset · digest
-                                  │   ageval Core   │  environment → run
-                                  │                 │  evaluate → record
-                                  │                 │  finally cleanup
-                                  └────────┬────────┘
-                                           │ 打开一个环境
-              ┌────────────────────────────┼────────────────────────────┐
-              ▼                            ▼                            ▼
-        ┌───────────┐                ┌───────────┐                ┌───────────┐
-        │   local   │                │  docker   │                │ e2b/ssh/daytona │
-        └─────┬─────┘                └─────┬─────┘                └─────┬─────┘
-              └──────── Protocol: upload · exec · attach_stdio ─────────┘
-                                           │
-                                           ▼
-                                  ┌─────────────────┐
-                                  │     run.py      │  任务循环 · 调用 Agent
-                                  │  ACP / plugin   │  插件接入
-                                  └────────┬────────┘
-                                           ▼
-                                  ┌─────────────────┐
-                                  │  evaluator.py   │  PASS 的唯一来源
-                                  └─────────────────┘
+### 整体链路
+
+1. **`ageval lock` 把 dataset、环境和 Agent 定成一份可复现的组合。** 绑定结果和 digest 写入 `lock.json`；密钥只当 locator，不以明文写入。
+2. **`ageval run` 打开一个环境，并把 task 文件传进去。** 环境可以是本机、Docker，或云沙箱 / 远端；缺 Docker、缺凭证这类问题会在正式运行前就报错提示。
+3. **`run.py` 在环境里跑任务循环。** 循环逻辑、本地工具和对 Agent 的调用都写在这份文件里；换环境或换 Agent 不用改它。
+4. **评分独立进行：只有 `evaluator.py` 能给出 PASS。** 任务结束才 upload gold，由它判定 PASS / FAIL / ERROR；无论结果如何，cleanup 都会执行。
+
+```mermaid
+%%{init: {"theme":"base","themeVariables":{"actorBkg":"#eaf1ff","actorBorder":"#2f6bff","actorTextColor":"#10233f","actorLineColor":"rgba(45,49,66,0.2)","signalColor":"#4f5d75","signalTextColor":"#2d3142","labelBoxBkgColor":"#eaf1ff","labelBoxBorderColor":"#2f6bff","labelTextColor":"#10233f","noteBkgColor":"#f1f5f9","noteBorderColor":"#64748b","noteTextColor":"#1e293b"}}}%%
+sequenceDiagram
+    autonumber
+    actor u as 你
+    participant r as 运行入口
+    participant e as 环境<br/>local / docker / e2b…
+    participant t as run.py + Agent
+    participant v as evaluator.py
+
+    u->>r: ageval lock<br/>dataset + profiles → lock.json
+    Note over r: 检查不过就不能进入运行
+    u->>r: ageval run
+    r->>r: 签发 run 身份
+    r->>e: 打开一个环境
+    r->>e: upload task 文件
+    e->>t: 执行 run.py
+    loop 任务循环
+        t->>t: ACP invoke · attach_stdio
+    end
+    t-->>r: trajectory.jsonl
+    Note over r,v: 执行结束 → upload gold 后进入评测
+    r->>v: 运行 evaluator.py
+    v-->>r: PASS / FAIL / ERROR
+    r->>r: record · finally cleanup<br/>lock.json · result.json · trajectory.jsonl
 ```
 
-1. **lock。** 把 dataset、环境和 Agent 定成一份组合。密钥只当 locator，不以明文写入 lock。
-2. **打开环境。** 本机、Docker，或云沙箱 / 远端。缺能力或缺凭证时，在打开之前失败。
-3. **跑 `run.py`。** 循环、工具与 Agent 调用写在这里。换环境或 Agent 不用改这份文件。
-4. **独立评分。** gold 在这个阶段进入环境，由 `evaluator.py` 给出 PASS / FAIL / ERROR。cleanup 始终执行。
+### 基座与插件
 
-从配置文件到结果查看的完整链路：
+ageval 的运行时基座是一条固定流水线：lock → environment → run → evaluate → record。基座上开放了两类主要接入点：environment 决定环境怎么开，executor 决定 Agent 怎么被调用，每次运行各绑定一个实现；另有 `after_environment_ready` 这类钩子穿插在阶段之间。
 
-```text
-  ageval.yaml + task.yaml + profiles.yaml
-                 │
-                 ▼
-           ageval lock                 digest · extension_bindings
-                 │
-                 ▼
-           ageval run  ── 一次运行 ── environment → run → evaluate → record
-                 │                      finally cleanup
-                 ▼
-        .ageval/runs/<id>/             lock.json · result.json · trajectory.jsonl
-                 │
-      ┌──────────┼──────────┐
-      ▼                     ▼
- ageval view          Registry / Hub
- 本机 Jobs            publish · upload-suite · Leaderboard
+插件机制负责往这些接入点里装实现。插件用一份 `ageval.plugin/1` 声明自己：export 写明「我是什么」，选中的插件以服务名登记进服务表；inject 写明「我需要什么」，按服务名列出依赖和 capabilities。绑定在 lock 期完成，capabilities 或凭证对不上直接失败。比如 dsh 插件声明自己是 executor、并 inject `environment` 服务，docker 插件则 export 出 `environment` 服务，两边在 lock 期对上：
+
+```yaml
+# plugins/dsh/plugin.yaml —— Agent 插件
+plugin_id: dsh
+slots:
+  exclusive:
+    - id: executor              # 我是什么：一个 Agent 运行时
+inject:
+  - service: environment        # 我需要什么：环境服务
+    capabilities: [exec, upload]
+
+# src/ageval/plugins/contrib/docker/plugin.yaml —— 环境插件
+plugin_id: docker
+slots:
+  exclusive:
+    - id: environment           # 我是什么：登记为 environment 服务
 ```
 
-- lock 是规范入口：未知 format 一次失败。插件改的是绑定，不重排 environment → run → evaluate → record 这几个阶段。
-- 一次运行管身份、时限、cleanup 与出分。
-- 本机 Viewer 读文件；Hub 连 Registry。
+环境插件（docker / e2b / daytona 等）和 Agent 插件（ACP 默认，nooa / dsh / miniswe 接入）都走这条机制；想接自己的环境或 Agent，写一个插件就行，不用改 ageval 源码。
+
+<p align="center">
+  <img src="docs/assets/core-base.zh-CN.png" alt="ageval Core 基座构成：外部输入（用户 / dataset / profiles）经 lock、environment、run、evaluate、record 到 evidence；环境插件与 Agent 插件在 lock 期绑定；limits 与 cleanup 横贯全程" width="100%">
+</p>
 
 ## 目录结构
-
-由 [`ARCHITECTURE.md`](ARCHITECTURE.md) 简化。`.ageval/`、`.venv/` 等生成目录不算源码。
 
 ```text
 ageval/
