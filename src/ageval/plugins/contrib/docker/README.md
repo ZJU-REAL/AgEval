@@ -28,6 +28,7 @@ Job knobs are `environment_options` (not `extensions[].options`).
 | `environment_options.platform` | this host | `docker` platform (e.g. `linux/arm64`). |
 | `environment_options.network` | `bridge` | Attempt container network. A task compose file overrides this to `{project}_default`. |
 | `environment_options.user` | `10001:10001` | `docker run --user` and the same identity for `exec` / `attach_stdio`. `root` / `0` / `0:0` → root. Other values must be `uid` or `uid:gid`. Unknown strings are rejected. Default still has `no-new-privileges`. |
+| `AGEVAL_PIP_INDEX` (host env) | unset | When set, plugin bake layers pass it as `PIP_INDEX_URL` so image-build pip uses that index. Unset / blank = pip default. Same knob as the official Attempt image build. |
 
 ## Bind
 

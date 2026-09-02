@@ -8,6 +8,7 @@ Optional process / host-env knobs (empty = official Debian / PyPI):
 
   AGEVAL_APT_MIRROR   e.g. http://mirrors.aliyun.com/debian
   AGEVAL_PIP_INDEX    e.g. https://pypi.tuna.tsinghua.edu.cn/simple
+                      (plugin bake layers read the same knob)
 
 ``ageval run`` already loads Database / cwd / repo ``.env`` before prepare.
 This script loads the same host env files when the package is importable.
