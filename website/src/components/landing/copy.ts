@@ -2,7 +2,7 @@ import type { SiteLocale } from "@/lib/i18n";
 
 export const landingCopy = {
   "zh-CN": {
-    metaTitle: "ageval · 一份 dataset，到处都能跑",
+    metaTitle: "ageval · 配置一次 Agent Eval，任意切换运行",
     metaDescription:
       "一键切换待评测 Agent；装上 CLI 和 skill，让 Agent 学会自动评测；在 ageval Hub 上分享或复用 dataset、插件和 Agent 配置。",
     skip: "跳到正文",
@@ -19,8 +19,10 @@ export const landingCopy = {
       lang: "EN",
     },
     hero: {
-      titleA: "Agent 评测写一次，",
-      titleB: "到处都能跑，比如",
+      titleA: "配置一次 Agent Eval，",
+      accentA: "一次",
+      titleB: "任意切换运行",
+      accentB: "任意",
       note: "装插件换待评测 Agent。装上 CLI 和 skill，Agent 能自己跑评测。",
       primary: "打开仓库",
       hub: "前往 Hub",
@@ -190,7 +192,7 @@ ageval run <dataset> --task <task-id> \\
     },
   },
   en: {
-    metaTitle: "ageval · Write the eval once. Run it anywhere.",
+    metaTitle: "ageval · Configure Agent Eval Once. Run It Anywhere.",
     metaDescription:
       "Switch the agent under test with plugins. Teach the Agent automated evaluation with the CLI and skills. Share datasets, plugins, and agent configs on ageval Hub.",
     skip: "Skip to content",
@@ -207,8 +209,10 @@ ageval run <dataset> --task <task-id> \\
       lang: "中文",
     },
     hero: {
-      titleA: "Write your agent eval once.",
-      titleB: "Run it anywhere like on",
+      titleA: "Configure Agent Eval Once,",
+      accentA: "Once",
+      titleB: "Run It Anywhere.",
+      accentB: "Anywhere",
       note: "Swap the agent under test with plugins. Teach the Agent to run evals with the CLI and skills.",
       primary: "Open repo",
       hub: "Go to Hub",

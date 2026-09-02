@@ -2,13 +2,16 @@ import type { SVGProps } from "react";
 import { DSH_WHALE_PATH } from "./dsh-whale";
 
 /**
- * Harness marks for the hero rotate line.
+ * Marks for the hero rotate line: coding-agent harnesses plus
+ * environments (the two things a plugin can swap).
  *
- * `src` entries render official brand SVGs shared with the Hub
- * brand-marks catalog (`apps/hub/src/lib/brand-marks/assets/`, same
- * files and tone rules: ink marks sit on a white plate, color marks
- * render bare). DSH has no catalog asset yet, so it inlines the landing
- * whale path as currentColor.
+ * `src` entries render brand SVGs from the shared set with the Hub
+ * brand-marks catalog (`apps/hub/src/lib/brand-marks/assets/`), all
+ * pinned to their bare display fill (white or brand color) because
+ * `<img>` cannot inherit page color. DSH has no catalog asset yet, so
+ * it inlines the landing whale path as currentColor. e2b is the e
+ * glyph from the official wordmark SVG; Daytona is the official
+ * favicon mark.
  */
 
 export type MarkProps = SVGProps<SVGSVGElement>;
@@ -17,7 +20,6 @@ type CatalogMark = {
   id: string;
   name: string;
   src: string;
-  tone: "color" | "ink";
 };
 
 type InlineMark = {
@@ -37,11 +39,18 @@ export function DshMark(props: MarkProps) {
 }
 
 export const HARNESSES: readonly Harness[] = [
-  { id: "claude-code", name: "Claude Code", src: "/images/harness/claude-code.svg", tone: "color" },
-  { id: "codex", name: "Codex", src: "/images/harness/codex.svg", tone: "color" },
-  { id: "pi", name: "Pi", src: "/images/harness/pi.svg", tone: "ink" },
-  { id: "opencode", name: "OpenCode", src: "/images/harness/opencode.svg", tone: "ink" },
+  { id: "claude-code", name: "Claude Code", src: "/images/harness/claude-code.svg" },
+  { id: "codex", name: "Codex", src: "/images/harness/codex.svg" },
+  { id: "pi", name: "Pi", src: "/images/harness/pi.svg" },
+  { id: "opencode", name: "OpenCode", src: "/images/harness/opencode.svg" },
   { id: "dsh", name: "DSH", Mark: DshMark },
-  { id: "nooa", name: "NOOA", src: "/images/harness/nooa.svg", tone: "color" },
-  { id: "miniswe", name: "mini-SWE-agent", src: "/images/harness/miniswe.svg", tone: "color" },
+  { id: "nooa", name: "NOOA", src: "/images/harness/nooa.svg" },
+  { id: "miniswe", name: "mini-SWE-agent", src: "/images/harness/miniswe.svg" },
+];
+
+/** Environments a plugin can swap; same marquee row as the harnesses. */
+export const ENVIRONMENTS: readonly Harness[] = [
+  { id: "e2b", name: "E2B", src: "/images/harness/e2b.svg" },
+  { id: "daytona", name: "Daytona", src: "/images/harness/daytona.svg" },
+  { id: "docker", name: "Docker", src: "/images/harness/docker.svg" },
 ];

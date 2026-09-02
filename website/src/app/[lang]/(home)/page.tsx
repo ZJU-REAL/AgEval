@@ -60,7 +60,8 @@ function HeroCtas({
 }
 
 
-function HeroTitleB({ line, accent }: { line: string; accent: string }) {
+/** Render one hero title line, highlighting its first `accent` occurrence. */
+function AccentLine({ line, accent }: { line: string; accent: string }) {
   const i = line.indexOf(accent);
   if (i < 0) return line;
   return (
@@ -109,9 +110,11 @@ export default async function HomePage({ params }: { params: Promise<HomeParams>
           <div className="wrap-wide hero-stack">
             <div className="hero-center">
               <h1 className="hero-title">
-                <span className="hero-title-a">{text.hero.titleA}</span>
+                <span className="hero-title-a">
+                  <AccentLine line={text.hero.titleA} accent={text.hero.accentA} />
+                </span>
                 <span className="hero-title-b">
-                  <HeroTitleB line={text.hero.titleB} accent={lang === "en" ? "anywhere" : "到处"} />
+                  <AccentLine line={text.hero.titleB} accent={text.hero.accentB} />
                 </span>
                 <HeroRotate />
               </h1>

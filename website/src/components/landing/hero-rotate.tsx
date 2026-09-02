@@ -1,18 +1,12 @@
-"use client";
+import { ENVIRONMENTS, HARNESSES, type Harness } from "./harness-marks";
 
-import { useEffect, useState } from "react";
-import { HARNESSES, type Harness } from "./harness-marks";
+const ITEMS: readonly Harness[] = [...HARNESSES, ...ENVIRONMENTS];
 
-const INTERVAL_MS = 2600;
-const CROSSFADE_MS = 400;
-
-function HarnessLine({ harness }: { harness: Harness }) {
+function HarnessItem({ harness }: { harness: Harness }) {
   return (
-    <>
-      {"src" in harness ? (
-        <span
-          className={harness.tone === "ink" ? "hero-rotate-plate" : "hero-rotate-icon"}
-        >
+    <span className="hero-rotate-item">
+      <span className="hero-rotate-icon">
+        {"src" in harness ? (
           <img
             src={harness.src}
             alt=""
@@ -21,72 +15,31 @@ function HarnessLine({ harness }: { harness: Harness }) {
             draggable={false}
             className="hero-rotate-mark"
           />
-        </span>
-      ) : (
-        <span className="hero-rotate-icon">
+        ) : (
           <harness.Mark className="hero-rotate-mark" />
-        </span>
-      )}
+        )}
+      </span>
       <span className="hero-rotate-name">{harness.name}</span>
-    </>
+    </span>
   );
 }
 
-type RotateState = {
-  index: number;
-  prev: number | null;
-  /** Bumps on every swap so both layers remount and their CSS animations restart. */
-  tick: number;
-};
-
 /**
- * True crossfade: on every swap both layers mount as fresh nodes — the
- * outgoing one fades out in place while the incoming one fades in on a
- * stacked overlay, so the two overlap with no blank gap. With reduced
- * motion the first entry stays static.
+ * Marquee row of harness marks (icon + name). The set renders twice and
+ * the track translates by exactly one set width, so the loop is
+ * seamless. Pure CSS; reduced motion leaves the row static.
  */
 export function HeroRotate() {
-  const [state, setState] = useState<RotateState>({ index: 0, prev: null, tick: 0 });
-
-  useEffect(() => {
-    if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
-    const timer = window.setInterval(() => {
-      setState(({ index, tick }) => ({
-        index: (index + 1) % HARNESSES.length,
-        prev: index,
-        tick: tick + 1,
-      }));
-    }, INTERVAL_MS);
-    return () => window.clearInterval(timer);
-  }, []);
-
-  useEffect(() => {
-    if (state.prev === null) return;
-    const timer = window.setTimeout(() => {
-      setState(({ index, tick }) => ({ index, prev: null, tick }));
-    }, CROSSFADE_MS);
-    return () => window.clearTimeout(timer);
-  }, [state.prev]);
-
-  const active = HARNESSES[state.index];
-  const outgoing = state.prev === null ? null : HARNESSES[state.prev];
-
   return (
-    <span className="hero-rotate">
-      {outgoing && (
-        <span
-          className="hero-rotate-layer is-leaving"
-          key={`out-${state.tick}`}
-          aria-hidden="true"
-        >
-          <HarnessLine harness={outgoing} />
-        </span>
-      )}
-      <span
-        className="hero-rotate-layer is-active"
-        key={`in-${active.id}-${state.tick}`}
-      >
-        <HarnessLine harness={active} />
+    <span className="hero-rotate" aria-hidden="true">
+      <span className="hero-rotate-track">
+        {[0, 1].map((set) => (
+          <span className="hero-rotate-set" key={set}>
+            {ITEMS.map((harness) => (
+              <HarnessItem key={harness.id} harness={harness} />
+            ))}
+          </span>
+        ))}
       </span>
     </span>
   );
