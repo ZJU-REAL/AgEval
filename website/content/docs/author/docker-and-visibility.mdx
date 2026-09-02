@@ -13,7 +13,7 @@ format: ageval.profiles/1
 environment: docker    # 或 local / e2b / ssh / daytona
 ```
 
-| kind | 适合 |
+| 环境 | 适合 |
 | --- | --- |
 | `local` | 开发、多数 example |
 | `docker` | 需要容器边界 |
@@ -26,7 +26,7 @@ environment: docker    # 或 local / e2b / ssh / daytona
 | 目录 | 谁用 |
 | --- | --- |
 | `prompts/`、`data/` 等 | 业务 / 可能进 agent 视野 |
-| `evaluation/` | 只给评测（evaluate 相位才 upload）。**不要**放打分 Dockerfile |
+| `evaluation/` | 只给评测（evaluate 阶段才 upload）。**不要**放打分 Dockerfile |
 | `environment/` | Agent `Dockerfile`、`setup.sh` |
 | `environment/evaluate.Dockerfile` | 单只打分配方（isolated 且未写 `evaluation.environments`） |
 | `environment/evaluate/<name>/` | 按名打分配方；成员 yaml 的 `evaluation.environments` |

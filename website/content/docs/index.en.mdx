@@ -1,12 +1,12 @@
 ---
 title: What is ageval
-description: Treat Harness as a first-class eval axis, locked with the Model and the environment.
+description: Write a dataset once. Swap the environment and the Agent without rewriting run.py.
 icon: BookOpen
 ---
 
-Most agent evaluation still sits at the **model**: same prompts, same tool contract, different weights or APIs. That split is failing. A shippable agent is a Model plus a Harness: the same weights on a different coding-agent runtime, tool policy, or isolation change behavior and cost. Harness has to be a first-class eval axis, locked with the Model and the environment.
+Most agent evaluation still measures the **model**: same prompts, same tool contract, different weights or APIs. A shippable agent is a model plus its runtime. The same weights on a different coding agent, tool policy, or environment behave differently and cost differently. A score has to name which agent runtime and which environment ran it, not only the model.
 
-**ageval** (agent eval) decouples the runtime of a bench run. Environment and Agent combine through plugins, so one `run.py` runs under each binding.
+**ageval** (agent eval) binds environment and Agent through plugins. One `run.py` runs under each binding.
 
 The CLI and packages are `ageval`. The delivery unit is a dataset.
 

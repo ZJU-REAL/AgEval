@@ -52,7 +52,7 @@ agent_profiles:
       - plugin: docker
 ```
 
-role 上可选 `label`。缺省：ACP 用 `options.entry`，其它 kind 用 `executor`。**不要**把 `options.agent` 当展示名。`--agent` 与 `--profiles` 互斥。`--model` 须配合 `--agent`。
+role 上可选 `label`。缺省：ACP 用 `options.entry`，其它路径用 `executor`。**不要**把 `options.agent` 当展示名。`--agent` 与 `--profiles` 互斥。`--model` 须配合 `--agent`。
 
 可选 `overlays` 是该 role 在 Hub 上的发布文件集（路径必须以 `overlays/` 开头）。列出的文件只能含 locator，不能含密钥。
 

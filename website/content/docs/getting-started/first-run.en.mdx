@@ -15,17 +15,17 @@ uv run ageval run  examples/datasets/minimal-demo --task terminal-jsonl-agg \
   --profiles examples/datasets/minimal-demo/profiles.e2b-acp.yaml --probe
 ```
 
-On a TTY, `ageval run` prints a short recap (single task: `logs`; suite: `summary` path). A pipe or `--json` still writes the JSON document. Evidence lives under `.ageval/runs/<id>/`.
+On a TTY, `ageval run` prints a short recap (single task: `logs`; full dataset: `summary` path). A pipe or `--json` still writes the JSON document. Evidence lives under `.ageval/runs/<id>/`.
 
 | Term | Meaning |
 | --- | --- |
 | **dataset** | Root `ageval.yaml` plus task members |
-| **Attempt** | One execution under a locked config |
-| **environment** | Kind: local / docker / e2b / ssh / daytona |
+| **Attempt** | One execution after lock; directory `.ageval/runs/<id>/` |
+| **environment** | Host / Docker / e2b / ssh / daytona |
 
 ```bash
 uv run ageval executors -v
 uv run ageval view examples/datasets/minimal-demo --no-browser
 ```
 
-`--probe` is lock + preflight only. `--profiles` replaces the job document. `--agent` and `--profiles` are mutually exclusive. `--model` requires `--agent`.
+`--probe` is lock + preflight only. `--profiles` replaces the profiles file. `--agent` and `--profiles` are mutually exclusive. `--model` requires `--agent`.

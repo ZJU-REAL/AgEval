@@ -1,6 +1,6 @@
 ---
 title: 首次运行
-description: 锁定配置、执行示例 task，并定位结果目录。
+description: lock 配置、跑示例 task，并找到结果目录。
 ---
 
 CLI 路径参数始终是 **dataset 根**（含 `ageval.yaml` 的目录），不是 `tasks/<id>/`。
@@ -15,17 +15,17 @@ uv run ageval run  examples/datasets/minimal-demo --task terminal-jsonl-agg \
   --profiles examples/datasets/minimal-demo/profiles.e2b-acp.yaml --probe
 ```
 
-`ageval run` 在 TTY 下打印短 recap（单题含 `logs` 路径，整包含 `summary` 路径）。管道或 `--json` 仍输出 JSON 文档。证据在 `.ageval/runs/<id>/`。
+`ageval run` 在 TTY 下打印短 recap（单题含 `logs` 路径，整份 dataset 含 `summary` 路径）。管道或 `--json` 仍输出 JSON 文档。证据在 `.ageval/runs/<id>/`。
 
-| 术语 | 说明 |
+| 词 | 说明 |
 | --- | --- |
 | **dataset** | 根 `ageval.yaml` + 若干 task |
-| **Attempt** | 一次锁定配置下的执行 |
-| **environment** | 环境 kind：local / docker / e2b / ssh / daytona |
+| **一次运行** | 一次 lock 之后的执行；目录 `.ageval/runs/<id>/` |
+| **环境** | 本机 / Docker / e2b / ssh / daytona |
 
 ```bash
 uv run ageval executors -v
 uv run ageval view examples/datasets/minimal-demo --no-browser
 ```
 
-`--probe` 只做 lock + preflight，不 invoke。`--profiles` 整份替换 job 文档。`--agent` 与 `--profiles` 互斥。`--model` 须配合 `--agent`。
+`--probe` 只做 lock + preflight，不 invoke。`--profiles` 整份替换配置文件。`--agent` 与 `--profiles` 互斥。`--model` 须配合 `--agent`。

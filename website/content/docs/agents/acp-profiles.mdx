@@ -33,7 +33,7 @@ agent_profiles:
 
 不要在 yaml 里写 command / version / install——版本钉在安装与镜像构建。
 
-evaluate 相位的 ACP（如 `judge`）在有 `evaluation.environments` 时必须 `Agent.session("judge", environment="<name>")`，attach 打那只打分 Host。run 相位点名、或有名表时省略名字，一次失败。HTTP judge 忽略 `environment=`。详见 [编写 Evaluator](/docs/author/write-evaluator)。
+evaluate 阶段的 ACP（如 `judge`）在有 `evaluation.environments` 时必须 `Agent.session("judge", environment="<name>")`，attach 打那只打分 Host。run 阶段点名、或有名表时省略名字，一次失败。HTTP judge 忽略 `environment=`。详见 [编写 Evaluator](/docs/author/write-evaluator)。
 
 ## 本机就绪
 
