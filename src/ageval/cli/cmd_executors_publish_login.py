@@ -73,7 +73,7 @@ def register(app: typer.Typer) -> None:
             str | None,
             typer.Option(
                 "--registry-url",
-                help="Override AGEVAL_REGISTRY_URL / credentials file registry URL.",
+                help="Override the default registry URL (AGEVAL_REGISTRY_URL / credentials).",
             ),
         ] = None,
     ) -> None:
@@ -131,7 +131,7 @@ def register(app: typer.Typer) -> None:
             str | None,
             typer.Option(
                 "--registry-url",
-                help="Override AGEVAL_REGISTRY_URL / credentials file registry URL.",
+                help="Override the default registry URL (AGEVAL_REGISTRY_URL / credentials).",
             ),
         ] = None,
     ) -> None:
@@ -162,7 +162,7 @@ def register(app: typer.Typer) -> None:
             str | None,
             typer.Option(
                 "--registry-url",
-                help="Override AGEVAL_REGISTRY_URL / credentials file registry URL.",
+                help="Override the default registry URL (AGEVAL_REGISTRY_URL / credentials).",
             ),
         ] = None,
     ) -> None:

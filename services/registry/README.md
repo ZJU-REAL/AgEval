@@ -158,14 +158,16 @@ uv run ageval cache purge all --yes
 ```json
 {
   "registry": {
-    "url": "http://127.0.0.1:8700",
+    "url": "https://120.46.13.24",
     "token": "…"
   }
 }
 ```
 
-Env overrides: `AGEVAL_REGISTRY_URL`, `AGEVAL_REGISTRY_TOKEN`, optional
-`AGEVAL_RESULTS_URL`. Never put tokens in lock/evidence.
+CLI default origin is `https://120.46.13.24`. Env overrides:
+`AGEVAL_REGISTRY_URL`, `AGEVAL_REGISTRY_TOKEN`, optional `AGEVAL_RESULTS_URL`.
+Never put tokens in lock/evidence. Local compose still exports
+`AGEVAL_REGISTRY_URL=http://127.0.0.1:8080`.
 
 ## Digests / media types
 

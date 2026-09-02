@@ -56,7 +56,7 @@ Other subcommands: `0` on success, typically `2` on operator error.
 
 | Variable | Role |
 | --- | --- |
-| `AGEVAL_REGISTRY_URL` | Registry base URL |
+| `AGEVAL_REGISTRY_URL` | Registry origin. Unset = `https://120.46.13.24`. Set to switch (self-host / compose / new public IP). |
 | `AGEVAL_REGISTRY_TOKEN` | Bearer token (CI; overrides file token) |
 | `AGEVAL_RESULTS_URL` | Results store URL (defaults to Registry URL) |
 | `AGEVAL_CACHE_ROOT` | Local verified cache root (default `.ageval/cache`) |
@@ -67,11 +67,14 @@ Credentials file `~/.ageval/credentials` (mode `0600`):
 ```json
 {
   "registry": {
-    "url": "http://127.0.0.1:8700",
+    "url": "https://120.46.13.24",
     "token": "â€¦"
   }
 }
 ```
+
+Omit ``url`` (or omit the file) to use the compiled default. Local compose still
+sets ``AGEVAL_REGISTRY_URL=http://127.0.0.1:8080``.
 
 ---
 
@@ -221,7 +224,7 @@ Coding-agent packages use `executor: acp` + `- plugin: acp` / `options.entry: â€
 
 ```bash
 docker compose -f services/registry/docker-compose.yml up -d --build
-export AGEVAL_REGISTRY_URL=http://127.0.0.1:8080
+export AGEVAL_REGISTRY_URL=http://127.0.0.1:8080   # override the public default
 ```
 
 ### Login, org, and publish

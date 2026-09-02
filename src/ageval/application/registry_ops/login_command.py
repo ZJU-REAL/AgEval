@@ -29,13 +29,7 @@ class LoginCommand:
         del stdout  # reserved for machine output if CLI needs it later
         err = stderr or sys.stderr
         creds = load_credentials(credentials_path)
-        url = (registry_url or creds.url or "").rstrip("/")
-        if not url:
-            raise ConfigError(
-                "registry_unavailable",
-                "registry URL required (AGEVAL_REGISTRY_URL, --registry-url, or credentials file)",
-                location="registry",
-            )
+        url = (registry_url or creds.url).rstrip("/")
 
         client = self._client_factory(registry_url=url, require_token=False)
         try:

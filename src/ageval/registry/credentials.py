@@ -4,13 +4,17 @@ Wire format (JSON)::
 
     {
       "registry": {
-        "url": "http://127.0.0.1:8700",
+        "url": "https://120.46.13.24",
         "token": "ageval_…",
         "token_env": "AGEVAL_REGISTRY_TOKEN"   # optional locator; wins over token if set
       }
     }
 
-Tokens never enter lock/evidence. Env ``AGEVAL_REGISTRY_URL`` overrides file URL.
+Tokens never enter lock/evidence.
+
+The operator knob is ``AGEVAL_REGISTRY_URL``. Unset, it is
+``DEFAULT_REGISTRY_URL``. ``--registry-url`` (caller) still wins; a credentials
+file ``url`` is a login pin (local compose) and sits under the env var.
 """
 
 from __future__ import annotations
@@ -20,10 +24,14 @@ import os
 from dataclasses import dataclass
 from pathlib import Path
 
+REGISTRY_URL_ENV = "AGEVAL_REGISTRY_URL"
+# Unset value of AGEVAL_REGISTRY_URL. Change here when the public origin moves.
+DEFAULT_REGISTRY_URL = "https://120.46.13.24"
+
 
 @dataclass(frozen=True, slots=True)
 class RegistryCredentials:
-    url: str | None
+    url: str
     token: str | None
 
 
@@ -31,8 +39,14 @@ def default_credentials_path() -> Path:
     return Path.home() / ".ageval" / "credentials"
 
 
+def registry_url_from_env() -> str | None:
+    """Return ``AGEVAL_REGISTRY_URL`` when set, else None (caller uses the default)."""
+    raw = os.environ.get(REGISTRY_URL_ENV, "").strip()
+    return raw.rstrip("/") if raw else None
+
+
 def load_credentials(path: Path | None = None) -> RegistryCredentials:
-    """Load credentials; missing file → empty (env may still supply URL/token)."""
+    """Load credentials; missing file / url still yields ``DEFAULT_REGISTRY_URL``."""
     cred_path = path or default_credentials_path()
     url: str | None = None
     token: str | None = None
@@ -53,12 +67,14 @@ def load_credentials(path: Path | None = None) -> RegistryCredentials:
                 raw_tok = reg.get("token")
                 if isinstance(raw_tok, str) and raw_tok:
                     token = raw_tok
-    env_url = os.environ.get("AGEVAL_REGISTRY_URL")
-    if env_url and env_url.strip():
-        url = env_url.strip().rstrip("/")
+    env_url = registry_url_from_env()
+    if env_url:
+        url = env_url
     env_tok = os.environ.get("AGEVAL_REGISTRY_TOKEN")
     if env_tok:
         token = env_tok
+    if not url:
+        url = DEFAULT_REGISTRY_URL
     return RegistryCredentials(url=url, token=token)
 
 
