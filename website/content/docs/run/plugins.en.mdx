@@ -80,4 +80,4 @@ ageval run examples/datasets/minimal-demo --task terminal-jsonl-agg \
 
 The default coding-agent path remains `executor: acp` + `options.entry` (parent JSON-RPC, needs `attach_stdio`). `acp-oneshot` is the other path: a one-shot client+server inside the environment, over `exec` only. Plugins are optional; the same dataset switches only via profiles. miniswe keeps the model on the host; bash goes only through `host.exec`. Missing `exec` fails at lock.
 
-In-environment `evaluator.py` and trajectory writes default to `evaluation_runtime` / `trajectory_seal` (no extra config field). PASS still comes only from `evaluator.py`.
+PASS still comes only from `evaluator.py`.

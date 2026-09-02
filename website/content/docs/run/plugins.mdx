@@ -77,4 +77,4 @@ ageval run examples/datasets/minimal-demo --task terminal-jsonl-agg \
 
 默认 coding-agent 路径仍是 `executor: acp` + `options.entry`（parent JSON-RPC，要 `attach_stdio`）。`acp-oneshot` 是另一条路径：环境内一次性 client+server，只要 `exec`。插件是可选的；同一份 dataset 只靠 profiles 切换。miniswe 把模型放在本机，bash 只经 `host.exec`；缺 `exec` 则 lock 失败。
 
-环境内 `evaluator.py` 与轨迹写入默认走 `evaluation_runtime` / `trajectory_seal`（没有单独的配置字段）。PASS 仍只来自 `evaluator.py`。
+PASS 仍只来自 `evaluator.py`。
