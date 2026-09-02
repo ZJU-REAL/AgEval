@@ -71,6 +71,20 @@ uv run ageval run  examples/datasets/minimal-demo --task terminal-jsonl-agg
 uv run ageval view examples/datasets/minimal-demo --no-browser
 ```
 
+## Features
+
+**Quickly switch the agent under test**
+
+Environments and agent runtimes join as plugins; the base stays untouched. Agents start over [ACP](https://agentclientprotocol.com) by default; [nooa](https://github.com/NVIDIA-NeMo/labs-OO-Agents), [dsh](https://github.com/deepseek-ai/deepseek-harness), and [miniswe](https://github.com/SWE-agent/mini-swe-agent) take the same plugin path. Switch by changing one line in `profiles.yaml`, or point at an agent for one run with `--agent`.
+
+**Let the Agent run the eval**
+
+The skill tells your coding agent how to use the CLI and how to author a dataset; from there it designs or converts a benchmark and runs the eval end to end. See [Getting started](#getting-started) to install the CLI and skills.
+
+**Share and reuse on Hub**
+
+Upload datasets, plugins, and agent configs together with results to ageval Hub, and manage members, dataset visibility, and versions there.
+
 ## How it works
 
 ```text
@@ -104,21 +118,7 @@ uv run ageval view examples/datasets/minimal-demo --no-browser
 3. **Run `run.py`.** Loop, tools, and Agent invocation live here. Changing the environment or the Agent does not require rewriting this file.
 4. **Score independently.** Gold enters the environment at this phase. `evaluator.py` binds PASS / FAIL / ERROR. Cleanup always runs.
 
-## Features
-
-**Switch the agent under test**
-
-Environments and agent runtimes join as plugins; the base stays untouched. Agents start over [ACP](https://agentclientprotocol.com) by default; [nooa](https://github.com/NVIDIA-NeMo/labs-OO-Agents), [dsh](https://github.com/deepseek-ai/deepseek-harness), and [miniswe](https://github.com/SWE-agent/mini-swe-agent) take the same plugin path. Switch by changing one line in `profiles.yaml`, or point at an agent for one run with `--agent`.
-
-**Let the Agent run the eval**
-
-The skill tells your coding agent how to use the CLI and how to author a dataset; from there it designs or converts a benchmark and runs the eval end to end. See [Getting started](#getting-started) to install the CLI and skills.
-
-**Share and reuse on Hub**
-
-Upload datasets, plugins, and agent configs together with results to ageval Hub, and manage members, dataset visibility, and versions there.
-
-## Architecture
+The full chain from config files to results:
 
 ```text
   ageval.yaml + task.yaml + profiles.yaml

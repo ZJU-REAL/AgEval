@@ -13,6 +13,7 @@
   <a href="https://github.com/ZJU-REAL/ageval/releases"><img alt="release" src="https://shieldcn.dev/github/release/ZJU-REAL/ageval.svg?variant=secondary&size=sm&logo=ri%3AGoTag&logoColor=60A5FA"></a>
   <a href="https://github.com/ZJU-REAL/ageval/commits"><img alt="last commit" src="https://shieldcn.dev/github/last-commit/ZJU-REAL/ageval.svg?variant=secondary&size=sm&logo=ri%3AGoGitCommit&logoColor=A78BFA"></a>
 </p>
+
 **ageval** 在统一运行基座上用插件切换待评测 Agent；装上 CLI 和 skill，Agent 能设计、转化 benchmark 并自动跑评测；在 Hub 上分享或复用 dataset、插件和 Agent 配置，并上传评测结果。
 
 <p align="center">
@@ -69,6 +70,20 @@ uv run ageval run  examples/datasets/minimal-demo --task terminal-jsonl-agg
 uv run ageval view examples/datasets/minimal-demo --no-browser
 ```
 
+## 功能
+
+**快速切换待评测 Agent**
+
+环境和 Agent 运行时都经插件接入，不必修改基座。默认通过 [ACP](https://agentclientprotocol.com) 启动 agent；[nooa](https://github.com/NVIDIA-NeMo/labs-OO-Agents)、[dsh](https://github.com/deepseek-ai/deepseek-harness)、[miniswe](https://github.com/SWE-agent/mini-swe-agent) 的接入走同一条插件路。修改配置文件 `profiles.yaml` 里的一行，或者用 `--agent` 临时指定来切换 agent。
+
+**让 Agent 自己跑评测**
+
+skill 会告诉你的 coding agent 怎么使用 CLI、怎么写 dataset；之后它自己设计或转化 benchmark，端到端跑完评测。参考[快速开始](#快速开始)，完成 CLI 和 skill 的安装。
+
+**在 Hub 上分享与复用**
+
+你可以将 dataset、插件和 Agent 配置与评测结果上传到 ageval Hub，并在 Hub 上组织管理成员、公开 dataset 范围与版本。
+
 ## 如何运行
 
 ```text
@@ -102,21 +117,7 @@ uv run ageval view examples/datasets/minimal-demo --no-browser
 3. **跑 `run.py`。** 循环、工具与 Agent 调用写在这里。换环境或 Agent 不用改这份文件。
 4. **独立评分。** gold 在这个阶段进入环境，由 `evaluator.py` 给出 PASS / FAIL / ERROR。cleanup 始终执行。
 
-## 功能
-
-**快速切换待评测 Agent**
-
-环境和 Agent 运行时都经插件接入，不必修改基座。默认通过 [ACP](https://agentclientprotocol.com) 启动 agent；[nooa](https://github.com/NVIDIA-NeMo/labs-OO-Agents)、[dsh](https://github.com/deepseek-ai/deepseek-harness)、[miniswe](https://github.com/SWE-agent/mini-swe-agent) 的接入走同一条插件路。修改配置文件 `profiles.yaml` 里的一行，或者用 `--agent` 临时指定来切换 agent。
-
-**让 Agent 自己跑评测**
-
-skill 会告诉你的 coding agent 怎么使用 CLI、怎么写 dataset；之后它自己设计或转化 benchmark，端到端跑完评测。参考[快速开始](#快速开始)，完成 CLI 和 skill 的安装。
-
-**在 Hub 上分享与复用**
-
-你可以将 dataset、插件和 Agent 配置与评测结果上传到 ageval Hub，并在 Hub 上组织管理成员、公开 dataset 范围与版本。
-
-## 架构
+从配置文件到结果查看的完整链路：
 
 ```text
   ageval.yaml + task.yaml + profiles.yaml
