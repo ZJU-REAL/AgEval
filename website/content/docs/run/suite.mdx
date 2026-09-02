@@ -6,8 +6,8 @@ description: 一次跑 Dataset 里所有 task；可 Always-k 与 pass@k；汇总
 省略 `--task` 时，`ageval run` 按 suite 调度**每一个**成员 task，各自独立 lock / 执行 / 评测：
 
 ```bash
-uv run ageval run examples/datasets/minimal-demo
-uv run ageval run examples/datasets/minimal-demo --max-concurrent-tasks 2
+ageval run examples/datasets/minimal-demo
+ageval run examples/datasets/minimal-demo --max-concurrent-tasks 2
 ```
 
 ## 两轴别混
@@ -19,18 +19,18 @@ uv run ageval run examples/datasets/minimal-demo --max-concurrent-tasks 2
 
 ```bash
 # 整包每题 k=5（CLI/job 参数 only）
-uv run ageval run examples/datasets/minimal-demo -k 5 --max-concurrent-tasks 2
+ageval run examples/datasets/minimal-demo -k 5 --max-concurrent-tasks 2
 
 # 只对一题 Always-k
-uv run ageval run examples/datasets/minimal-demo --task terminal-jsonl-agg -k 5
+ageval run examples/datasets/minimal-demo --task terminal-jsonl-agg -k 5
 
 # 补跑：并进已有 suite job，重算指标（可加 --task 只补一题）
-uv run ageval run examples/datasets/minimal-demo --resume-suite <suite_run_id> --task terminal-jsonl-agg -k 5
+ageval run examples/datasets/minimal-demo --resume-suite <suite_run_id> --task terminal-jsonl-agg -k 5
 
 # 点名换槽（PASS / FAIL / ERROR）：新 Attempt，同一 suite id
-uv run ageval run examples/datasets/minimal-demo --resume-suite <suite_run_id> --task terminal-jsonl-agg --replace-slot
+ageval run examples/datasets/minimal-demo --resume-suite <suite_run_id> --task terminal-jsonl-agg --replace-slot
 # Always-k：只换一格 (task_id, attempt_index)
-# uv run ageval run examples/datasets/minimal-demo --resume-suite <id> --task terminal-jsonl-agg --replace-slot --attempt-index 1
+# ageval run examples/datasets/minimal-demo --resume-suite <id> --task terminal-jsonl-agg --replace-slot --attempt-index 1
 ```
 
 硬约束：
@@ -62,8 +62,8 @@ uv run ageval run examples/datasets/minimal-demo --resume-suite <suite_run_id> -
 ## 进度与取消
 
 ```bash
-uv run ageval status <suite_run_id> --dataset examples/datasets/minimal-demo
-uv run ageval cancel <suite_run_id> --dataset examples/datasets/minimal-demo
+ageval status <suite_run_id> --dataset examples/datasets/minimal-demo
+ageval cancel <suite_run_id> --dataset examples/datasets/minimal-demo
 ```
 
 - **status**：ControlStore 记录 + 可读 progress  
@@ -79,15 +79,15 @@ Hub 的 **Dataset → Leaderboard** 和 **Task → Jobs** 读的是 Registry 的
 
 | 步骤 | 命令 |
 | --- | --- |
-| 1. 跑 suite | `uv run ageval run <dataset>`（**不要**加 `--task`；可用 `--profiles`） |
+| 1. 跑 suite | `ageval run <dataset>`（**不要**加 `--task`；可用 `--profiles`） |
 | 2. 记下 id | 输出 / `summary.json` 里的 `suite_run_id`（默认 8 位 hex） |
-| 3. 上传 suite | `uv run ageval results upload-suite <dataset> --suite-run <id> --public`（也可 `id@version`） |
+| 3. 上传 suite | `ageval results upload-suite <dataset> --suite-run <id> --public`（也可 `id@version`） |
 | 4. 需要点开轨迹时 | 加上 `--with-attempts` |
 
 ```bash
-uv run ageval run examples/datasets/minimal-demo --profiles examples/datasets/minimal-demo/profiles.yaml
+ageval run examples/datasets/minimal-demo --profiles examples/datasets/minimal-demo/profiles.yaml
 # suite_run_id 例：d3e5fba6
-uv run ageval results upload-suite examples/datasets/minimal-demo \
+ageval results upload-suite examples/datasets/minimal-demo \
   --suite-run d3e5fba6 --public --with-attempts \
   --agent acp-pi --model zai-coding-cn/glm-5.2
 ```

@@ -87,12 +87,12 @@ Jobs 列表里，已有运行产物的行可以点进去看；没上传的会显
 
 ```bash
 # 正确：整包 suite → 上榜
-uv run ageval run <dataset> --profiles <profiles.yaml>
-uv run ageval results upload-suite <dataset|id@version> --suite-run <8-hex> --public --with-attempts
+ageval run <dataset> --profiles <profiles.yaml>
+ageval results upload-suite <dataset|id@version> --suite-run <8-hex> --public --with-attempts
 
 # 不够：单题 attempt upload 单独上传 → 榜上经常空白
-# uv run ageval run <dataset> --task <id>
-# uv run ageval results upload <dataset> --run <run_id>
+# ageval run <dataset> --task <id>
+# ageval results upload <dataset> --run <run_id>
 ```
 
 Dataset Leaderboard 默认列出该包全部过门 suite。页顶版本切换只切 README / Tasks；榜上 Public 右侧的版本选择器才按 suite 的 `dataset_version` 过滤，默认 All versions。

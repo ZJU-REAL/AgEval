@@ -33,24 +33,24 @@ Owners or admins add / remove members by GitHub login (`ageval registry org-add-
 
 ```bash
 # Members by GitHub login (owner or admin; target need not be logged in)
-# uv run ageval registry org-add-member my-lab alice --role member
-# uv run ageval registry org-set-role my-lab alice --role owner
-# uv run ageval registry org-transfer my-lab alice
-# uv run ageval registry org-remove-member my-lab alice
+# ageval registry org-add-member my-lab alice --role member
+# ageval registry org-set-role my-lab alice --role owner
+# ageval registry org-transfer my-lab alice
+# ageval registry org-remove-member my-lab alice
 
 # Package: visibility / delete (delete requires --yes)
-uv run ageval registry set-visibility 'my-org/dataset@0.1.0' --visibility public
-# uv run ageval registry delete 'my-org/dataset@0.1.0' --yes
+ageval registry set-visibility 'my-org/dataset@0.1.0' --visibility public
+# ageval registry delete 'my-org/dataset@0.1.0' --yes
 
 # Package: description (owner override, no republish; empty string clears back to the manifest description)
-uv run ageval registry set-description my-org/dataset --description 'One-line description'
+ageval registry set-description my-org/dataset --description 'One-line description'
 
 # Results: visibility / unshare / delete
-uv run ageval results set-visibility <run_or_suite_id> --kind attempt|suite --visibility private
-uv run ageval results unshare <id> --kind attempt --share-org my-lab
-# uv run ageval results delete <id> --kind suite --yes
+ageval results set-visibility <run_or_suite_id> --kind attempt|suite --visibility private
+ageval results unshare <id> --kind attempt --share-org my-lab
+# ageval results delete <id> --kind suite --yes
 # Suite delete does not cascade attempts by default:
-# uv run ageval results delete <suite_id> --kind suite --with-attempts --yes
+# ageval results delete <suite_id> --kind suite --with-attempts --yes
 ```
 
 **Replace:** same `dataset_id@version` / `run_id` / `suite_run_id` still **409** by default.  

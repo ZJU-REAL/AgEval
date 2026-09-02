@@ -25,11 +25,11 @@ a parent path does not satisfy this seam. Contract: `docs/design/11`.
 ## Install (local cache only)
 
 ```bash
-uv run ageval plugin install plugins/nooa
-# or: uv run ageval plugin install plugins/dsh
-# or: uv run ageval plugin install plugins/miniswe   # host-loop; bash via environment.exec
-# or: uv run ageval plugin install plugins/acp-oneshot  # in-box oneshot ACP pair; exec only
-uv run ageval plugin list
+ageval plugin install plugins/nooa
+# or: ageval plugin install plugins/dsh
+# or: ageval plugin install plugins/miniswe   # host-loop; bash via environment.exec
+# or: ageval plugin install plugins/acp-oneshot  # in-box oneshot ACP pair; exec only
+ageval plugin list
 ```
 
 Install updates `$AGEVAL_HOME/plugins` (default `~/.ageval/plugins`) only. It **never**
@@ -55,14 +55,14 @@ agent_profiles:
 `executor:` picks the exclusive-slot winner — it does **not** bake. Plugin knobs live on that plugin's `extensions` row. Docker image layers are read by the environment winner at `host.start()`. ACP `entry` lives on `- plugin: acp` / `options.entry`.
 
 ```bash
-uv run ageval run examples/datasets/minimal-demo --task terminal-jsonl-agg \
+ageval run examples/datasets/minimal-demo --task terminal-jsonl-agg \
   --profiles examples/datasets/minimal-demo/profiles.nooa.yaml
 ```
 
 `ageval lock` writes the resolved graph as `extension_bindings`.
 
 ```bash
-uv run ageval run examples/datasets/minimal-demo --task terminal-jsonl-agg \
+ageval run examples/datasets/minimal-demo --task terminal-jsonl-agg \
   --profiles examples/datasets/minimal-demo/profiles.dsh.yaml --probe
 ```
 

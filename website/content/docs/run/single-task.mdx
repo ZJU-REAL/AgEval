@@ -6,22 +6,22 @@ description: 指定 --task，读 Result 和 logs。
 ## 命令
 
 ```bash
-uv run ageval run <dataset> --task <task_id>
+ageval run <dataset> --task <task_id>
 ```
 
 例子：
 
 ```bash
-uv run ageval run examples/datasets/minimal-demo --task terminal-jsonl-agg
+ageval run examples/datasets/minimal-demo --task terminal-jsonl-agg
 
 # Always-k：同一 task 固定 k 次独立 Attempt（CLI only；默认 k=1）
-uv run ageval run examples/datasets/minimal-demo --task terminal-jsonl-agg -k 5
+ageval run examples/datasets/minimal-demo --task terminal-jsonl-agg -k 5
 ```
 
 只检查配置、不跑 agent：
 
 ```bash
-uv run ageval lock examples/datasets/minimal-demo --task terminal-jsonl-agg
+ageval lock examples/datasets/minimal-demo --task terminal-jsonl-agg
 ```
 
 `--task` 必须等于成员目录名和 `task.yaml` 里的 `task_id`。  

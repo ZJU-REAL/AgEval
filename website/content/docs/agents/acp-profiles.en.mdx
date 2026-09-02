@@ -36,7 +36,7 @@ Evaluate-phase ACP (for example `judge`) on a named map must `Agent.session("jud
 ## Host readiness
 
 ```bash
-uv run ageval executors -v
+ageval executors -v
 ```
 
 `-v` also reports `credential_missing` when every declared credential env name is unset and the binding has no `api_key`. Entries that require a key (for example `pi`) fail closed at `--probe` / session-open; entries that document keyless (OAuth) auth warn only. The child environment is allowlisted (`PATH` / `HOME` / `LANG`, the entry’s credential names, and the binding’s `api_key` / `base_url`). Undeclared host tokens do not reach the entry.
@@ -44,7 +44,7 @@ uv run ageval executors -v
 ## Runtime switch
 
 ```bash
-uv run ageval run <dataset> --task <id> \
+ageval run <dataset> --task <id> \
   --set '/parameters/active_profile="main"'
 ```
 

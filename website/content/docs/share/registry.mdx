@@ -33,24 +33,24 @@ owner 或 admin 按 GitHub login 加减成员（`ageval registry org-add-member`
 
 ```bash
 # 按 GitHub login 加减成员（owner 或 admin；对方不必在线）
-# uv run ageval registry org-add-member my-lab alice --role member
-# uv run ageval registry org-set-role my-lab alice --role owner
-# uv run ageval registry org-transfer my-lab alice
-# uv run ageval registry org-remove-member my-lab alice
+# ageval registry org-add-member my-lab alice --role member
+# ageval registry org-set-role my-lab alice --role owner
+# ageval registry org-transfer my-lab alice
+# ageval registry org-remove-member my-lab alice
 
 # 包：可见性 / 删除（删除必须 --yes）
-uv run ageval registry set-visibility 'my-org/dataset@0.1.0' --visibility public
-# uv run ageval registry delete 'my-org/dataset@0.1.0' --yes
+ageval registry set-visibility 'my-org/dataset@0.1.0' --visibility public
+# ageval registry delete 'my-org/dataset@0.1.0' --yes
 
 # 包：描述（owner 覆写，不重新发包；空串清除覆写，回到包内 manifest 描述）
-uv run ageval registry set-description my-org/dataset --description '一句话描述'
+ageval registry set-description my-org/dataset --description '一句话描述'
 
 # 结果：可见性 / 取消分享 / 删除
-uv run ageval results set-visibility <run_or_suite_id> --kind attempt|suite --visibility private
-uv run ageval results unshare <id> --kind attempt --share-org my-lab
-# uv run ageval results delete <id> --kind suite --yes
+ageval results set-visibility <run_or_suite_id> --kind attempt|suite --visibility private
+ageval results unshare <id> --kind attempt --share-org my-lab
+# ageval results delete <id> --kind suite --yes
 # 删 suite 默认不删 attempt；显式级联：
-# uv run ageval results delete <suite_id> --kind suite --with-attempts --yes
+# ageval results delete <suite_id> --kind suite --with-attempts --yes
 ```
 
 **覆盖上传：** 同一 `dataset_id@version` / `run_id` / `suite_run_id` 默认 **409**。  

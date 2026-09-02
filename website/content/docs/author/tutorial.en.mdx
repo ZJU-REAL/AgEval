@@ -30,8 +30,8 @@ evaluation:
 Do not write `harness:`, `provider:`, or `assurance`. The environment and ACP entry live in `profiles.yaml`.
 
 ```bash
-uv run ageval lock examples/datasets/minimal-demo --task hello
-uv run ageval run  examples/datasets/minimal-demo --task hello
+ageval lock examples/datasets/minimal-demo --task hello
+ageval run  examples/datasets/minimal-demo --task hello
 ```
 
 Scoring defaults to a script against gold. For LLM-as-judge, add a role on the same `profiles.yaml` and `Agent.session` after gold lands. Several scoring images (different closures, sequential stages) are under [Write an evaluator](/docs/author/write-evaluator) → Named scoring hosts.

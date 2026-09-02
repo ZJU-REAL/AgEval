@@ -6,8 +6,8 @@ description: Run every task; optional Always-k and pass@k; aggregates are not su
 Omit `--task` and `ageval run` schedules **every** member — each locks, runs, and evaluates independently:
 
 ```bash
-uv run ageval run examples/datasets/minimal-demo
-uv run ageval run examples/datasets/minimal-demo --max-concurrent-tasks 2
+ageval run examples/datasets/minimal-demo
+ageval run examples/datasets/minimal-demo --max-concurrent-tasks 2
 ```
 
 ## Two axes (do not mix)
@@ -19,18 +19,18 @@ uv run ageval run examples/datasets/minimal-demo --max-concurrent-tasks 2
 
 ```bash
 # Full suite, k=5 per task (CLI/job only)
-uv run ageval run examples/datasets/minimal-demo -k 5 --max-concurrent-tasks 2
+ageval run examples/datasets/minimal-demo -k 5 --max-concurrent-tasks 2
 
 # Always-k on one task
-uv run ageval run examples/datasets/minimal-demo --task terminal-jsonl-agg -k 5
+ageval run examples/datasets/minimal-demo --task terminal-jsonl-agg -k 5
 
 # Resume: append into an existing suite job and recompute metrics
-uv run ageval run examples/datasets/minimal-demo --resume-suite <suite_run_id> --task terminal-jsonl-agg -k 5
+ageval run examples/datasets/minimal-demo --resume-suite <suite_run_id> --task terminal-jsonl-agg -k 5
 
 # Replace one finished slot (PASS / FAIL / ERROR): new Attempt, same suite id
-uv run ageval run examples/datasets/minimal-demo --resume-suite <suite_run_id> --task terminal-jsonl-agg --replace-slot
+ageval run examples/datasets/minimal-demo --resume-suite <suite_run_id> --task terminal-jsonl-agg --replace-slot
 # Always-k: one (task_id, attempt_index)
-# uv run ageval run examples/datasets/minimal-demo --resume-suite <id> --task terminal-jsonl-agg --replace-slot --attempt-index 1
+# ageval run examples/datasets/minimal-demo --resume-suite <id> --task terminal-jsonl-agg --replace-slot --attempt-index 1
 ```
 
 Hard rules:
@@ -62,8 +62,8 @@ Same directory: `progress.json`. Attempt `result.json` may include `phase_timing
 ## Progress and cancel
 
 ```bash
-uv run ageval status <suite_run_id> --dataset examples/datasets/minimal-demo
-uv run ageval cancel <suite_run_id> --dataset examples/datasets/minimal-demo
+ageval status <suite_run_id> --dataset examples/datasets/minimal-demo
+ageval cancel <suite_run_id> --dataset examples/datasets/minimal-demo
 ```
 
 - **status** — ControlStore record + suite progress when present  
@@ -79,15 +79,15 @@ Hub **Dataset → Leaderboard** and **Task → Jobs** list Registry **suite** ro
 
 | Step | Command |
 | --- | --- |
-| 1. Run suite | `uv run ageval run <dataset>` (**omit** `--task`; optional `--profiles`) |
+| 1. Run suite | `ageval run <dataset>` (**omit** `--task`; optional `--profiles`) |
 | 2. Note id | `suite_run_id` in stdout / `summary.json` (default 8 hex) |
-| 3. Upload suite | `uv run ageval results upload-suite <dataset> --suite-run <id> --public` (or `id@version`) |
+| 3. Upload suite | `ageval results upload-suite <dataset> --suite-run <id> --public` (or `id@version`) |
 | 4. Deep-link trajectory | Add `--with-attempts` |
 
 ```bash
-uv run ageval run examples/datasets/minimal-demo --profiles examples/datasets/minimal-demo/profiles.yaml
+ageval run examples/datasets/minimal-demo --profiles examples/datasets/minimal-demo/profiles.yaml
 # suite_run_id e.g. d3e5fba6
-uv run ageval results upload-suite examples/datasets/minimal-demo \
+ageval results upload-suite examples/datasets/minimal-demo \
   --suite-run d3e5fba6 --public --with-attempts \
   --agent acp-pi --model zai-coding-cn/glm-5.2
 ```

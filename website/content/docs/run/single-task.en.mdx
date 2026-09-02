@@ -6,22 +6,22 @@ description: Use --task, read the Result and logs path.
 ## Command
 
 ```bash
-uv run ageval run <dataset> --task <task_id>
+ageval run <dataset> --task <task_id>
 ```
 
 Example:
 
 ```bash
-uv run ageval run examples/datasets/minimal-demo --task terminal-jsonl-agg
+ageval run examples/datasets/minimal-demo --task terminal-jsonl-agg
 
 # Always-k: fixed k independent Attempts for one task (CLI only; default k=1)
-uv run ageval run examples/datasets/minimal-demo --task terminal-jsonl-agg -k 5
+ageval run examples/datasets/minimal-demo --task terminal-jsonl-agg -k 5
 ```
 
 Config only, no agent:
 
 ```bash
-uv run ageval lock examples/datasets/minimal-demo --task terminal-jsonl-agg
+ageval lock examples/datasets/minimal-demo --task terminal-jsonl-agg
 ```
 
 `--task` must match the member directory name and `task_id` in `task.yaml`.  

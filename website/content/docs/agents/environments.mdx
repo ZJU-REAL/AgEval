@@ -15,9 +15,9 @@ description: local / docker / e2b / ssh / daytona，同一条 ACP 链。
 | `daytona` | 云 sandbox（OCI snapshot） | `DAYTONA_API_KEY`；缺钥 `--probe` `ready: false`。默认 CI 不跑真 Daytona |
 
 ```bash
-uv run ageval run examples/datasets/minimal-demo --task terminal-jsonl-agg
-uv run ageval run examples/datasets/tau3-airline-5 --task airline-00
-uv run ageval run examples/datasets/minimal-demo --task terminal-jsonl-agg \
+ageval run examples/datasets/minimal-demo --task terminal-jsonl-agg
+ageval run examples/datasets/tau3-airline-5 --task airline-00
+ageval run examples/datasets/minimal-demo --task terminal-jsonl-agg \
   --profiles examples/datasets/minimal-demo/profiles.e2b-acp.yaml --probe
 ```
 

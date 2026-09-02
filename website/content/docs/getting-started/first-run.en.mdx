@@ -1,18 +1,29 @@
 ---
 title: First run
-description: Lock config, run a sample task, find the result directory.
+description: Lock config, run a task, find the result directory.
 ---
 
-CLI paths are always the **dataset root** (the directory with `ageval.yaml`), not `tasks/<id>/`.
+The dataset argument is always a **dataset root** (the directory with `ageval.yaml`) or a **registry ref** (`<dataset_id>@<version>`), never `tasks/<id>/`.
 
-The public smoke is [`examples/datasets/minimal-demo`](https://github.com/ZJU-REAL/AgEval/tree/main/examples/datasets/minimal-demo). Default `profiles.yaml` uses **docker**.
+## Run from the Hub (no clone)
 
 ```bash
-uv run ageval tasks examples/datasets/minimal-demo
-uv run ageval lock examples/datasets/minimal-demo --task terminal-jsonl-agg
-uv run ageval run  examples/datasets/minimal-demo --task terminal-jsonl-agg
-uv run ageval run  examples/datasets/minimal-demo --task terminal-jsonl-agg \
-  --profiles examples/datasets/minimal-demo/profiles.e2b-acp.yaml --probe
+ageval registry list
+ageval lock <org>/<name>@<version> --task <task-id>
+ageval run  <org>/<name>@<version> --task <task-id>
+```
+
+A registry ref downloads the published dataset into the local cache (`ageval cache` inspects / purges it), then executes under the locked config. Default profiles mostly use **docker**, which needs a local Docker engine; a live coding-agent run also needs an ACP entry and credentials.
+
+## In-repo examples
+
+The public smoke [`examples/datasets/minimal-demo`](https://github.com/ZJU-REAL/AgEval/tree/main/examples/datasets/minimal-demo) ships with a repo checkout:
+
+```bash
+ageval tasks examples/datasets/minimal-demo
+ageval lock examples/datasets/minimal-demo --task terminal-jsonl-agg
+ageval run  examples/datasets/minimal-demo --task terminal-jsonl-agg
+ageval run  examples/datasets/minimal-demo --task terminal-jsonl-agg --probe
 ```
 
 On a TTY, `ageval run` prints a short recap (single task: `logs`; suite: `summary` path). A pipe or `--json` still writes the JSON document. Evidence lives under `.ageval/runs/<id>/`.
@@ -24,8 +35,8 @@ On a TTY, `ageval run` prints a short recap (single task: `logs`; suite: `summar
 | **environment** | Kind: local / docker / e2b / ssh / daytona |
 
 ```bash
-uv run ageval executors -v
-uv run ageval view examples/datasets/minimal-demo --no-browser
+ageval executors -v
+ageval view examples/datasets/minimal-demo --no-browser
 ```
 
 `--probe` is lock + preflight only. `--profiles` replaces the job document. `--agent` and `--profiles` are mutually exclusive. `--model` requires `--agent`.

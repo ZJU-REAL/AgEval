@@ -87,12 +87,12 @@ Jobs rows with uploaded run artifacts open detail; others show **Not uploaded**.
 
 ```bash
 # Correct path for Leaderboard
-uv run ageval run <dataset> --profiles <profiles.yaml>
-uv run ageval results upload-suite <dataset|id@version> --suite-run <8-hex> --public --with-attempts
+ageval run <dataset> --profiles <profiles.yaml>
+ageval results upload-suite <dataset|id@version> --suite-run <8-hex> --public --with-attempts
 
 # Not enough for Leaderboard: single-task attempt upload alone
-# uv run ageval run <dataset> --task <id>
-# uv run ageval results upload <dataset> --run <run_id>
+# ageval run <dataset> --task <id>
+# ageval results upload <dataset> --run <run_id>
 ```
 
 Dataset Leaderboard lists every suite that passed the board gate. The header version switcher only changes README / Tasks. The Select to the right of Public filters rows by the suite's `dataset_version` (default All versions).

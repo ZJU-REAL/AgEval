@@ -20,11 +20,11 @@ description: 安装 ageval.plugin/1、绑定 executor、Recognition 与本机能
 ## 安装（只写本地缓存）
 
 ```bash
-uv run ageval plugin install plugins/nooa
-# 或：uv run ageval plugin install plugins/dsh
-# 或：uv run ageval plugin install plugins/miniswe   # host-loop；bash 走 environment.exec
-# 或：uv run ageval plugin install plugins/acp-oneshot  # 环境内一次性 ACP client+server，只要 exec
-uv run ageval plugin list
+ageval plugin install plugins/nooa
+# 或：ageval plugin install plugins/dsh
+# 或：ageval plugin install plugins/miniswe   # host-loop；bash 走 environment.exec
+# 或：ageval plugin install plugins/acp-oneshot  # 环境内一次性 ACP client+server，只要 exec
+ageval plugin list
 ```
 
 安装只更新 `$AGEVAL_HOME/plugins`（默认 `~/.ageval/plugins`），**不会**改写
@@ -35,7 +35,7 @@ uv run ageval plugin list
 卸载：
 
 ```bash
-uv run ageval plugin uninstall nooa
+ageval plugin uninstall nooa
 ```
 
 ## 绑定（profiles）
@@ -59,14 +59,14 @@ agent_profiles:
 运行时用备用 profiles 文件切换，不必改 dataset 默认 ACP 配置：
 
 ```bash
-uv run ageval run examples/datasets/minimal-demo --task terminal-jsonl-agg \
+ageval run examples/datasets/minimal-demo --task terminal-jsonl-agg \
   --profiles examples/datasets/minimal-demo/profiles.nooa.yaml
 ```
 
 `ageval lock` 会把解析后的扩展图写入摘要中的 `extension_bindings`。
 
 ```bash
-uv run ageval run examples/datasets/minimal-demo --task terminal-jsonl-agg \
+ageval run examples/datasets/minimal-demo --task terminal-jsonl-agg \
   --profiles examples/datasets/minimal-demo/profiles.dsh.yaml --probe
 ```
 

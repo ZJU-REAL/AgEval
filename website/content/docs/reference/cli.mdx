@@ -3,38 +3,38 @@ title: CLI 参考
 description: 命令、--task、Always-k、--set 白名单。
 ---
 
-以本机 `uv run ageval --help` 为准。TTY 下命令打短 recap（不含 digest / sha256）；管道仍是 JSON。`ageval run --json` 强制完整文档。
+以本机 `ageval --help` 为准。TTY 下命令打短 recap（不含 digest / sha256）；管道仍是 JSON。`ageval run --json` 强制完整文档。
 
 ```bash
-uv run ageval tasks <dataset>
-uv run ageval lock <dataset> --task <id>
-uv run ageval lock <dataset> --task <id> --probe
-uv run ageval run <dataset> --task <id>
-uv run ageval run <dataset> --task <id> --probe
-uv run ageval run <dataset>                         # suite
-uv run ageval run official/demo@0.1.0 --dir tmp --task <id>
-uv run ageval run <dataset> --max-concurrent-tasks 2
-uv run ageval run <dataset> -k 5                    # Always-k（每题 k 次）
-uv run ageval run <dataset> --resume-suite <suite_run_id> --task <id> -k 5
-uv run ageval campaign <dataset> --task <id> ...
-uv run ageval status <suite_run_id> --dataset <dataset>
-uv run ageval cancel <suite_run_id> --dataset <dataset>
-uv run ageval executors -v
-uv run ageval plugin install <path|ref>
-uv run ageval plugin list
-uv run ageval plugin uninstall <plugin_id>
-uv run ageval agent install <path|ref>
-uv run ageval agent list
-uv run ageval agent uninstall <agent_id>
-uv run ageval evidence --help
-uv run ageval view <dataset|id@version> [--dev] [--open /jobs/<id>]
-uv run ageval jobs delete --local <dataset> --job <id> --yes
+ageval tasks <dataset>
+ageval lock <dataset> --task <id>
+ageval lock <dataset> --task <id> --probe
+ageval run <dataset> --task <id>
+ageval run <dataset> --task <id> --probe
+ageval run <dataset>                         # suite
+ageval run official/demo@0.1.0 --dir tmp --task <id>
+ageval run <dataset> --max-concurrent-tasks 2
+ageval run <dataset> -k 5                    # Always-k（每题 k 次）
+ageval run <dataset> --resume-suite <suite_run_id> --task <id> -k 5
+ageval campaign <dataset> --task <id> ...
+ageval status <suite_run_id> --dataset <dataset>
+ageval cancel <suite_run_id> --dataset <dataset>
+ageval executors -v
+ageval plugin install <path|ref>
+ageval plugin list
+ageval plugin uninstall <plugin_id>
+ageval agent install <path|ref>
+ageval agent list
+ageval agent uninstall <agent_id>
+ageval evidence --help
+ageval view <dataset|id@version> [--dev] [--open /jobs/<id>]
+ageval jobs delete --local <dataset> --job <id> --yes
 # Registry / 结果（需 login；细节见 [Registry](/docs/share/registry)）
-uv run ageval publish <dataset> --org <org> [--draft] [--public] [--replace]
-uv run ageval release <dataset_id> [--public] [--replace]
-uv run ageval registry list|show|set-visibility|delete|org-create|org-list|org-add-member|org-set-role|org-transfer|org-remove-member …
-uv run ageval results upload-suite <dataset|id@version> --suite-run <8-hex>
-uv run ageval results upload|attach-agent|request|inbox|decide|share|unshare|set-visibility|delete …
+ageval publish <dataset> --org <org> [--draft] [--public] [--replace]
+ageval release <dataset_id> [--public] [--replace]
+ageval registry list|show|set-visibility|delete|org-create|org-list|org-add-member|org-set-role|org-transfer|org-remove-member …
+ageval results upload-suite <dataset|id@version> --suite-run <8-hex>
+ageval results upload|attach-agent|request|inbox|decide|share|unshare|set-visibility|delete …
 ```
 
 路径 = dataset 根（含 `ageval.yaml`）。`run` / `lock` / `view` / `upload-suite` 也可是 Hub ref（`id@version`）；`--dir` 只配合 Hub ref。`tasks` / `campaign` 仍是本地目录。`--agent` 与 `--profiles` 互斥。`--model` 须配合 `--agent`。`ageval agent install` 还会安装包声明的非 contrib 插件。删除类命令须显式 `--yes`；同 identity 覆盖须显式 `--replace`（默认 409）。

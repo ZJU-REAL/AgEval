@@ -6,8 +6,8 @@ description: Pack Attempt materials for sharing or pipelines.
 Materials already live under the Attempt directory. After a successful seal the durable tree is `lock.json` / `result.json` / `trajectory.jsonl` / `summary.json` / `task-artifacts/**`. `--keep-vendor-raw` (off by default) keeps invoke `backend_raw/`, layer B, and `evaluator_raw.json`. `--keep-workspace` is the host work root only; it does not keep vendor raw.
 
 ```bash
-uv run ageval evidence --help
-uv run ageval run <dataset> --task <id> --keep-vendor-raw
+ageval evidence --help
+ageval run <dataset> --task <id> --keep-vendor-raw
 ```
 
 No secrets in exports; trajectory is still not PASS. Casual browse: [Viewer](/docs/run/local-viewer).

@@ -1,21 +1,52 @@
 ---
 title: Install
-description: Install the ageval CLI with uv.
+description: Install the ageval CLI from PyPI with uv.
 ---
 
-- [uv](https://docs.astral.sh/uv/)
-- CPython **3.12+**
+## Install
 
-A real coding-agent path needs a host ACP entry and credentials. `ageval lock` does not.
+```bash
+uv tool install ageval-cli
+ageval -V
+```
+
+- CPython **3.12+** (`uv` prepares the interpreter itself)
+- A real coding-agent path needs a host ACP entry and credentials. `ageval lock` does not.
+- Upgrade: `uv tool upgrade ageval-cli`
+
+Once installed, the CLI works **without cloning the repo**: datasets come from the Hub by registry ref (`<dataset_id>@<version>`), or point at any local dataset root.
+
+## Optional extras
+
+Optional backends ship as extras. Install on demand; rerunning the same command upgrades in place (uv caches, so this is cheap):
+
+```bash
+uv tool install 'ageval-cli[all]'   # everything at once
+```
+
+| Extra | For |
+| --- | --- |
+| `e2b` | [e2b](https://e2b.dev) cloud sandbox environment |
+| `daytona` | [Daytona](https://www.daytona.io) sandbox environment |
+| `registry` | Self-hosted Registry / Hub service |
+| `nooa` / `dsh` / `miniswe` | The matching external harness plugins |
+
+Missing extras or credentials fail closed at lock/run with the exact install command.
+
+## Develop from source (contributors)
+
+Clone only when changing ageval itself or running the in-repo examples:
 
 ```bash
 git clone https://github.com/ZJU-REAL/AgEval.git
-cd ageval
+cd AgEval
 uv sync --frozen --all-packages
 uv run ageval -V
 ```
 
 ## Skills
+
+In-repo [`skills/`](https://github.com/ZJU-REAL/AgEval/tree/main/skills):
 
 | Skill | Use |
 | --- | --- |

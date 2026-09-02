@@ -1,18 +1,29 @@
 ---
 title: 首次运行
-description: 锁定配置、执行示例 task，并定位结果目录。
+description: 锁定配置、执行 task，并定位结果目录。
 ---
 
-CLI 路径参数始终是 **dataset 根**（含 `ageval.yaml` 的目录），不是 `tasks/<id>/`。
+CLI 的 dataset 参数始终是 **dataset 根**（含 `ageval.yaml` 的目录）或 **registry ref**（`<dataset_id>@<version>`），不是 `tasks/<id>/`。
 
-公开示例以 [`examples/datasets/minimal-demo`](https://github.com/ZJU-REAL/AgEval/tree/main/examples/datasets/minimal-demo) 为主。默认 `profiles.yaml` 的环境是 **docker**。
+## 从 Hub 运行（无需 clone）
 
 ```bash
-uv run ageval tasks examples/datasets/minimal-demo
-uv run ageval lock examples/datasets/minimal-demo --task terminal-jsonl-agg
-uv run ageval run  examples/datasets/minimal-demo --task terminal-jsonl-agg
-uv run ageval run  examples/datasets/minimal-demo --task terminal-jsonl-agg \
-  --profiles examples/datasets/minimal-demo/profiles.e2b-acp.yaml --probe
+ageval registry list
+ageval lock <org>/<name>@<version> --task <task-id>
+ageval run  <org>/<name>@<version> --task <task-id>
+```
+
+registry ref 会把已发布的 dataset 下载并缓存到本机（`ageval cache` 查看 / 清理），再按锁定配置执行。默认 profiles 多为 **docker** 环境，需要本机 Docker 引擎；实际运行 coding agent 还需要 ACP 入口与凭据。
+
+## 仓库内示例
+
+公开示例 [`examples/datasets/minimal-demo`](https://github.com/ZJU-REAL/AgEval/tree/main/examples/datasets/minimal-demo) 随仓库 checkout 提供：
+
+```bash
+ageval tasks examples/datasets/minimal-demo
+ageval lock examples/datasets/minimal-demo --task terminal-jsonl-agg
+ageval run  examples/datasets/minimal-demo --task terminal-jsonl-agg
+ageval run  examples/datasets/minimal-demo --task terminal-jsonl-agg --probe
 ```
 
 `ageval run` 在 TTY 下打印短 recap（单题含 `logs` 路径，整包含 `summary` 路径）。管道或 `--json` 仍输出 JSON 文档。证据在 `.ageval/runs/<id>/`。
@@ -24,8 +35,8 @@ uv run ageval run  examples/datasets/minimal-demo --task terminal-jsonl-agg \
 | **environment** | 环境 kind：local / docker / e2b / ssh / daytona |
 
 ```bash
-uv run ageval executors -v
-uv run ageval view examples/datasets/minimal-demo --no-browser
+ageval executors -v
+ageval view examples/datasets/minimal-demo --no-browser
 ```
 
 `--probe` 只做 lock + preflight，不 invoke。`--profiles` 整份替换 job 文档。`--agent` 与 `--profiles` 互斥。`--model` 须配合 `--agent`。

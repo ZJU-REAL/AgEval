@@ -8,7 +8,7 @@ One task can declare several `agent_profiles` and pick which to use at run time.
 ## What’s on this host?
 
 ```bash
-uv run ageval executors -v
+ageval executors -v
 ```
 
 Check `engine_ready` / `acp_entry_ready` per ACP entry.
@@ -46,15 +46,15 @@ default. This is not `ageval results upload-suite --model` (an observational
 upload label).
 
 ```bash
-uv run ageval run examples/datasets/minimal-demo --task terminal-jsonl-agg --agent pi --model glm-4.7
-uv run ageval agent install examples/agents/pi-default
-uv run ageval run examples/datasets/minimal-demo --task terminal-jsonl-agg --agent local/pi-default@0.1.0
+ageval run examples/datasets/minimal-demo --task terminal-jsonl-agg --agent pi --model glm-4.7
+ageval agent install examples/agents/pi-default
+ageval run examples/datasets/minimal-demo --task terminal-jsonl-agg --agent local/pi-default@0.1.0
 ```
 
 ## Temporary switch
 
 ```bash
-uv run ageval run examples/datasets/minimal-demo --task terminal-jsonl-agg \
+ageval run examples/datasets/minimal-demo --task terminal-jsonl-agg \
   --set '/bindings/solver/options/entry="codex"'
 ```
 
