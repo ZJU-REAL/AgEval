@@ -44,7 +44,7 @@ Optional **LLM-as-judge**: add another role on the same job `profiles.yaml` (e.g
 
 ```python
 def evaluate(inputs):
-    # inputs["agent"] is injected on a local box (parent socket); omit → script path
+    # inputs["agent"] is injected on this machine (parent socket); omit → script path
     ...
     return {"status": "PASS", "score": 1.0, "metrics": {}}
 ```
@@ -54,7 +54,7 @@ def evaluate(inputs):
 | PASS | Still this return value only. Judge prose / `observation.jsonl` is not a score |
 | Trace | Evaluate-phase steps go to `evaluation/observation.jsonl` (`user` rows omitted so gold stays out of evidence). Not merged into root `trajectory.jsonl` |
 | Budget | `limits.agent_invocations` must cover solver **and** judge |
-| Box | SDK session uses the parent Unix socket. ACP `attach_stdio` targets the **scoring host** (the run environment by default; a second docker instance when `evaluate_host.isolated: true`). With `evaluation.environments`, ACP must `session(id, environment=<name>)`; `openai-http` / `anthropic-http` ignore `environment=` (egress stays on the parent). Do not bind-mount the Agent Service socket into a container |
+| Environment | SDK session uses the parent Unix socket. ACP `attach_stdio` targets the **scoring host** (the run environment by default; a second docker instance when `evaluate_host.isolated: true`). With `evaluation.environments`, ACP must `session(id, environment=<name>)`; `openai-http` / `anthropic-http` ignore `environment=` (egress stays on the parent). Do not bind-mount the Agent Service socket into a container |
 
 ## Named scoring hosts
 

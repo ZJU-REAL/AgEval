@@ -1,9 +1,9 @@
 ---
-title: 运行 Dataset（Suite）
+title: 整份 dataset 一次跑完
 description: 一次跑 Dataset 里所有 task；可 Always-k 与 pass@k；汇总分不是整包 PASS。
 ---
 
-省略 `--task` 时，`ageval run` 按 suite 调度**每一个**成员 task，各自独立 lock / 执行 / 评测：
+省略 `--task` 时，`ageval run` 把 dataset 里每一个 task 都跑一遍，各自独立 lock / 执行 / 评测：
 
 ```bash
 ageval run examples/datasets/minimal-demo
@@ -15,7 +15,7 @@ ageval run examples/datasets/minimal-demo --max-concurrent-tasks 2
 | 轴 | 干什么 | 不干什么 |
 | --- | --- | --- |
 | **并发** `--max-concurrent-tasks` | **少等一会儿**——多开几路压总耗时 | 不改 k，也不改 PASS/FAIL |
-| **Always-k** `--n-attempts` / `-k` | 每题固定跑满 k 次独立 Attempt，给 **pass@k / pass^k** 攒样本 | 不是「失败再试」的条件 retry；**不进** `task.yaml` / fingerprint |
+| **Always-k** `--n-attempts` / `-k` | 每题固定跑满 k 次独立运行，给 **pass@k / pass^k** 攒样本 | 不是「失败再试」的条件 retry；**不进** `task.yaml` / fingerprint |
 
 ```bash
 # 整包每题 k=5（CLI/job 参数 only）
@@ -27,7 +27,7 @@ ageval run examples/datasets/minimal-demo --task terminal-jsonl-agg -k 5
 # 补跑：并进已有 suite job，重算指标（可加 --task 只补一题）
 ageval run examples/datasets/minimal-demo --resume-suite <suite_run_id> --task terminal-jsonl-agg -k 5
 
-# 指定要换的成员（PASS / FAIL / ERROR）：新 Attempt，同一 suite id
+# 指定要换的成员（PASS / FAIL / ERROR）：新的一次运行，同一 suite id
 ageval run examples/datasets/minimal-demo --resume-suite <suite_run_id> --task terminal-jsonl-agg --replace-slot
 # Always-k：只换一格 (task_id, attempt_index)
 # ageval run examples/datasets/minimal-demo --resume-suite <id> --task terminal-jsonl-agg --replace-slot --attempt-index 1
@@ -37,8 +37,8 @@ ageval run examples/datasets/minimal-demo --resume-suite <suite_run_id> --task t
 
 - `n_attempts` **禁止**写进 `task.yaml`；也不进 `config_fingerprint`  
 - 不加 `--replace-slot` 的补跑只**追加**缺失 index；已完成的 PASS / FAIL / ERROR 仍跳过  
-- `--replace-slot` 写**新** Attempt；旧行留在盘上并进入 `previous[]`；指标只按现行指针重算  
-- Hub / Viewer 历史列表是 `patch N` + 该 Attempt 开始时间（不是 suite 补跑时刻，也不展示 `run_id`）  
+- `--replace-slot` 写**新**的一次运行；旧行留在盘上并进入 `previous[]`；指标只按现行指针重算  
+- Hub / Viewer 历史列表是 `patch N` + 该次运行开始时间（不是补跑时刻，也不展示 `run_id`）  
 - 因 **cancel 未真正跑过** 的占位会在 resume 时**重跑**（避免 pass@k 永久偏低）
 - 进度 / 取消见下方；Hub Leaderboard 在有 `metrics.pass_at_k` 时展示 pass@k / pass^k / n_attempts；本机 summary 始终可写 metrics  
 - 系统默认 `suite_run_id` 为 **8 位 hex**（无 `suite_` 前缀）
@@ -57,7 +57,7 @@ ageval run examples/datasets/minimal-demo --resume-suite <suite_run_id> --task t
 
 样本数不够的 task **不进**该 k 的分母。PASS 仍只来自**每题 evaluator**。
 
-同目录还有 `progress.json`（多 unit 进度）；Attempt `result.json` 可含 `phase_timing`（prepare / run / evaluate / cleanup）。
+同目录还有 `progress.json`（多 unit 进度）；一次运行的 `result.json` 可含 `phase_timing`（prepare / run / evaluate / cleanup）。
 
 ## 进度与取消
 
@@ -79,7 +79,7 @@ Hub 的 **Dataset → Leaderboard** 和 **Task → Jobs** 读的是 Registry 的
 
 | 步骤 | 命令 |
 | --- | --- |
-| 1. 跑 suite | `ageval run <dataset>`（**不要**加 `--task`；可用 `--profiles`） |
+| 1. 整份跑完 | `ageval run <dataset>`（**不要**加 `--task`；可用 `--profiles`） |
 | 2. 记下 id | 输出 / `summary.json` 里的 `suite_run_id`（默认 8 位 hex） |
 | 3. 上传 suite | `ageval results upload-suite <dataset> --suite-run <id> --public`（也可 `id@version`） |
 | 4. 需要点开轨迹时 | 加上 `--with-attempts` |

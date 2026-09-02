@@ -1,9 +1,9 @@
 ---
 title: 本地结果查看器
-description: 浏览器里翻 suite 跑次，不连 Registry。
+description: 浏览器里翻本机跑次，不连 Registry。
 ---
 
-跑完 suite 或单题后，想对照分数、点开轨迹、复制命令——用 Viewer。它读打开的那一个 Dataset：`.ageval/suite-runs/` 与 `.ageval/runs/`，不连 Registry。
+整份 dataset 跑完或只跑一题后，想对照分数、点开轨迹、复制命令——用 Viewer。它读打开的那一个 Dataset：`.ageval/suite-runs/` 与 `.ageval/runs/`，不连 Registry。
 
 Jobs 表可以删掉本机一行 Job（先 preview 路径，再确认）。删 suite 会一并删掉它引用的全部 Attempt，不会再以 single 冒出来。不能从 suite 里单独删一条 Attempt。这是擦本地证据，不是 Registry 删除（`ageval results delete` 是另一对象）。CLI 对等：`ageval jobs delete --local <dataset> --job <id> --yes`。
 
