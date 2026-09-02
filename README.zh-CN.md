@@ -13,31 +13,61 @@
   <a href="https://github.com/ZJU-REAL/ageval/releases"><img alt="release" src="https://shieldcn.dev/github/release/ZJU-REAL/ageval.svg?variant=secondary&size=sm&logo=ri%3AGoTag&logoColor=60A5FA"></a>
   <a href="https://github.com/ZJU-REAL/ageval/commits"><img alt="last commit" src="https://shieldcn.dev/github/last-commit/ZJU-REAL/ageval.svg?variant=secondary&size=sm&logo=ri%3AGoGitCommit&logoColor=A78BFA"></a>
 </p>
-
-大多数 Agent 评测仍停留在**模型**：同一套提示、同一套工具约定，比较不同权重或不同 API。可交付的 Agent 却是模型加上它的运行时——同一套权重接到不同的 coding agent、工具策略或环境上，行为和成本都会变。配得上「比较」的评测因此是一个乘积：**H 个 Agent 运行时 × M 个模型 × E 个环境**。每个组合都要一套脚手架；组合不写进 lock，分数就不可比。
-
 **ageval** 在统一运行基座上用插件切换待评测 Agent；装上 CLI 和 skill，Agent 能设计、转化 benchmark 并自动跑评测；在 Hub 上分享或复用 dataset、插件和 Agent 配置，并上传评测结果。
 
 <p align="center">
   <img src="docs/assets/why-ageval.jpg" alt="N 种环境 × M 种 Agent 运行时：逐个组合需要 N·M 份定制脚手架；ageval 用插件组合环境和 Agent，一份 dataset 到处跑。" width="800">
 </p>
 
-## 目录
+## 快速开始
 
-- [是什么](#是什么)
-- [如何运行](#如何运行)
-- [功能](#功能)
-- [快速开始](#快速开始)
-- [架构](#架构)
-- [目录结构](#目录结构)
-- [文档](#文档)
+```bash
+uv tool install ageval-cli
+# 装全依赖或者按需安装
+uv tool install 'ageval-cli[all]' # 一次装全
+uv tool install 'ageval-cli[e2b]' # 按需装单个 extra
 
-## 是什么
+ageval -V
+```
 
-- **切换待评测 Agent。** 环境和 Agent 运行时都经插件接入——默认 ACP（[pi](https://pi.dev)、[Codex](https://github.com/openai/codex)、[Claude Code](https://github.com/anthropics/claude-code)、[OpenCode](https://github.com/sst/opencode)）；[nooa](https://github.com/NVIDIA-NeMo/labs-OO-Agents)、[dsh](https://github.com/deepseek-ai/deepseek-harness)、[miniswe](https://github.com/SWE-agent/mini-swe-agent) 走同一条路。不用 fork 框架。
-- **让 Agent 自己跑评测。** CLI 加 skill，教你的 coding agent 自己设计、转化 benchmark 并跑完评测。
-- **在 Hub 上分享与复用。** dataset、插件、Agent 配置和评测结果都放在 ageval Hub——别人拿去是接着跑，不只是看一张分数表。
-- **交付 dataset，而不是脚手架。** task 里写业务循环；环境和 Agent 在运行时经 `profiles.yaml` 绑定。
+直接跑 Hub 上的 dataset，或跑任意本地 dataset 根目录：
+
+```bash
+ageval registry list                        # 查看 Hub 上可见的 dataset
+ageval run <org>/<name>@<version> --task <task-id>
+ageval executors -v
+ageval view <org>/<name>@<version> --no-browser
+```
+
+### 安装 skills
+
+为本机 coding agent 安装 skills（CLI 使用、插件、dataset 编写等）：
+
+```bash
+# 安装全部
+npx skills add ZJU-REAL/ageval
+# 指定安装
+npx skills add ZJU-REAL/ageval --skill ageval-cli
+```
+
+### 从源码开发
+
+体验仓库内的 dataset 示例以及 Agent 目录包，或需要从源码构建，clone 仓库：
+
+```bash
+git clone https://github.com/ZJU-REAL/ageval.git
+cd ageval
+uv sync --frozen --all-packages
+uv run ageval -V
+```
+
+运行仓库内最小示例并在本地查看器查看结果：
+
+```bash
+uv run ageval tasks examples/datasets/minimal-demo
+uv run ageval run  examples/datasets/minimal-demo --task terminal-jsonl-agg
+uv run ageval view examples/datasets/minimal-demo --no-browser
+```
 
 ## 如何运行
 
@@ -74,68 +104,17 @@
 
 ## 功能
 
-**切换待评测 Agent**
+**快速切换待评测 Agent**
 
-环境和 Agent 运行时都经插件接入，不用 fork 框架、不用改基座。默认 [ACP](https://agentclientprotocol.com)；[nooa](https://github.com/NVIDIA-NeMo/labs-OO-Agents)、[dsh](https://github.com/deepseek-ai/deepseek-harness)、[miniswe](https://github.com/SWE-agent/mini-swe-agent) 走同一条插件路。切换就是 `profiles.yaml` 里的一行。插件要的能力或凭证对不上，`lock` 就失败——什么都不会开始跑。Agent 包 format `ageval.agent/1`；内置包用 `--agent pi`（不必 install），定制包先 `ageval agent install`。
+环境和 Agent 运行时都经插件接入，不必修改基座。默认通过 [ACP](https://agentclientprotocol.com) 启动 agent；[nooa](https://github.com/NVIDIA-NeMo/labs-OO-Agents)、[dsh](https://github.com/deepseek-ai/deepseek-harness)、[miniswe](https://github.com/SWE-agent/mini-swe-agent) 的接入走同一条插件路。修改配置文件 `profiles.yaml` 里的一行，或者用 `--agent` 临时指定来切换 agent。
 
 **让 Agent 自己跑评测**
 
-skill 会告诉你的 coding agent 怎么调用 lock / run、怎么写 dataset；之后它自己设计或转化 benchmark，端到端跑完评测。`uv tool install ageval-cli`，再 `npx skills add ZJU-REAL/ageval`。
+skill 会告诉你的 coding agent 怎么使用 CLI、怎么写 dataset；之后它自己设计或转化 benchmark，端到端跑完评测。参考[快速开始](#快速开始)，完成 CLI 和 skill 的安装。
 
 **在 Hub 上分享与复用**
 
-dataset、插件和 Agent 配置放在 ageval Hub，评测结果也上传——你分享出去的是别人能接着跑的东西。组织管理成员、公开范围与版本。部署可用 `docker compose -f services/registry/docker-compose.yml up -d`。本机 Viewer 按 Jobs → Tasks 打开一次运行。
-
-## 快速开始
-
-从 PyPI 直接安装 CLI。需要 CPython **3.12+**。实际运行 coding agent 还需要本机 ACP 入口与凭据。仅执行 `ageval lock` 时不需要。
-
-```bash
-uv tool install ageval-cli
-ageval -V
-```
-
-可选后端以 extras 提供：`e2b`、`daytona`、`registry`、`nooa`、`dsh`、`miniswe`——或一次装全：
-
-```bash
-uv tool install 'ageval-cli[all]'
-```
-
-用 registry ref（`<dataset_id>@<version>`）直接跑 Hub 上的 dataset，或跑任意本地 dataset 根目录：
-
-```bash
-ageval registry list                        # 查看 Hub 上可见的 dataset
-ageval run <org>/<name>@<version> --task <task-id>
-ageval executors -v
-ageval view <org>/<name>@<version> --no-browser
-```
-
-默认 profiles 使用 `environment: docker`（需要可用的 Docker 引擎）。内置 Agent 包用 `--agent pi`（不必 install）。可选 `--model` 改这次 run。定制 overlays 包先 `ageval agent install`，再 `--agent org/name@version`。缺 extras 或凭据时检查不过就不能进入运行，报错里带准确的安装命令。
-
-给你本机 coding agent 用的技能（CLI、插件、dataset 编写、`run.py`/SDK）：
-
-```bash
-npx skills add ZJU-REAL/ageval
-```
-
-### 从源码开发
-
-仓库内示例——[`examples/README.md`](examples/README.md)：`minimal-demo`、五题缩略的 `tau3-airline-5`，以及 Agent 目录包——需要 clone 仓库：
-
-```bash
-git clone https://github.com/ZJU-REAL/ageval.git
-cd ageval
-uv sync --frozen --all-packages
-uv run ageval -V
-```
-
-```bash
-uv run ageval tasks examples/datasets/minimal-demo
-uv run ageval lock examples/datasets/minimal-demo --task terminal-jsonl-agg
-uv run ageval run  examples/datasets/minimal-demo --task terminal-jsonl-agg
-uv run ageval run  examples/datasets/minimal-demo --task terminal-jsonl-agg --probe
-uv run ageval view examples/datasets/minimal-demo --no-browser
-```
+你可以将 dataset、插件和 Agent 配置与评测结果上传到 ageval Hub，并在 Hub 上组织管理成员、公开 dataset 范围与版本。
 
 ## 架构
 

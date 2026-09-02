@@ -15,30 +15,61 @@
   <a href="https://github.com/ZJU-REAL/ageval/commits"><img alt="last commit" src="https://shieldcn.dev/github/last-commit/ZJU-REAL/ageval.svg?variant=secondary&size=sm&logo=ri%3AGoGitCommit&logoColor=A78BFA"></a>
 </p>
 
-Most agent evaluation still measures the **model**: same prompts, same tool contract, different weights or APIs. A shippable agent is a model plus its runtime — the same weights on a different coding agent, tool policy, or environment behave differently and cost differently. A comparison that deserves the name is a product: **H agent runtimes × M models × E environments**. Every cell wants its own scaffold; scores mean nothing unless that cell is in the lock.
-
 **ageval** switches the agent under test with plugins on one running base; install the CLI and skills so the Agent can design, convert, and run benchmarks; share or reuse datasets, plugins, and agent configs on Hub, and upload results.
 
 <p align="center">
   <img src="docs/assets/why-ageval.jpg" alt="N environments × M agent runtimes: each combination would need its own scaffold; ageval composes environment and Agent through plugins, so one dataset runs anywhere." width="800">
 </p>
 
-## Contents
+## Getting started
 
-- [What it is](#what-it-is)
-- [How it works](#how-it-works)
-- [Features](#features)
-- [Getting started](#getting-started)
-- [Architecture](#architecture)
-- [Project structure](#project-structure)
-- [Docs](#docs)
+```bash
+uv tool install ageval-cli
+# install everything, or only what you need
+uv tool install 'ageval-cli[all]' # everything
+uv tool install 'ageval-cli[e2b]' # one extra at a time
 
-## What it is
+ageval -V
+```
 
-- **Switch the agent under test.** Environments and agent runtimes arrive as plugins — ACP by default ([pi](https://pi.dev), [Codex](https://github.com/openai/codex), [Claude Code](https://github.com/anthropics/claude-code), [OpenCode](https://github.com/sst/opencode)); [nooa](https://github.com/NVIDIA-NeMo/labs-OO-Agents), [dsh](https://github.com/deepseek-ai/deepseek-harness), and [miniswe](https://github.com/SWE-agent/mini-swe-agent) take the same path. You never fork the framework.
-- **Let the Agent run the eval.** The CLI plus a skill teaches your coding agent to design, convert, and run benchmarks on its own.
-- **Share and reuse on Hub.** Datasets, plugins, agent configs, and results live on ageval Hub — others run what you shared, not just read a score table.
-- **Ship a dataset, not a scaffold.** Tasks carry the loop; environment and Agent bind in `profiles.yaml` at run time.
+Run a dataset straight from the Hub, or any local dataset root:
+
+```bash
+ageval registry list                        # datasets visible on the Hub
+ageval run <org>/<name>@<version> --task <task-id>
+ageval executors -v
+ageval view <org>/<name>@<version> --no-browser
+```
+
+### Install skills
+
+Install skills for your local coding agent (CLI usage, plugins, dataset authoring, and more):
+
+```bash
+# install all
+npx skills add ZJU-REAL/ageval
+# install specific ones
+npx skills add ZJU-REAL/ageval --skill ageval-cli
+```
+
+### Develop from source
+
+To try the in-repo dataset examples and Agent catalog packs, or to build from source, clone the repo:
+
+```bash
+git clone https://github.com/ZJU-REAL/ageval.git
+cd ageval
+uv sync --frozen --all-packages
+uv run ageval -V
+```
+
+Run the in-repo minimal example and inspect the results in the local Viewer:
+
+```bash
+uv run ageval tasks examples/datasets/minimal-demo
+uv run ageval run  examples/datasets/minimal-demo --task terminal-jsonl-agg
+uv run ageval view examples/datasets/minimal-demo --no-browser
+```
 
 ## How it works
 
@@ -77,66 +108,15 @@ Most agent evaluation still measures the **model**: same prompts, same tool cont
 
 **Switch the agent under test**
 
-Environments and agent runtimes join as plugins; you do not fork the framework or change the base. Default is [ACP](https://agentclientprotocol.com); [nooa](https://github.com/NVIDIA-NeMo/labs-OO-Agents), [dsh](https://github.com/deepseek-ai/deepseek-harness), and [miniswe](https://github.com/SWE-agent/mini-swe-agent) take the same plugin path. Switching is one line in `profiles.yaml`. A plugin whose capabilities or credentials do not match fails at `lock` — nothing starts. Agent packages use format `ageval.agent/1`; bind a shipped pack with `--agent pi` (no install), or `ageval agent install` for a custom pack.
+Environments and agent runtimes join as plugins; the base stays untouched. Agents start over [ACP](https://agentclientprotocol.com) by default; [nooa](https://github.com/NVIDIA-NeMo/labs-OO-Agents), [dsh](https://github.com/deepseek-ai/deepseek-harness), and [miniswe](https://github.com/SWE-agent/mini-swe-agent) take the same plugin path. Switch by changing one line in `profiles.yaml`, or point at an agent for one run with `--agent`.
 
-**Teach the Agent automated evaluation**
+**Let the Agent run the eval**
 
-The skill tells your coding agent how to call lock / run and how to author a dataset; from there it designs or converts a benchmark and runs the eval end to end. `uv tool install ageval-cli`, then `npx skills add ZJU-REAL/ageval`.
+The skill tells your coding agent how to use the CLI and how to author a dataset; from there it designs or converts a benchmark and runs the eval end to end. See [Getting started](#getting-started) to install the CLI and skills.
 
 **Share and reuse on Hub**
 
-Datasets, plugins, and agent configs live on ageval Hub, and results upload there too — what you share is something others can run. Organizations manage members, public/private scope, and versions. Operators can `docker compose -f services/registry/docker-compose.yml up -d`. The local Viewer opens a run under Jobs → Tasks.
-
-## Getting started
-
-Install the CLI from PyPI. Requires CPython **3.12+**. A live coding-agent run also requires a host ACP entry and credentials. `ageval lock` does not.
-
-```bash
-uv tool install ageval-cli
-ageval -V
-```
-
-Optional backends ship as extras: `e2b`, `daytona`, `registry`, `nooa`, `dsh`, `miniswe` — or everything at once:
-
-```bash
-uv tool install 'ageval-cli[all]'
-```
-
-Run a dataset straight from the Hub by registry ref (`<dataset_id>@<version>`), or any local dataset root:
-
-```bash
-ageval registry list                        # datasets visible on the Hub
-ageval run <org>/<name>@<version> --task <task-id>
-ageval executors -v
-ageval view <org>/<name>@<version> --no-browser
-```
-
-Default profiles use `environment: docker` (a working Docker engine is needed). Bind a shipped Agent package with `--agent pi` (no install). Optional `--model` overrides this run. Custom overlay packs use `ageval agent install` then `--agent org/name@version`. Missing extras or credentials fail the check and the run does not start; the error includes the exact install command.
-
-Skills for your coding agent (CLI, plugins, dataset authoring, `run.py`/SDK):
-
-```bash
-npx skills add ZJU-REAL/ageval
-```
-
-### Develop from source
-
-The in-repo examples — [`examples/README.md`](examples/README.md): `minimal-demo`, a five-task `tau3-airline-5` cut, and catalog Agents — need a repo checkout:
-
-```bash
-git clone https://github.com/ZJU-REAL/ageval.git
-cd ageval
-uv sync --frozen --all-packages
-uv run ageval -V
-```
-
-```bash
-uv run ageval tasks examples/datasets/minimal-demo
-uv run ageval lock examples/datasets/minimal-demo --task terminal-jsonl-agg
-uv run ageval run  examples/datasets/minimal-demo --task terminal-jsonl-agg
-uv run ageval run  examples/datasets/minimal-demo --task terminal-jsonl-agg --probe
-uv run ageval view examples/datasets/minimal-demo --no-browser
-```
+Upload datasets, plugins, and agent configs together with results to ageval Hub, and manage members, dataset visibility, and versions there.
 
 ## Architecture
 
