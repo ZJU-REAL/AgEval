@@ -1,0 +1,318 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ageval Core 基座 · 一次运行的构成</title>
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Serif:ital,wght@0,400;0,600&family=Noto+Serif+SC:wght@400;600&family=Geist:wght@400;500;600&family=Geist+Mono:wght@400;500;600&family=Noto+Sans+SC:wght@400;500;600&display=swap" rel="stylesheet">
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --color-paper:  #f5f5f5;
+      --color-ink:    #2d3142;
+      --color-muted:  #4f5d75;
+      --color-accent: #2f6bff;
+      --font-sans:    'Geist', 'Noto Sans SC', system-ui, sans-serif;
+      --font-serif:   'Noto Serif','Noto Serif SC',serif;
+      --font-mono:    'Geist Mono', ui-monospace, monospace;
+    }
+    body {
+      font-family: var(--font-sans);
+      background: var(--color-paper);
+      color: var(--color-ink);
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 0;
+    }
+    .frame { max-width: none; width: 100%; }
+    .eyebrow {
+      font-family: var(--font-mono);
+      font-size: 0.66rem;
+      font-weight: 500;
+      letter-spacing: 0.18em;
+      text-transform: uppercase;
+      color: var(--color-muted);
+      margin-bottom: 0.5rem;
+    }
+    h1 {
+      font-family: var(--font-serif);
+      font-size: clamp(1.5rem, 2.4vw + 0.75rem, 2rem);
+      font-weight: 400;
+      letter-spacing: -0.02em;
+      line-height: 1.15;
+      margin-bottom: 1.5rem;
+    }
+    svg { width: 100%; min-width: 960px; display: block; }
+  </style>
+</head>
+<body>
+  <div class="frame">
+
+    <svg viewBox="0 0 1000 540" xmlns="http://www.w3.org/2000/svg" role="img" aria-labelledby="core-high-level-title core-high-level-desc">
+      <title id="core-high-level-title">ageval Core 基座：一次运行的构成</title>
+      <desc id="core-high-level-desc">ageval Core 架构图：外部输入（你、dataset、profiles）经 lock、environment、run、evaluate、record 五个阶段到达 evidence，limits 与 cleanup 两条保障横贯全程。</desc>
+      <defs>
+        <pattern id="dots" width="22" height="22" patternUnits="userSpaceOnUse">
+          <circle cx="1" cy="1" r="0.9" fill="rgba(45,49,66,0.10)"/>
+        </pattern>
+        <marker id="arrow" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto">
+          <polygon points="0 0, 8 3, 0 6" fill="#4f5d75"/>
+        </marker>
+        <marker id="arrow-accent" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto">
+          <polygon points="0 0, 8 3, 0 6" fill="#2f6bff"/>
+        </marker>
+        <marker id="arrow-sm" markerWidth="6" markerHeight="5" refX="5" refY="2.5" orient="auto">
+          <polygon points="0 0, 6 2.5, 0 5" fill="#4f5d75"/>
+        </marker>
+        <marker id="arrow-dim" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto">
+          <polygon points="0 0, 8 3, 0 6" fill="rgba(45,49,66,0.45)"/>
+        </marker>
+      </defs>
+
+      <!-- Background -->
+      <rect width="100%" height="100%" fill="#f5f5f5"/>
+      <rect width="100%" height="100%" fill="url(#dots)" opacity="0.55"/>
+
+      <!-- ═══════════════════════════════════════════
+           PHASE CHEVRON BANNER — 6 columns, widths [160×5,164], cx [80,240,400,560,720,882]
+           ═══════════════════════════════════════════ -->
+      <polygon points="0,4 148,4 160,18 148,32 0,32" fill="#2d3142"/>
+      <polygon points="160,4 308,4 320,18 308,32 160,32 172,18" fill="#3d4460"/>
+      <polygon points="320,4 468,4 480,18 468,32 320,32 332,18" fill="#2d3142"/>
+      <polygon points="480,4 628,4 640,18 628,32 480,32 492,18" fill="#3d4460"/>
+      <polygon points="640,4 788,4 800,18 788,32 640,32 652,18" fill="#2d3142"/>
+      <polygon points="800,4 964,4 964,32 800,32 812,18" fill="#3d4460"/>
+
+      <text x="80"  y="21" fill="#f5f5f5" font-size="7" font-family="'Geist Mono', monospace" letter-spacing="0.14em" text-anchor="middle">INPUTS</text>
+      <text x="240" y="21" fill="#f5f5f5" font-size="7" font-family="'Geist Mono', monospace" letter-spacing="0.14em" text-anchor="middle">LOCK</text>
+      <text x="400" y="21" fill="#f5f5f5" font-size="7" font-family="'Geist Mono', monospace" letter-spacing="0.14em" text-anchor="middle">ENVIRONMENT</text>
+      <text x="560" y="21" fill="#f5f5f5" font-size="7" font-family="'Geist Mono', monospace" letter-spacing="0.14em" text-anchor="middle">RUN</text>
+      <text x="720" y="21" fill="#f5f5f5" font-size="7" font-family="'Geist Mono', monospace" letter-spacing="0.14em" text-anchor="middle">EVALUATE</text>
+      <text x="882" y="21" fill="#f5f5f5" font-size="7" font-family="'Geist Mono', monospace" letter-spacing="0.14em" text-anchor="middle">RECORD</text>
+
+      <!-- ═══════════════════════════════════════════
+           RIGHT STRIP — vertical chevrons LIMITS / CLEANUP
+           2 verticals → heights [216,216]: [40..256, 256..472]
+           ═══════════════════════════════════════════ -->
+      <polygon points="972,40 1000,40 1000,244 986,256 972,244" fill="#2d3142"/>
+      <text x="986" y="148" fill="#f5f5f5" font-size="7" font-family="'Geist Mono', monospace" letter-spacing="0.14em" text-anchor="middle" transform="rotate(-90 986 148)">LIMITS</text>
+      <polygon points="972,256 986,268 1000,256 1000,472 972,472" fill="#3d4460"/>
+      <text x="986" y="364" fill="#f5f5f5" font-size="7" font-family="'Geist Mono', monospace" letter-spacing="0.14em" text-anchor="middle" transform="rotate(-90 986 364)">CLEANUP</text>
+
+      <!-- ═══════════════════════════════════════════
+           STRUCTURAL ZONES
+           ═══════════════════════════════════════════ -->
+      <rect x="4" y="40" width="152" height="336" rx="6" fill="rgba(45,49,66,0.02)" stroke="rgba(45,49,66,0.20)" stroke-width="0.8" stroke-dasharray="6,3"/>
+      <text x="80" y="52" fill="#4f5d75" font-size="7" font-family="'Geist Mono', monospace" letter-spacing="0.14em" text-anchor="middle">INPUTS</text>
+
+      <rect x="164" y="40" width="800" height="336" rx="8" fill="rgba(45,49,66,0.02)" stroke="rgba(45,49,66,0.18)" stroke-width="1.2"/>
+
+      <rect x="4" y="388" width="960" height="40" rx="6" fill="rgba(45,49,66,0.05)" stroke="rgba(45,49,66,0.20)" stroke-width="0.8"/>
+      <rect x="4" y="432" width="960" height="40" rx="6" fill="rgba(45,49,66,0.05)" stroke="rgba(45,49,66,0.20)" stroke-width="0.8"/>
+
+      <!-- ═══════════════════════════════════════════
+           ARROWS  (before nodes — z-order rule)
+           ═══════════════════════════════════════════ -->
+      <!-- Sources → lock node (x=170), staggered entries 176 / 208 / 240 -->
+      <path d="M 152,128 H 156 Q 160,128 160,132 V 108 Q 160,104 164,104 H 170" fill="none" stroke="#4f5d75" stroke-width="1" marker-end="url(#arrow)"/>
+      <path d="M 152,208 H 156 Q 160,208 160,204 V 140 Q 160,136 164,136 H 170" fill="none" stroke="#4f5d75" stroke-width="1" marker-end="url(#arrow)"/>
+      <path d="M 152,288 H 156 Q 160,288 160,284 V 172 Q 160,168 164,168 H 170" fill="none" stroke="#4f5d75" stroke-width="1" marker-end="url(#arrow)"/>
+
+      <!-- Phase pipeline (left → right at cy=208) -->
+      <line x1="310" y1="136" x2="330" y2="136" stroke="#4f5d75" stroke-width="1" marker-end="url(#arrow)"/>
+      <line x1="470" y1="136" x2="490" y2="136" stroke="#4f5d75" stroke-width="1" marker-end="url(#arrow)"/>
+      <line x1="630" y1="136" x2="650" y2="136" stroke="#4f5d75" stroke-width="1" marker-end="url(#arrow)"/>
+      <!-- evaluate → evidence (focal-touching → primary accent) -->
+      <line x1="790" y1="136" x2="810" y2="136" stroke="#2f6bff" stroke-width="1.2" marker-end="url(#arrow-accent)"/>
+
+
+      <!-- Plugin extension points (dashed = open; bound once at lock) -->
+      <line x1="240" y1="176" x2="240" y2="208" stroke="#4f5d75" stroke-width="1" stroke-dasharray="4,3" marker-end="url(#arrow-sm)"/>
+      <line x1="400" y1="176" x2="400" y2="208" stroke="#4f5d75" stroke-width="1" stroke-dasharray="4,3" marker-end="url(#arrow-sm)"/>
+      <line x1="560" y1="176" x2="560" y2="208" stroke="#4f5d75" stroke-width="1" stroke-dasharray="4,3" marker-end="url(#arrow-sm)"/>
+
+      <rect x="170" y="208" width="140" height="80" rx="6" fill="rgba(45,49,66,0.02)" stroke="rgba(45,49,66,0.20)" stroke-width="1" stroke-dasharray="4,3"/>
+      <text x="240" y="226" fill="#2d3142" font-size="10" font-weight="400" font-family="'Noto Serif','Noto Serif SC',serif" text-anchor="middle">插件绑定</text>
+      <text x="240" y="265" fill="#4f5d75" font-size="8" font-family="'Geist Mono', monospace" text-anchor="middle">extension_bindings</text>
+      <text x="240" y="279" fill="#4f5d75" font-size="8" font-family="'Geist Mono', monospace" text-anchor="middle">能力 / 凭证在此检查</text>
+
+      <rect x="330" y="208" width="140" height="80" rx="6" fill="rgba(45,49,66,0.02)" stroke="rgba(45,49,66,0.20)" stroke-width="1" stroke-dasharray="4,3"/>
+      <text x="400" y="226" fill="#2d3142" font-size="10" font-weight="400" font-family="'Noto Serif','Noto Serif SC',serif" text-anchor="middle">环境插件</text>
+      <text x="400" y="265" fill="#4f5d75" font-size="8" font-family="'Geist Mono', monospace" text-anchor="middle">local · docker · e2b</text>
+      <text x="400" y="279" fill="#4f5d75" font-size="8" font-family="'Geist Mono', monospace" text-anchor="middle">daytona · ssh</text>
+
+      <rect x="490" y="208" width="140" height="80" rx="6" fill="rgba(45,49,66,0.02)" stroke="rgba(45,49,66,0.20)" stroke-width="1" stroke-dasharray="4,3"/>
+      <text x="560" y="226" fill="#2d3142" font-size="10" font-weight="400" font-family="'Noto Serif','Noto Serif SC',serif" text-anchor="middle">Agent 插件</text>
+      <text x="560" y="265" fill="#4f5d75" font-size="8" font-family="'Geist Mono', monospace" text-anchor="middle">ACP（默认）</text>
+      <text x="560" y="279" fill="#4f5d75" font-size="8" font-family="'Geist Mono', monospace" text-anchor="middle">nooa · dsh · miniswe</text>
+
+
+      <!-- chip icons: environment providers / agent runtimes (from website/public/images/harness) -->
+<svg x="353" y="231" width="16" height="16" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" role="img"><path fill="#4f5d75" d="M13.983 11.078h2.119a.186.186 0 00.186-.185V9.006a.186.186 0 00-.186-.186h-2.119a.185.185 0 00-.185.185v1.888c0 .102.083.185.185.185m-2.954-5.43h2.118a.186.186 0 00.186-.186V3.574a.186.186 0 00-.186-.185h-2.118a.185.185 0 00-.185.185v1.888c0 .102.082.185.185.185m0 2.716h2.118a.187.187 0 00.186-.186V6.29a.186.186 0 00-.186-.185h-2.118a.185.185 0 00-.185.185v1.887c0 .102.082.185.185.186m-2.93 0h2.12a.186.186 0 00.184-.186V6.29a.185.185 0 00-.185-.185H8.1a.185.185 0 00-.185.185v1.887c0 .102.083.185.185.186m-2.964 0h2.119a.186.186 0 00.185-.186V6.29a.185.185 0 00-.185-.185H5.136a.186.186 0 00-.186.185v1.887c0 .102.084.185.186.186m5.893 2.715h2.118a.186.186 0 00.186-.185V9.006a.186.186 0 00-.186-.186h-2.118a.185.185 0 00-.185.185v1.888c0 .102.082.185.185.185m-2.93 0h2.12a.185.185 0 00.184-.185V9.006a.185.185 0 00-.184-.186h-2.12a.185.185 0 00-.184.185v1.888c0 .102.083.185.185.185m-2.964 0h2.119a.185.185 0 00.185-.185V9.006a.185.185 0 00-.184-.186h-2.12a.186.186 0 00-.186.186v1.887c0 .102.084.185.186.185m-2.92 0h2.12a.185.185 0 00.184-.185V9.006a.185.185 0 00-.184-.186h-2.12a.185.185 0 00-.184.185v1.888c0 .102.082.185.185.185M23.763 9.89c-.065-.051-.672-.51-1.954-.51-.338.001-.676.03-1.01.087-.248-1.7-1.653-2.53-1.716-2.566l-.344-.199-.226.327c-.284.438-.49.922-.612 1.43-.23.97-.09 1.882.403 2.661-.595.332-1.55.413-1.744.42H.751a.751.751 0 00-.75.748 11.376 11.376 0 00.692 4.062c.545 1.428 1.355 2.48 2.41 3.124 1.18.723 3.1 1.137 5.275 1.137.983.003 1.963-.086 2.93-.266a12.248 12.248 0 003.823-1.389c.98-.567 1.86-1.288 2.61-2.136 1.252-1.418 1.998-2.997 2.553-4.4h.221c1.372 0 2.215-.549 2.68-1.009.309-.293.55-.65.707-1.046l.098-.288Z"/></svg><svg x="379" y="231" width="16" height="16" viewBox="0 0 20.4 18" xmlns="http://www.w3.org/2000/svg">
+  <path d="M20.2235 0V4.67645H5.49328C5.04263 4.67661 4.67645 5.0426 4.67645 5.49328V5.84494C4.67645 6.29563 5.04263 6.66161 5.49328 6.66178H20.2235V11.3382H5.49328C5.04263 11.3384 4.67645 11.7044 4.67645 12.1551V12.5067C4.67657 12.9573 5.04271 13.3222 5.49328 13.3223H20.2235V18H3.12668C1.39998 17.9996 1.98414e-05 16.5989 0 14.8721V3.12668C0.000280465 1.40008 1.40013 0.000432767 3.12668 0H20.2235Z" fill="#4f5d75"/>
+</svg><svg x="405" y="231" width="16" height="16"  viewBox="0 0 275 287" fill="none" xmlns="http://www.w3.org/2000/svg">
+    
+    <path d="M14.5584 193.736H114.275V227.925H14.5584V193.736Z" fill="#4f5d75"/>
+    <path d="M148.464 74.076H262.426V108.265H148.464V74.076Z" fill="#4f5d75"/>
+    <path d="M88.6338 84.6127L173.246 0L197.422 24.175L112.809 108.788L88.6338 84.6127Z" fill="#4f5d75"/>
+    <path d="M89.157 170.084L24.175 105.102L0 129.277L64.9819 194.259L89.157 170.084Z" fill="#4f5d75"/>
+    <path d="M174.629 217.911L106.133 286.407L81.9577 262.232L150.454 193.736L174.629 217.911Z" fill="#4f5d75"/>
+    <path d="M174.106 132.44L250.66 208.994L274.835 184.819L198.281 108.265L174.106 132.44Z" fill="#4f5d75"/>
+    <path d="M88.6338 48.434V131.057H54.4451L54.4451 48.434H88.6338Z" fill="#4f5d75"/>
+    <path d="M208.294 168.094V270.66H174.106V168.094H208.294Z" fill="#4f5d75"/>
+</svg><svg x="431" y="231" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#4f5d75" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4" width="18" height="16" rx="2"/><polyline points="7,9 10,12 7,15"/><line x1="12" y1="15" x2="17" y2="15"/></svg>
+<svg x="507" y="231" width="16" height="16" fill="#4f5d75" fill-rule="evenodd" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path clip-rule="evenodd" d="M1 1h16.5v11H12v5.5H6.5V23H1V1zm5.5 5.5V12H12V6.5H6.5z"></path><path d="M17.5 12H23v11h-5.5V12z"></path></svg><svg x="537" y="231" width="16" height="16" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M19.503 0H4.496A4.496 4.496 0 000 4.496v15.007A4.496 4.496 0 004.496 24h15.007A4.496 4.496 0 0024 19.503V4.496A4.496 4.496 0 0019.503 0z" fill="#4f5d75"></path><path fill="#f5f5f5" d="M9.064 3.344a4.578 4.578 0 012.285-.312c1 .115 1.891.54 2.673 1.275.01.01.024.017.037.021a.09.09 0 00.043 0 4.55 4.55 0 013.046.275l.047.022.116.057a4.581 4.581 0 012.188 2.399c.209.51.313 1.041.315 1.595a4.24 4.24 0 01-.134 1.223.123.123 0 00.03.115c.594.607.988 1.33 1.183 2.17.289 1.425-.007 2.71-.887 3.854l-.136.166a4.548 4.548 0 01-2.201 1.388.123.123 0 00-.081.076c-.191.551-.383 1.023-.74 1.494-.9 1.187-2.222 1.846-3.711 1.838-1.187-.006-2.239-.44-3.157-1.302a.107.107 0 00-.105-.024c-.388.125-.78.143-1.204.138a4.441 4.441 0 01-1.945-.466 4.544 4.544 0 01-1.61-1.335c-.152-.202-.303-.392-.414-.617a5.81 5.81 0 01-.37-.961 4.582 4.582 0 01-.014-2.298.124.124 0 00.006-.056.085.085 0 00-.027-.048 4.467 4.467 0 01-1.034-1.651 3.896 3.896 0 01-.251-1.192 5.189 5.189 0 01.141-1.6c.337-1.112.982-1.985 1.933-2.618.212-.141.413-.251.601-.33.215-.089.43-.164.646-.227a.098.098 0 00.065-.066 4.51 4.51 0 01.829-1.615 4.535 4.535 0 011.837-1.388zm3.482 10.565a.637.637 0 000 1.272h3.636a.637.637 0 100-1.272h-3.636zM8.462 9.23a.637.637 0 00-1.106.631l1.272 2.224-1.266 2.136a.636.636 0 101.095.649l1.454-2.455a.636.636 0 00.005-.64L8.462 9.23z" fill="url(#lobe-icons-codex-_R_0_)"></path><defs><linearGradient gradientUnits="userSpaceOnUse" id="lobe-icons-codex-_R_0_" x1="12" x2="12" y1="3" y2="21"><stop stop-color="#B1A7FF"></stop><stop offset=".5" stop-color="#7A9DFF"></stop><stop offset="1" stop-color="#3941FF"></stop></linearGradient></defs></svg><svg x="567" y="231" width="16" height="16" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path clip-rule="evenodd" d="M20.998 10.949H24v3.102h-3v3.028h-1.487V20H18v-2.921h-1.487V20H15v-2.921H9V20H7.488v-2.921H6V20H4.487v-2.921H3V14.05H0V10.95h3V5h17.998v5.949zM6 10.949h1.488V8.102H6v2.847zm10.51 0H18V8.102h-1.49v2.847z" fill="#4f5d75" fill-rule="evenodd"></path></svg><svg x="597" y="231" width="16" height="16" fill="#4f5d75" fill-rule="evenodd" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M16 6H8v12h8V6zm4 16H4V2h16v20z"></path></svg>
+
+      <!-- ═══════════════════════════════════════════
+           SOURCE NODES  (w=144, h=64, x=8; y=60/140/220)
+           ═══════════════════════════════════════════ -->
+      <!-- 你 -->
+      <rect x="8" y="96" width="144" height="64" rx="6" fill="white" stroke="rgba(45,49,66,0.22)" stroke-width="1"/>
+      <rect x="16" y="102" width="22" height="12" rx="2" fill="transparent" stroke="rgba(45,49,66,0.28)" stroke-width="0.8"/>
+      <text x="27" y="111" fill="rgba(45,49,66,0.55)" font-size="7" font-family="'Geist Mono', monospace" text-anchor="middle" letter-spacing="0.08em">EXT</text>
+      <svg x="68" y="102" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#2d3142" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+        <circle cx="12" cy="8" r="4"/>
+        <path d="M4 20c0-4 3.6-6 8-6s8 2 8 6"/>
+      </svg>
+      <text x="80" y="138" fill="#2d3142" font-size="13" font-weight="400" font-family="'Noto Serif','Noto Serif SC',serif" text-anchor="middle">用户</text>
+      <text x="80" y="150" fill="#4f5d75" font-size="9" font-family="'Geist Mono', monospace" text-anchor="middle">lock / run / view</text>
+
+      <!-- dataset -->
+      <rect x="8" y="176" width="144" height="64" rx="6" fill="white" stroke="rgba(45,49,66,0.22)" stroke-width="1"/>
+      <rect x="16" y="182" width="22" height="12" rx="2" fill="transparent" stroke="rgba(45,49,66,0.28)" stroke-width="0.8"/>
+      <text x="27" y="191" fill="rgba(45,49,66,0.55)" font-size="7" font-family="'Geist Mono', monospace" text-anchor="middle" letter-spacing="0.08em">EXT</text>
+      <svg x="68" y="182" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#2d3142" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+        <path d="M14 3H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z"/>
+        <path d="M14 3v6h6"/>
+      </svg>
+      <text x="80" y="218" fill="#2d3142" font-size="13" font-weight="400" font-family="'Noto Serif','Noto Serif SC',serif" text-anchor="middle">dataset</text>
+      <text x="80" y="230" fill="#4f5d75" font-size="9" font-family="'Geist Mono', monospace" text-anchor="middle">ageval.yaml · tasks/</text>
+
+      <!-- profiles -->
+      <rect x="8" y="256" width="144" height="64" rx="6" fill="white" stroke="rgba(45,49,66,0.22)" stroke-width="1"/>
+      <rect x="16" y="262" width="22" height="12" rx="2" fill="transparent" stroke="rgba(45,49,66,0.28)" stroke-width="0.8"/>
+      <text x="27" y="271" fill="rgba(45,49,66,0.55)" font-size="7" font-family="'Geist Mono', monospace" text-anchor="middle" letter-spacing="0.08em">EXT</text>
+      <svg x="68" y="262" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#2d3142" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+        <line x1="4" y1="7" x2="20" y2="7"/><line x1="4" y1="12" x2="20" y2="12"/><line x1="4" y1="17" x2="20" y2="17"/>
+        <circle cx="9" cy="7" r="2"/><circle cx="15" cy="12" r="2"/><circle cx="7" cy="17" r="2"/>
+      </svg>
+      <text x="80" y="298" fill="#2d3142" font-size="13" font-weight="400" font-family="'Noto Serif','Noto Serif SC',serif" text-anchor="middle">profiles</text>
+      <text x="80" y="310" fill="#4f5d75" font-size="9" font-family="'Geist Mono', monospace" text-anchor="middle">profiles.yaml</text>
+
+      <!-- ═══════════════════════════════════════════
+           CLUSTER NODES  (w=140, h=80, y=140; cx = chevron cx)
+           ═══════════════════════════════════════════ -->
+      <!-- lock (cx=240) -->
+      <rect x="170" y="96" width="140" height="80" rx="6" fill="white" stroke="rgba(45,49,66,0.25)" stroke-width="1"/>
+      <rect x="178" y="102" width="22" height="12" rx="2" fill="transparent" stroke="rgba(45,49,66,0.28)" stroke-width="0.8"/>
+      <text x="189" y="111" fill="rgba(45,49,66,0.55)" font-size="7" font-family="'Geist Mono', monospace" text-anchor="middle" letter-spacing="0.08em">CLI</text>
+      <svg x="228" y="104" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#2d3142" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+        <rect x="3" y="4" width="18" height="16" rx="2"/>
+        <polyline points="7,9 10,12 7,15"/><line x1="12" y1="15" x2="17" y2="15"/>
+      </svg>
+      <text x="240" y="148" fill="#2d3142" font-size="13" font-weight="400" font-family="'Noto Serif','Noto Serif SC',serif" text-anchor="middle">lock</text>
+      <text x="240" y="162" fill="#4f5d75" font-size="9" font-family="'Geist Mono', monospace" text-anchor="middle">lock.json · digest</text>
+
+      <!-- 环境 (cx=400) -->
+      <rect x="330" y="96" width="140" height="80" rx="6" fill="white" stroke="rgba(45,49,66,0.25)" stroke-width="1"/>
+      <rect x="338" y="102" width="26" height="12" rx="2" fill="transparent" stroke="rgba(45,49,66,0.28)" stroke-width="0.8"/>
+      <text x="351" y="111" fill="rgba(45,49,66,0.55)" font-size="7" font-family="'Geist Mono', monospace" text-anchor="middle" letter-spacing="0.08em">PROV</text>
+      <svg x="388" y="104" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#2d3142" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+        <path d="M12 2l8 4.5v9L12 20l-8-4.5v-9z"/>
+        <path d="M12 11L4 6.5M12 11l8-4.5M12 11v9"/>
+      </svg>
+      <text x="400" y="148" fill="#2d3142" font-size="13" font-weight="400" font-family="'Noto Serif','Noto Serif SC',serif" text-anchor="middle">环境</text>
+      <text x="400" y="162" fill="#4f5d75" font-size="9" font-family="'Geist Mono', monospace" text-anchor="middle">local / docker / e2b…</text>
+
+      <!-- run.py (cx=560) -->
+      <rect x="490" y="96" width="140" height="80" rx="6" fill="white" stroke="rgba(45,49,66,0.25)" stroke-width="1"/>
+      <rect x="498" y="102" width="26" height="12" rx="2" fill="transparent" stroke="rgba(45,49,66,0.28)" stroke-width="0.8"/>
+      <text x="511" y="111" fill="rgba(45,49,66,0.55)" font-size="7" font-family="'Geist Mono', monospace" text-anchor="middle" letter-spacing="0.08em">TASK</text>
+      <svg x="548" y="104" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#2d3142" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+        <circle cx="12" cy="12" r="9"/>
+        <polygon points="10,8.5 16,12 10,15.5" fill="#2d3142" stroke="none"/>
+      </svg>
+      <text x="560" y="148" fill="#2d3142" font-size="13" font-weight="400" font-family="'Noto Serif','Noto Serif SC',serif" text-anchor="middle">run.py</text>
+      <text x="560" y="162" fill="#4f5d75" font-size="9" font-family="'Geist Mono', monospace" text-anchor="middle">任务循环 · ACP</text>
+
+      <!-- evaluator.py (cx=720) -->
+      <rect x="650" y="96" width="140" height="80" rx="6" fill="white" stroke="rgba(45,49,66,0.25)" stroke-width="1"/>
+      <rect x="658" y="102" width="26" height="12" rx="2" fill="transparent" stroke="rgba(45,49,66,0.28)" stroke-width="0.8"/>
+      <text x="671" y="111" fill="rgba(45,49,66,0.55)" font-size="7" font-family="'Geist Mono', monospace" text-anchor="middle" letter-spacing="0.08em">EVAL</text>
+      <svg x="708" y="104" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#2d3142" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+        <circle cx="12" cy="12" r="9"/>
+        <polyline points="8,12.5 11,15.5 16,9.5"/>
+      </svg>
+      <text x="720" y="148" fill="#2d3142" font-size="13" font-weight="400" font-family="'Noto Serif','Noto Serif SC',serif" text-anchor="middle">evaluator.py</text>
+      <text x="720" y="162" fill="#4f5d75" font-size="9" font-family="'Geist Mono', monospace" text-anchor="middle">PASS / FAIL / ERROR</text>
+
+      <!-- evidence (cx=882, FOCAL) -->
+      <rect x="810" y="96" width="140" height="80" rx="8" fill="rgba(47,107,255,0.08)" stroke="#2f6bff" stroke-width="1.2"/>
+      <rect x="818" y="102" width="26" height="12" rx="2" fill="transparent" stroke="rgba(47,107,255,0.50)" stroke-width="0.8"/>
+      <text x="831" y="111" fill="rgba(47,107,255,0.80)" font-size="7" font-family="'Geist Mono', monospace" text-anchor="middle" letter-spacing="0.08em">EVID</text>
+      <svg x="870" y="104" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#2f6bff" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+        <ellipse cx="12" cy="5.5" rx="8" ry="3"/>
+        <path d="M4 5.5v6c0 1.66 3.58 3 8 3s8-1.34 8-3v-6"/>
+        <path d="M4 11.5v6c0 1.66 3.58 3 8 3s8-1.34 8-3v-6"/>
+      </svg>
+      <text x="882" y="148" fill="#2f6bff" font-size="14" font-weight="400" font-family="'Noto Serif','Noto Serif SC',serif" text-anchor="middle">evidence</text>
+      <text x="882" y="162" fill="#2f6bff" font-size="9" font-family="'Geist Mono', monospace" text-anchor="middle" opacity="0.75">.ageval/runs/&lt;id&gt;/</text>
+
+      <!-- ── Core label (bottom-left of cluster) ── -->
+      <svg x="180" y="348" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#4f5d75" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+        <path d="M12 2l8 4.5v9L12 20l-8-4.5v-9z"/>
+        <path d="M12 11L4 6.5M12 11l8-4.5M12 11v9"/>
+      </svg>
+      <text x="204" y="362" fill="#4f5d75" font-size="8" font-weight="500" font-family="'Geist','Noto Sans SC',sans-serif">ageval Core · 一次运行打开一个环境，run.py 与 evaluator 在其中执行</text>
+
+      <!-- ═══════════════════════════════════════════
+           CROSS-CUTTING BAR #1 — limits (y=388..428)
+           ═══════════════════════════════════════════ -->
+      <svg x="386" y="398" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#2d3142" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+        <path d="M12 3a9 9 0 0 1 9 9"/>
+        <path d="M12 3a9 9 0 0 0-9 9"/>
+        <line x1="12" y1="12" x2="16" y2="8"/>
+        <circle cx="12" cy="12" r="1.5" fill="#2d3142" stroke="none"/>
+      </svg>
+      <text x="484" y="410" fill="#2d3142" font-size="12" font-weight="400" font-family="'Noto Serif','Noto Serif SC',serif" text-anchor="middle">limits · 执行前强制</text>
+      <text x="484" y="422" fill="#4f5d75" font-size="9" font-family="'Geist Mono', monospace" text-anchor="middle">(墙钟 · 内存 · 进程 · 调用次数)</text>
+
+      <!-- ═══════════════════════════════════════════
+           CROSS-CUTTING BAR #2 — cleanup (y=432..472)
+           ═══════════════════════════════════════════ -->
+      <svg x="378" y="442" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#2d3142" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+        <path d="M20 12a8 8 0 1 1-2.34-5.66"/>
+        <polyline points="20,3 20,7 16,7"/>
+      </svg>
+      <text x="484" y="454" fill="#2d3142" font-size="12" font-weight="400" font-family="'Noto Serif','Noto Serif SC',serif" text-anchor="middle">cleanup · finally 始终执行</text>
+      <text x="484" y="466" fill="#4f5d75" font-size="9" font-family="'Geist Mono', monospace" text-anchor="middle">(任何退出路径 · 环境与凭据回收)</text>
+
+      <!-- ═══════════════════════════════════════════
+           LEGEND
+           ═══════════════════════════════════════════ -->
+      <line x1="40" y1="496" x2="952" y2="496" stroke="rgba(45,49,66,0.10)" stroke-width="0.8"/>
+      <text x="40" y="512" fill="#4f5d75" font-size="8" font-family="'Geist Mono', monospace" letter-spacing="0.18em">LEGEND</text>
+
+      <rect x="40" y="520" width="20" height="12" rx="3" fill="transparent" stroke="rgba(45,49,66,0.30)" stroke-width="1" stroke-dasharray="4,3"/>
+      <text x="68" y="530" fill="#4f5d75" font-size="8.5" font-family="'Geist','Noto Sans SC',sans-serif">外部输入 · Core 之外</text>
+
+      <rect x="228" y="520" width="20" height="12" rx="3" fill="rgba(45,49,66,0.04)" stroke="rgba(45,49,66,0.25)" stroke-width="1"/>
+      <text x="256" y="530" fill="#4f5d75" font-size="8.5" font-family="'Geist','Noto Sans SC',sans-serif">一次运行 · Core 边界</text>
+
+      <rect x="416" y="520" width="20" height="12" rx="3" fill="rgba(47,107,255,0.10)" stroke="#2f6bff" stroke-width="1.2"/>
+      <text x="444" y="530" fill="#4f5d75" font-size="8.5" font-family="'Geist','Noto Sans SC',sans-serif">evidence · 焦点</text>
+
+      <line x1="560" y1="522" x2="580" y2="522" stroke="#2f6bff" stroke-width="1.2" marker-end="url(#arrow-accent)"/>
+      <text x="588" y="527" fill="#4f5d75" font-size="8.5" font-family="'Geist','Noto Sans SC',sans-serif">绑定 PASS</text>
+
+      <line x1="688" y1="522" x2="708" y2="522" stroke="#4f5d75" stroke-width="1" marker-end="url(#arrow)"/>
+      <text x="716" y="527" fill="#4f5d75" font-size="8.5" font-family="'Geist','Noto Sans SC',sans-serif">阶段推进</text>
+
+      <rect x="820" y="520" width="20" height="12" rx="3" fill="rgba(45,49,66,0.02)" stroke="rgba(45,49,66,0.30)" stroke-width="1" stroke-dasharray="4,3"/>
+      <text x="848" y="530" fill="#4f5d75" font-size="8.5" font-family="'Geist','Noto Sans SC',sans-serif">插件接入点</text>
+    </svg>
+  </div>
+</body>
+</html>
