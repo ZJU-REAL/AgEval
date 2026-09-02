@@ -44,9 +44,9 @@ A kind that cannot `exec` / `upload` fails at `ageval lock`, not mid-invoke.
 ## Install
 
 ```bash
-uv sync --extra dsh          # local kind: the box Python is this interpreter
-uv run ageval plugin install plugins/dsh
-uv run ageval lock examples/datasets/minimal-demo --task terminal-jsonl-agg \
+uv tool install 'ageval-cli[dsh]'   # or: uv sync --extra dsh in this repo checkout
+ageval plugin install plugins/dsh
+ageval lock examples/datasets/minimal-demo --task terminal-jsonl-agg \
   --profiles examples/datasets/minimal-demo/profiles.dsh.yaml --probe
 ```
 
@@ -100,12 +100,12 @@ Same `run.py`; switch only via profiles or
 ## minimal-demo smoke (real API)
 
 ```bash
-uv run ageval plugin install plugins/dsh
+ageval plugin install plugins/dsh
 unset AGEVAL_OFFLINE_AGENT
-uv run ageval run examples/datasets/minimal-demo --task terminal-jsonl-agg \
+ageval run examples/datasets/minimal-demo --task terminal-jsonl-agg \
   --profiles examples/datasets/minimal-demo/profiles.dsh.yaml
 # file-effect policy (file-tool writes denied; bash can still write):
-# uv run ageval run examples/datasets/minimal-demo --task terminal-jsonl-agg \
+# ageval run examples/datasets/minimal-demo --task terminal-jsonl-agg \
 #   --profiles examples/datasets/minimal-demo/profiles.dsh.read-only.yaml
 ```
 
@@ -116,7 +116,7 @@ Evidence for a successful invoke includes worker metadata
 ## Recognition ≠ this host can run ≠ image baked
 
 - **install** → Recognition only (`plugin list` / executor visible)
-- **`host_requires`** → local kind needs `deepseek_harness` on this interpreter (`uv sync --extra dsh`); docker bake installs the wheels in-image
+- **`host_requires`** → local kind needs `deepseek_harness` on this interpreter (`uv tool install 'ageval-cli[dsh]'` / repo checkout `uv sync --extra dsh`); docker bake installs the wheels in-image
 - **profiles `executor: dsh`** → exclusive slot winner (+ model / api_key locator)
 - **`extensions: [{plugin: dsh}]`** → opt-in bake / trajectory collect
 - **`--probe`** → binding-aware feasibility; no Agent, no bake

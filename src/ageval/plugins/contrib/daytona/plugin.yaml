@@ -4,12 +4,12 @@ version: bundled
 description: >
   Daytona box: the Attempt runs in a [Daytona](https://www.daytona.io)
   sandbox from an OCI snapshot (`environment: daytona`). Snapshot names and
-  sandbox ids stay in this package. This host needs
-  `uv sync --extra daytona` and `DAYTONA_API_KEY`. Hub listing does not
-  mean this machine can run it.
+  sandbox ids stay in this package. This host needs the daytona extra
+  (`uv tool install 'ageval-cli[daytona]'; repo checkout: uv sync --extra daytona`)
+  and `DAYTONA_API_KEY`. Hub listing does not mean this machine can run it.
 host_requires:
   - import: daytona
-    hint: uv sync --extra daytona
+    hint: "uv tool install 'ageval-cli[daytona]' (repo checkout: uv sync --extra daytona)"
 slots:
   exclusive:
     - id: environment

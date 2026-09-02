@@ -490,7 +490,7 @@ def _import_sdk() -> Any:
     except ImportError as exc:  # pragma: no cover — depends on the install extra
         raise EnvironmentFailure(
             "environment_preflight_failed",
-            "the daytona kind needs the daytona extra: uv sync --extra daytona",
+            "the daytona kind needs the daytona extra: uv tool install 'ageval-cli[daytona]' (repo checkout: uv sync --extra daytona)",
         ) from exc
     return daytona
 

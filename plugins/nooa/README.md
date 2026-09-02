@@ -40,8 +40,8 @@ A kind that cannot `exec` / `upload` fails at `ageval lock`, not mid-invoke.
 ## Install
 
 ```bash
-uv sync --extra nooa          # local kind: the box Python is this interpreter
-uv run ageval plugin install plugins/nooa
+uv tool install 'ageval-cli[nooa]'   # or: uv sync --extra nooa in this repo checkout
+ageval plugin install plugins/nooa
 ```
 
 Install updates `~/.ageval/plugins` (or `$AGEVAL_HOME/plugins`) only — **never** edits
@@ -69,10 +69,9 @@ agent_profiles:
 ## minimal-demo smoke (real API)
 
 ```bash
-uv sync --extra nooa
-uv run ageval plugin install plugins/nooa
+ageval plugin install plugins/nooa
 unset AGEVAL_OFFLINE_AGENT
-uv run ageval run examples/datasets/minimal-demo \
+ageval run examples/datasets/minimal-demo \
   --profiles examples/datasets/minimal-demo/profiles.nooa.yaml
 ```
 
@@ -83,7 +82,7 @@ Evidence for a successful invoke includes worker metadata
 ## Recognition ≠ this host can run ≠ image baked
 
 - **install** → Recognition only (`plugin list` / executor visible)
-- **`host_requires`** → local kind needs the `nooa` import (`uv sync --extra nooa`); docker bake does not
+- **`host_requires`** → local kind needs the `nooa` import (`uv tool install 'ageval-cli[nooa]'` / repo checkout `uv sync --extra nooa`); docker bake does not
 - **profiles `executor: nooa`** → exclusive slot winner (+ model / base_url / api_key)
 - **`extensions: [{plugin: nooa}]`** → opt-in bake / trajectory collect
 - **`--probe`** → binding-aware feasibility; no Agent, no bake

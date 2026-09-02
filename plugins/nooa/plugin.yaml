@@ -4,7 +4,7 @@ version: 0.1.0
 description: "Run [NVIDIA OO Agents](https://github.com/NVIDIA-NeMo/labs-OO-Agents) inside the box via environment exec and upload. Not ACP."
 host_requires:
   - import: nooa
-    hint: "uv sync --extra nooa"
+    hint: "uv tool install 'ageval-cli[nooa]' (repo checkout: uv sync --extra nooa)"
 slots:
   exclusive:
     - id: executor

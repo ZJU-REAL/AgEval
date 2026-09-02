@@ -4,7 +4,7 @@ version: 0.1.0
 description: Drive mini-swe-agent on the parent host; the Attempt box only runs bash through environment.exec. Not ACP.
 host_requires:
   - import: minisweagent
-    hint: "uv sync --extra miniswe"
+    hint: "uv tool install 'ageval-cli[miniswe]' (repo checkout: uv sync --extra miniswe)"
 slots:
   exclusive:
     - id: executor

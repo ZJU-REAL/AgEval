@@ -34,7 +34,7 @@ environment: e2b
 
 This host needs:
 
-- `uv sync --extra e2b`
+- `uv tool install 'ageval-cli[e2b]'` (repo checkout: `uv sync --extra e2b`)
 - an E2B API key in the scoped credential locator
 
 Missing extra or key: lock/run **skip or fail-closed**. Do not treat a

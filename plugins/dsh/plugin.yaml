@@ -4,7 +4,7 @@ version: 0.1.0
 description: "Run [DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness) over JSON-RPC inside the box. Not ACP; credentials stay locators until invoke."
 host_requires:
   - import: deepseek_harness
-    hint: "uv sync --extra dsh"
+    hint: "uv tool install 'ageval-cli[dsh]' (repo checkout: uv sync --extra dsh)"
   - file: compositions/slim.cordis.yml
 slots:
   exclusive:

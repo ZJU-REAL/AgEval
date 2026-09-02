@@ -35,7 +35,7 @@ Do not write `executor: pi`. A box without `attach_stdio` still lock-fails
 ## Install
 
 ```bash
-uv run ageval plugin install plugins/acp-oneshot
+ageval plugin install plugins/acp-oneshot
 ```
 
 Install updates `$AGEVAL_HOME/plugins` only — never edits package yaml.

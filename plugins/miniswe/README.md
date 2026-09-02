@@ -48,8 +48,8 @@ projected into the parent HTTP client; they never enter the lock.
 ## Install
 
 ```bash
-uv sync --extra miniswe
-uv run ageval plugin install plugins/miniswe
+uv tool install 'ageval-cli[miniswe]'   # or: uv sync --extra miniswe in this repo checkout
+ageval plugin install plugins/miniswe
 ```
 
 Install updates `$AGEVAL_HOME/plugins` only — never edits package yaml.

@@ -21,7 +21,7 @@ when an `instructions` row is present.
 ## Install
 
 ```bash
-uv run ageval plugin install plugins/agent-skills
+ageval plugin install plugins/agent-skills
 ```
 
 That also installs sibling `plugins/home-files` when the cache is empty.
@@ -82,9 +82,9 @@ them on this role as `overlays:` (for example `overlays/skills/jsonl-agg` and
 ## Run
 
 ```bash
-uv run ageval plugin install plugins/agent-skills
-uv run ageval lock examples/datasets/minimal-demo --task terminal-jsonl-agg \
+ageval plugin install plugins/agent-skills
+ageval lock examples/datasets/minimal-demo --task terminal-jsonl-agg \
   --profiles examples/datasets/minimal-demo/acp-profiles/profiles.acp.grok-build.agent-skills.yaml
-uv run ageval run examples/datasets/minimal-demo --task terminal-jsonl-agg \
+ageval run examples/datasets/minimal-demo --task terminal-jsonl-agg \
   --profiles examples/datasets/minimal-demo/acp-profiles/profiles.acp.grok-build.agent-skills.yaml
 ```

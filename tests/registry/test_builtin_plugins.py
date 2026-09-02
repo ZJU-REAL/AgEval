@@ -106,7 +106,9 @@ def test_explore_unions_builtin_with_store(tmp_path: Path) -> None:
     assert "plugin.yaml" in preview["files"]
     assert "README.md" in preview["files"]
     e2b = next(i for i in listed["items"] if i["dataset_id"] == "e2b")
-    assert e2b["host_requires"] == ["uv sync --extra e2b"]
+    assert e2b["host_requires"] == [
+        "uv tool install 'ageval-cli[e2b]' (repo checkout: uv sync --extra e2b)"
+    ]
 
 
 def test_unfiltered_list_omits_builtin(tmp_path: Path) -> None:

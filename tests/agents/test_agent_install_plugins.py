@@ -111,7 +111,7 @@ def test_host_requires_message_names_import_and_hint(
             "version: 0.1.0\n"
             "host_requires:\n"
             "  - import: definitely_not_a_real_module\n"
-            "    hint: uv sync --extra nooa\n"
+            "    hint: \"uv tool install 'ageval-cli[nooa]' (repo checkout: uv sync --extra nooa)\"\n"
             "slots:\n"
             "  chain:\n"
             "    - id: after_environment_ready\n"
@@ -136,7 +136,7 @@ def test_host_requires_message_names_import_and_hint(
     assert ei.value.error_code == "host_requires_unsatisfied"
     assert "plugin cache" in ei.value.message
     assert "definitely_not_a_real_module" in ei.value.message
-    assert "uv sync --extra nooa" in ei.value.message
+    assert "uv tool install 'ageval-cli[nooa]'" in ei.value.message
 
 
 def test_missing_plugin_fail_closes(ageval_home: Path) -> None:

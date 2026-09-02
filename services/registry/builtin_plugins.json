@@ -15,8 +15,8 @@
   },
   {
     "plugin_id": "e2b",
-    "description": "E2B box: the Attempt runs in an [E2B](https://e2b.dev) cloud sandbox built from the task recipe (`environment: e2b`). This host needs `uv sync --extra e2b` and an API key. Hub listing does not mean this machine can run it; lock/run stay skip / fail-closed when the extra or key is missing.",
-    "host_requires": ["uv sync --extra e2b"],
+    "description": "E2B box: the Attempt runs in an [E2B](https://e2b.dev) cloud sandbox built from the task recipe (`environment: e2b`). This host needs the e2b extra (`uv tool install 'ageval-cli[e2b]'; repo checkout: uv sync --extra e2b`) and an API key. Hub listing does not mean this machine can run it; lock/run stay skip / fail-closed when the extra or key is missing.",
+    "host_requires": ["uv tool install 'ageval-cli[e2b]' (repo checkout: uv sync --extra e2b)"],
     "exclusive": ["environment"],
     "chain": []
   },
@@ -29,8 +29,8 @@
   },
   {
     "plugin_id": "daytona",
-    "description": "Daytona box: the Attempt runs in a [Daytona](https://www.daytona.io) sandbox from an OCI snapshot (`environment: daytona`). Snapshot names and sandbox ids stay in this package. This host needs `uv sync --extra daytona` and `DAYTONA_API_KEY`. Hub listing does not mean this machine can run it.",
-    "host_requires": ["uv sync --extra daytona"],
+    "description": "Daytona box: the Attempt runs in a [Daytona](https://www.daytona.io) sandbox from an OCI snapshot (`environment: daytona`). Snapshot names and sandbox ids stay in this package. This host needs the daytona extra (`uv tool install 'ageval-cli[daytona]'; repo checkout: uv sync --extra daytona`) and `DAYTONA_API_KEY`. Hub listing does not mean this machine can run it.",
+    "host_requires": ["uv tool install 'ageval-cli[daytona]' (repo checkout: uv sync --extra daytona)"],
     "exclusive": ["environment"],
     "chain": []
   },

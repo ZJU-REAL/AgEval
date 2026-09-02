@@ -15,7 +15,7 @@
 ## Install
 
 ```bash
-uv run ageval plugin install plugins/home-files
+ageval plugin install plugins/home-files
 ```
 
 Install writes `$AGEVAL_HOME/plugins` only. It never rewrites profiles.
@@ -59,9 +59,9 @@ published set; this plugin still copies only its own `files[].src`.
 ## Run
 
 ```bash
-uv run ageval plugin install plugins/home-files
-uv run ageval lock examples/datasets/minimal-demo --task terminal-jsonl-agg \
+ageval plugin install plugins/home-files
+ageval lock examples/datasets/minimal-demo --task terminal-jsonl-agg \
   --profiles examples/datasets/minimal-demo/acp-profiles/profiles.acp.opencode.glm-5.2.yaml
-uv run ageval run examples/datasets/minimal-demo --task terminal-jsonl-agg \
+ageval run examples/datasets/minimal-demo --task terminal-jsonl-agg \
   --profiles examples/datasets/minimal-demo/acp-profiles/profiles.acp.opencode.glm-5.2.yaml
 ```

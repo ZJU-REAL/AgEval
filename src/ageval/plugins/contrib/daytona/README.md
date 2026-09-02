@@ -35,7 +35,7 @@ environment: daytona
 
 This host needs:
 
-- `uv sync --extra daytona`
+- `uv tool install 'ageval-cli[daytona]'` (repo checkout: `uv sync --extra daytona`)
 - `DAYTONA_API_KEY` (or the scoped locator alias)
 
 Floating tags such as `latest` / `lts` / `stable` are rejected. Missing
