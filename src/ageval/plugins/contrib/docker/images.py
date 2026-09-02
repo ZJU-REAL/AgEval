@@ -3,12 +3,18 @@
 The cache key is the recipe plus what it copies, never the task id or the lock
 digest — two tasks with the same recipe share one image, and editing the recipe
 invalidates it.
+
+Plugin bake layers honor parent ``AGEVAL_PIP_INDEX`` (same knob as
+``docker/attempt/build.py``). Unset omits the build-arg and leaves the content
+key unchanged. A non-empty value is ``PIP_INDEX_URL`` on the plugin-layer
+build only — task recipes and the official base path are untouched.
 """
 
 from __future__ import annotations
 
 import hashlib
 import json
+import os
 import re
 import shlex
 import subprocess
@@ -130,6 +136,20 @@ def resolve_image(
     )
 
 
+def plugin_bake_pip_index() -> str:
+    """Parent ``AGEVAL_PIP_INDEX`` for plugin bake layers. Empty = pip default."""
+    return (os.environ.get("AGEVAL_PIP_INDEX") or "").strip()
+
+
+def plugin_layer_build_args(base_image: str) -> tuple[str, ...]:
+    """Build-args for one plugin ``Dockerfile.bake``. Unset index omits ``PIP_INDEX_URL``."""
+    args = [f"BASE_IMAGE={base_image}"]
+    pip_index = plugin_bake_pip_index()
+    if pip_index:
+        args.append(f"PIP_INDEX_URL={pip_index}")
+    return tuple(args)
+
+
 def build_task_image(
     *,
     task_root: Path,
@@ -142,6 +162,9 @@ def build_task_image(
     """Build the task recipe, then each plugin bake with its own context."""
     recipe = _recipe_text(task_root, dockerfile_rel)
     layer_key = "\n".join(f"{plugin_id}\n{body}" for plugin_id, _, _, body in plugin_layers)
+    pip_index = plugin_bake_pip_index()
+    if plugin_layers and pip_index:
+        layer_key = f"{layer_key}\npip_index={pip_index}"
     content = content_digest(
         recipe=recipe + "\n" + layer_key,
         context_root=task_root,
@@ -168,7 +191,7 @@ def build_task_image(
             context_root=Path(package_root),
             tag=f"{PACKAGE_TAG_PREFIX}:{content[:12]}-{plugin_id}",
             platform=platform,
-            build_args=(f"BASE_IMAGE={current}",),
+            build_args=plugin_layer_build_args(current),
         )
     tagged = docker("tag", current, tag)
     if tagged.returncode != 0:
