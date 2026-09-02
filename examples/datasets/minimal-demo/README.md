@@ -58,7 +58,7 @@ ageval run  official/minimal-demo@0.1.3 --task terminal-jsonl-agg
 Other bindings:
 
 ```bash
-ageval run examples/datasets/minimal-demo --task multiagent-env-min \
+uv run ageval run examples/datasets/minimal-demo --task multiagent-env-min \
   --profiles examples/datasets/minimal-demo/profiles.dsh.yaml
 ```
 

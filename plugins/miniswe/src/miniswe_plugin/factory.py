@@ -358,7 +358,8 @@ class MinisweExecutorSPI:
             from minisweagent.models.litellm_model import LitellmModel
         except ImportError as exc:
             raise ExtensionMaterializeError(
-                "miniswe_package_missing: install mini-swe-agent (uv sync --extra miniswe)",
+                "miniswe_package_missing: install mini-swe-agent via "
+                "uv tool install 'ageval-cli[miniswe]' (repo checkout: uv sync --extra miniswe)",
                 kind="extension_materialize_failed",
             ) from exc
         model_kwargs = self._litellm_model_kwargs(key=key, base=base)

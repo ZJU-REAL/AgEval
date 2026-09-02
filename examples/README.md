@@ -93,10 +93,11 @@ This task writes `aggregates.json`, so omit `options.permission` or use
 `workspace-write`. `read-only` fences DSH file-tool writes only; bash can still
 write on the bundled jsonrpc runtime. That is not ageval isolation.
 
-### Other environment kinds
+### Probing without invoking
 
 ```bash
-ageval run examples/datasets/minimal-demo --task terminal-jsonl-agg --probe
+uv run ageval run examples/datasets/minimal-demo --task terminal-jsonl-agg --probe
+# missing extras or keys: --probe reports ready: false / started: false
 # live ACP stdio over ssh A is unsupported
 ```
 
