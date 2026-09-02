@@ -55,6 +55,8 @@ BANNED = (
     "探测管子",
     "密封轨迹",
     "oneshot",
+    r"([^-]|\b)slots?\b",
+    "槽",
 )
 
 # These fire only when not part of a longer allowed token.
@@ -70,6 +72,9 @@ ALLOW_IF_LINE_HAS = (
     "kind: port",
     "kind:port",
     "acp-oneshot",
+    "slots.py",
+    "replace-slot",
+    "slots:",
 )
 
 

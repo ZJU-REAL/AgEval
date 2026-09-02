@@ -27,7 +27,7 @@ ageval run examples/datasets/minimal-demo --task terminal-jsonl-agg -k 5
 # Resume: append into an existing suite job and recompute metrics
 ageval run examples/datasets/minimal-demo --resume-suite <suite_run_id> --task terminal-jsonl-agg -k 5
 
-# Replace one finished slot (PASS / FAIL / ERROR): new Attempt, same suite id
+# Replace one finished row (PASS / FAIL / ERROR): new Attempt, same suite id
 ageval run examples/datasets/minimal-demo --resume-suite <suite_run_id> --task terminal-jsonl-agg --replace-slot
 # Always-k: one (task_id, attempt_index)
 # ageval run examples/datasets/minimal-demo --resume-suite <id> --task terminal-jsonl-agg --replace-slot --attempt-index 1
@@ -39,7 +39,7 @@ Hard rules:
 - Resume without `--replace-slot` only **appends** missing indices; finished PASS / FAIL / ERROR stay skipped  
 - `--replace-slot` writes a **new** Attempt; the old row stays on disk and in `previous[]`; metrics use the new current only  
 - Hub / Viewer history is `patch N` plus that Attempt’s start time (not the suite replace clock, not the `run_id`)  
-- Slots that only have a **suite-cancel placeholder** (never actually ran) are **retried** on resume so pass@k is not permanently deflated
+- Rows that only have a **suite-cancel placeholder** (never actually ran) are **retried** on resume so pass@k is not permanently deflated
 - Progress / cancel below; Hub Leaderboard shows pass@k / pass^k / n_attempts when `metrics.pass_at_k` is present; local `metrics` are always written after Always-k  
 - Default system `suite_run_id` is **8 hex** (no `suite_` prefix)
 

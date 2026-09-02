@@ -16,7 +16,7 @@ Hub (`apps/hub`) is the web UI on top of Registry—browse shared packages and r
 - Tasks table: README present, recent job count, last score/status; paginated (`?tab=tasks&offset=`). Dataset and task README load without waiting for the full package file tree.  
 - Leaderboard: **Public** (default) lists complete, release-bound suite rows that the Dataset org owner approved for listing. `public` is not the same as listed. **Internal** lists caller-visible incomplete or draft-bound runs in the same table. Sortable headers. Observational metrics, not suite PASS. Click a row to open the inspector (**Profiles** / **Plugin** / **Jobs**; Share for the owner). Secret-free YAML and rehydrate commands; plugins open the marketplace. The uploader opens Share / Delete from a settings menu: Share is a modal for visibility, org/user access, and Attach (overlay role, then a published `agent_ref`; direct write if you own the agent org, otherwise Inbox; an inflight request shows status). Task Jobs stay as they are.  
 - Plugin / Agent marketplace uses **cards** (description, tags, download and favorite counts on one row); datasets, jobs, members, and suites stay hairline tables  
-- Plugin detail: exclusive / chain **declared-slot** timeline; expand jumps into the in-package file preview. The browser never executes plugin code  
+- Plugin detail: exclusive / chain **declared extension point** timeline; expand jumps into the in-package file preview. The browser never executes plugin code  
 - Official orgs, members of those orgs, and plugins from those orgs show a verified check  
 - Public user page: identity, GitHub link (from login), optional bio (self-PATCH `description`). Orgs may have a `description`, and owners can set an org icon via Choose icon (preset catalog marks or a GitHub link). Private memberships stay hidden. Platform Maintainers (`AGEVAL_REGISTRY_MAINTAINERS`) show a Shield mark on the profile and header, independent of Official  
 - Plugin / Agent cards and detail show download and star counts on one row. Downloads increment on a successful package content GET; stars are one row per signed-in user per plugin/agent, toggled only from the detail header. Dataset tables show neither. List tabs are the list query: Explore default (no params or `?visibility=public`), Your organizations `?orgs=1`, Stars `?favorited=1` (plugins/agents only). Org detail uses `?tab=settings`  
@@ -52,7 +52,7 @@ Or `docker compose -f services/registry/docker-compose.yml up -d` for Hub at `ht
 | `/datasets/:id` | README · Tasks · Shared (when `shared/` present) · Overlays (when `overlays:` is declared) · Leaderboard |
 | `/datasets/:id/tasks/:task` | README · Files (Local \| Shared \| Overlays) · Jobs |
 | `/plugins` | Plugin marketplace |
-| `/plugins/:id` | Plugin detail (declared-slot timeline · file preview · CLI install) |
+| `/plugins/:id` | Plugin detail (declared extension point timeline · file preview · CLI install) |
 | `/agents` | Agent catalog (built-in Agent packages, then uploads) |
 | `/inbox` | Pending listing and Performance requests the caller can decide |
 | `/agents/:id` | Binding, files, registered models, Performance |
