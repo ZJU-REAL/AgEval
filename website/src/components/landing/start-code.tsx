@@ -2,11 +2,10 @@
 
 import { useState } from "react";
 import { Check, Copy } from "lucide-react";
-import { gitConfig } from "@/lib/shared";
 
-const CLONE = `git clone https://github.com/${gitConfig.user}/${gitConfig.repo}`;
-const SETUP = `cd ${gitConfig.repo} && uv sync --all-extras`;
-const COPY_TEXT = `${CLONE}\n${SETUP}`;
+const INSTALL = "uv tool install ageval-cli";
+const SKILLS = "npx skills add ZJU-REAL/ageval";
+const COPY_TEXT = `${INSTALL}\n${SKILLS}`;
 
 type StartCodeProps = {
   label: string;
@@ -39,10 +38,10 @@ export function StartCode({ label, copyLabel, copiedLabel }: StartCodeProps) {
       </div>
       <pre className="start-snippet" tabIndex={0}>
         <span className="prompt">$ </span>
-        {CLONE}
+        {INSTALL}
         {"\n"}
         <span className="prompt">$ </span>
-        {SETUP}
+        {SKILLS}
       </pre>
     </div>
   );

@@ -475,11 +475,15 @@ export default async function HomePage({ params }: { params: Promise<HomeParams>
             </div>
             <h2>{text.faq.title}</h2>
             <div className="faq-list">
-              {text.faq.items.map(([question, answer]) => (
+              {text.faq.items.map(([question, paragraphs]) => (
                 <details key={question} className="faq-item">
                   <summary className="faq-q">{question}</summary>
                   <div className="faq-panel">
-                    <div className="faq-a">{answer}</div>
+                    <div className="faq-a">
+                      {paragraphs.map((p) => (
+                        <p key={p.slice(0, 48)}>{p}</p>
+                      ))}
+                    </div>
                   </div>
                 </details>
               ))}

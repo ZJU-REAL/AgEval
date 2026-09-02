@@ -17,7 +17,7 @@
 
 Most agent evaluation still measures the **model**: same prompts, same tool contract, different weights or APIs. A shippable agent is a model plus its runtime — the same weights on a different coding agent, tool policy, or environment behave differently and cost differently. A comparison that deserves the name is a product: **H agent runtimes × M models × E environments**. Every cell wants its own scaffold; scores mean nothing unless that cell is in the lock.
 
-**ageval** turns that product from code into configuration. A dataset (`run.py` + `evaluator.py`) is written once; environment and Agent bind in `profiles.yaml` through plugins and lock with the model into one reproducible digest. The Hub publishes datasets, plugins, and Agent packages. The public leaderboard lists complete, release-bound dataset runs only.
+**ageval** switches the agent under test with plugins on one running base; install the CLI and skills so the Agent can design, convert, and run benchmarks; share or reuse datasets, plugins, and agent configs on Hub, and upload results.
 
 <p align="center">
   <img src="docs/assets/why-ageval.jpg" alt="N environments × M agent runtimes: each combination would need its own scaffold; ageval composes environment and Agent through plugins, so one dataset runs anywhere." width="800">
@@ -35,13 +35,12 @@ Most agent evaluation still measures the **model**: same prompts, same tool cont
 
 ## What it is
 
-Write a dataset once. Swap the environment and the Agent without rewriting `run.py`. A score has to name which agent runtime and which environment ran it, not only the model.
+Switch the agent under test with one click. Teach the Agent automated evaluation. Share and reuse on Hub.
 
-- **The unit of delivery is a dataset.** A dataset holds tasks; each task owns the loop (`run.py`), the score (`evaluator.py`), and gold. Environment and Agent bind in `profiles.yaml`, not in the dataset.
-- **An Attempt is something you can open.** Order is environment → run → evaluate → record; cleanup always runs. The directory is `.ageval/runs/<id>/`.
-- **Change the environment without changing the task.** Host, Docker, or a cloud sandbox / remote ([e2b](https://e2b.dev), ssh, [daytona](https://www.daytona.io)). Missing capability or credentials fail at `ageval lock`; the run does not start.
-- **Coding agents enter through plugins.** Default is [ACP](https://agentclientprotocol.com) ([pi](https://pi.dev), [Codex](https://github.com/openai/codex), [Claude Code](https://github.com/anthropics/claude-code), [OpenCode](https://github.com/sst/opencode)); [nooa](https://github.com/NVIDIA-NeMo/labs-OO-Agents), [dsh](https://github.com/deepseek-ai/deepseek-harness), and [miniswe](https://github.com/SWE-agent/mini-swe-agent) join the same way and use the same Attempt path and leaderboard.
-- **Results have a home.** The local Viewer opens an Attempt under Jobs → Tasks. The Hub publishes datasets, plugins, and Agent packages. The public leaderboard lists complete, release-bound suites only.
+- **Switch between Agents to be evaluated with one click.** Write and install plugins on demand for the running base to enhance your customization capabilities. Default is [ACP](https://agentclientprotocol.com) ([pi](https://pi.dev), [Codex](https://github.com/openai/codex), [Claude Code](https://github.com/anthropics/claude-code), [OpenCode](https://github.com/sst/opencode)); [nooa](https://github.com/NVIDIA-NeMo/labs-OO-Agents), [dsh](https://github.com/deepseek-ai/deepseek-harness), and [miniswe](https://github.com/SWE-agent/mini-swe-agent) join through plugins too.
+- **Teach the Agent automated evaluation.** Install the CLI and skills so the Agent can design, convert benchmarks, and run evaluations.
+- **Share and reuse on Hub.** Share or reuse datasets, plugins, and Agent configurations on ageval Hub, and upload evaluation results.
+- **The unit of delivery is a dataset.** A dataset holds tasks; environment and Agent bind in `profiles.yaml`, not in the dataset.
 
 ## How it works
 
@@ -78,36 +77,17 @@ Write a dataset once. Swap the environment and the Agent without rewriting `run.
 
 ## Features
 
-**Evaluation**
+**Switch between Agents to be evaluated with one click**
 
-- **One lock.** Dataset, agent runtime, and environment go into the same lock and yield a reproducible digest.
-- **One task, a suite, a matrix, or repeats.** Run a single task, a full dataset, a parameter matrix on one task, or multiple independent Attempts of the same `profiles.yaml` (pass@k).
-- **Scoring is separate from the Agent.** Gold does not enter files the Agent can see. PASS comes only from `evaluator.py` (deterministic script by default; optional `Agent.session` as LLM-as-judge). Trajectories are for inspection.
-- **limits are enforced before invocation.** Wall time, memory, processes, and invocation counts are set by the runtime before invoke.
+Write and install plugins on demand for the running base to enhance your customization capabilities. Environment and agent runtime join through plugins; you do not fork the framework or change the base. Default is [ACP](https://agentclientprotocol.com); [nooa](https://github.com/NVIDIA-NeMo/labs-OO-Agents), [dsh](https://github.com/deepseek-ai/deepseek-harness), and [miniswe](https://github.com/SWE-agent/mini-swe-agent) take the same plugin path. Agent packages use format `ageval.agent/1`; bind a shipped pack with `--agent pi` (no install), or `ageval agent install` for a custom pack.
 
-**Composition**
+**Teach the Agent automated evaluation**
 
-- **One `run.py` under each binding.** Environment and Agent combine through plugins. Default is [ACP](https://agentclientprotocol.com); [nooa](https://github.com/NVIDIA-NeMo/labs-OO-Agents), [dsh](https://github.com/deepseek-ai/deepseek-harness), and [miniswe](https://github.com/SWE-agent/mini-swe-agent) join through the same plugin path and the same Attempt path and leaderboard.
-- **Agent packages.** Format `ageval.agent/1` (executor, entry, overlays). Built-in packages bind with `--agent pi` (no install). Custom overlay packs still `ageval agent install` then `--agent org/name@version`. `binding.model` is the default; `--model` overrides this run.
-- **Multiple roles and sessions.** The task owns dialog, tools, and handoff; the runtime supplies the environment and the Agent inlet.
-- **Validate before invoke.** Capabilities and credentials are checked before the Agent is called; absence fails and invoke does not start.
+Install the CLI and skills so the Agent can design, convert benchmarks, and run evaluations. `uv tool install ageval-cli`, then `npx skills add ZJU-REAL/ageval`.
 
-**Environment**
+**Share and reuse on Hub**
 
-- **Host, container, cloud sandbox, remote.** local, docker, [e2b](https://e2b.dev), ssh, [daytona](https://www.daytona.io): `upload` / `exec` / `attach_stdio`.
-- **The Agent sees only the projected workspace.** Gold and host credentials do not enter the dataset default environment.
-- **Official Attempt image.** Docker installs ACP entries at build time; they are not installed at invoke.
-
-**Results**
-
-- **Local Viewer.** Inspect trajectory, environment, and score along Jobs → Tasks → Attempt.
-- **Sealed trajectory.** Export a copy without modifying the score.
-- **Hub.** Publish datasets, plugins, and Agent packages; upload suites. Organizations manage members, public/private scope, and versions. The public Leaderboard lists complete, release-bound suites only. Operators can `docker compose -f services/registry/docker-compose.yml up -d` (Postgres, object store, Registry, Hub) and pull `ghcr.io/zju-real/ageval-hub` / `ageval-registry` from a release tag.
-
-**Authoring**
-
-- **The task owns only that task.** Loop, tools, scoring, and gold; orchestration does not belong in the task.
-- **SDK is optional.** Sessions, tools, terminals. It does not decide PASS and does not hold host credentials.
+Share or reuse datasets, plugins, and Agent configurations on ageval Hub, and upload evaluation results. Organizations manage members, public/private scope, and versions. Operators can `docker compose -f services/registry/docker-compose.yml up -d`. The local Viewer opens a run under Jobs → Tasks.
 
 ## Getting started
 

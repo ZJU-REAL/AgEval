@@ -16,7 +16,7 @@
 
 大多数 Agent 评测仍停留在**模型**：同一套提示、同一套工具约定，比较不同权重或不同 API。可交付的 Agent 却是模型加上它的运行时——同一套权重接到不同的 coding agent、工具策略或环境上，行为和成本都会变。配得上「比较」的评测因此是一个乘积：**H 个 Agent 运行时 × M 个模型 × E 个环境**。每个组合都要一套脚手架；组合不写进 lock，分数就不可比。
 
-**ageval** 把这个乘积从代码收成配置：一份 dataset（`run.py` + `evaluator.py`）写一次，环境和 Agent 在 `profiles.yaml` 上经插件绑定，和模型一起 lock 成可复现 digest。**Hub** 用来发布 dataset、插件与 Agent 包；公开榜只收录发过版、跑完整份 dataset 的结果。
+**ageval** 在统一运行基座上用插件切换待评测 Agent；装上 CLI 和 skill，Agent 能设计、转化 benchmark 并自动跑评测；在 Hub 上分享或复用 dataset、插件和 Agent 配置，并上传评测结果。
 
 <p align="center">
   <img src="docs/assets/why-ageval.jpg" alt="N 种环境 × M 种 Agent 运行时：逐个组合需要 N·M 份定制脚手架；ageval 用插件组合环境和 Agent，一份 dataset 到处跑。" width="800">
@@ -34,13 +34,12 @@
 
 ## 是什么
 
-一份 dataset 写一次，换环境和 Agent 不用改 `run.py`。分数要带上用了哪个 Agent 运行时、哪套环境，不能只报模型名。
+一键切换待评测 Agent。让 Agent 学会自动评测。在 Hub 上分享与复用。
 
-- **交付单位是 dataset。** 一份 dataset 含若干 task；每个 task 有业务循环（`run.py`）、评分（`evaluator.py`）和 gold。环境和 Agent 写在 `profiles.yaml` 里，不写进 dataset。
-- **一次运行能打开看。** 顺序是 environment → run → evaluate → record，cleanup 始终执行。目录在 `.ageval/runs/<id>/`。
-- **换环境不用改题。** 本机、Docker，或云沙箱 / 远端（[e2b](https://e2b.dev)、ssh、[daytona](https://www.daytona.io)）。缺能力或缺凭证时，`ageval lock` 失败，不会开始跑。
-- **Coding agent 通过插件接入。** 默认用 [ACP](https://agentclientprotocol.com)（[pi](https://pi.dev)、[Codex](https://github.com/openai/codex)、[Claude Code](https://github.com/anthropics/claude-code)、[OpenCode](https://github.com/sst/opencode)）；[nooa](https://github.com/NVIDIA-NeMo/labs-OO-Agents)、[dsh](https://github.com/deepseek-ai/deepseek-harness)、[miniswe](https://github.com/SWE-agent/mini-swe-agent) 同样经插件进来，走同一套运行路径和榜单。
-- **结果有归处。** 本机 Viewer 按 Jobs → Tasks 打开一次运行；Hub 发布 dataset、插件与 Agent 包。公开榜只收录发过版、跑完整份 dataset 的结果。
+- **一键切换待评测 Agent。** 为运行基座按需编写、安装插件，补上你的自定义能力。默认 [ACP](https://agentclientprotocol.com)（[pi](https://pi.dev)、[Codex](https://github.com/openai/codex)、[Claude Code](https://github.com/anthropics/claude-code)、[OpenCode](https://github.com/sst/opencode)）；[nooa](https://github.com/NVIDIA-NeMo/labs-OO-Agents)、[dsh](https://github.com/deepseek-ai/deepseek-harness)、[miniswe](https://github.com/SWE-agent/mini-swe-agent) 同样经插件进来。
+- **让 Agent 学会自动评测。** 装上 CLI 和 skill，让 Agent 能设计、转化 benchmark，并自动跑评测。
+- **在 Hub 上分享与复用。** 在 ageval Hub 上分享或复用 dataset、插件和 Agent 配置，并上传评测结果。
+- **交付单位是 dataset。** 一份 dataset 含若干 task；环境和 Agent 写在 `profiles.yaml` 里，不写进 dataset。
 
 ## 如何运行
 
@@ -77,36 +76,17 @@
 
 ## 功能
 
-**评测**
+**一键切换待评测 Agent**
 
-- **一次 lock。** dataset、Agent 运行时和环境写进同一次 lock，得到可复现 digest。
-- **单题、整份 dataset、矩阵与重复。** 可跑单个 task、整份 dataset、同一 task 上的参数矩阵，或同一份配置下的多次独立运行（pass@k）。
-- **评分与 Agent 分离。** gold 不进 Agent 能看见的文件。PASS 只来自 `evaluator.py`（缺省确定性脚本；可选 `Agent.session` 做 LLM-as-judge）。轨迹用来检查过程。
-- **limits 在调用前强制。** 墙钟、内存、进程与调用次数由 runtime 在 invoke 之前确定。
+为运行基座按需编写、安装插件，补上你的自定义能力。环境和 Agent 运行时经插件接入，不用 fork 框架、不用改基座。默认 [ACP](https://agentclientprotocol.com)；[nooa](https://github.com/NVIDIA-NeMo/labs-OO-Agents)、[dsh](https://github.com/deepseek-ai/deepseek-harness)、[miniswe](https://github.com/SWE-agent/mini-swe-agent) 同样走插件。Agent 包 format `ageval.agent/1`；内置包用 `--agent pi`（不必 install），定制包先 `ageval agent install`。
 
-**组合**
+**让 Agent 学会自动评测**
 
-- **同一份 `run.py`，换绑定。** 环境和 Agent 经插件组合。默认 [ACP](https://agentclientprotocol.com)；[nooa](https://github.com/NVIDIA-NeMo/labs-OO-Agents)、[dsh](https://github.com/deepseek-ai/deepseek-harness)、[miniswe](https://github.com/SWE-agent/mini-swe-agent) 同样经插件接入，走同一套运行路径和榜单。
-- **Agent 包。** format `ageval.agent/1`（executor、entry、overlays）。内置包用 `--agent pi` 绑定（不必 install）。定制 overlays 包仍先 `ageval agent install`，再 `--agent org/name@version`。`binding.model` 是缺省；`--model` 改这次 run。
-- **多角色与多 session。** 对话、工具与 handoff 写在 task 里；runtime 提供环境和 Agent 入口。
-- **调用前校验。** 能力与凭证在 Agent 调用之前核验；缺了就失败，不会开始 invoke。
+装上 CLI 和 skill，让 Agent 能设计、转化 benchmark，并自动跑评测。`uv tool install ageval-cli`，再 `npx skills add ZJU-REAL/ageval`。
 
-**环境**
+**在 Hub 上分享与复用**
 
-- **本机、容器、云沙箱、远端。** local、docker、[e2b](https://e2b.dev)、ssh、[daytona](https://www.daytona.io)：`upload` / `exec` / `attach_stdio`。
-- **Agent 只能看见允许的文件。** gold 与宿主凭据不进 dataset 的默认环境。
-- **官方运行镜像。** Docker 在 build 期装入 ACP 入口，invoke 时不再安装。
-
-**结果与协作**
-
-- **本机 Viewer。** 按 Jobs → Tasks 查阅轨迹、环境与评分。
-- **导出轨迹。** 导出一份副本，不修改分数。
-- **Hub。** 发布 dataset、插件与 Agent 包，上传整份 dataset 的结果。组织管理成员、公开范围与版本；公开榜只收录发过版、跑完整份 dataset 的结果。部署可用 `docker compose -f services/registry/docker-compose.yml up -d`（Postgres、对象存储、Registry、Hub），发版标签会把 `ghcr.io/zju-real/ageval-hub` / `ageval-registry` 推到 GHCR。
-
-**编写**
-
-- **一道题只写这道题。** 循环、工具、评分与 gold；编排不属于 task。
-- **SDK 可选。** session、Tool、终端。不判定 PASS，不持有宿主凭据。
+在 ageval Hub 上分享或复用 dataset、插件和 Agent 配置，并上传评测结果。组织管理成员、公开范围与版本。部署可用 `docker compose -f services/registry/docker-compose.yml up -d`。本机 Viewer 按 Jobs → Tasks 打开一次运行。
 
 ## 快速开始
 

@@ -1442,6 +1442,10 @@ html:has(.ageval-landing) body {
   padding: 0 8px 20px;
 }
 
+.ageval-landing .faq-a p + p {
+  margin-top: 12px;
+}
+
 .ageval-landing .owl-wash {
   position: absolute;
   right: 2%;
