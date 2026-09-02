@@ -12,7 +12,7 @@
 | --- | --- |
 | 产品是什么、成功标准、非目标、用户故事 | [PRD.md](PRD.md)、[design/00](design/00-overview-and-product.md) |
 | 机制如何设计、边界如何切 | [`design/`](design/) |
-| 术语与 public 用词 | [glossary.md](glossary.md)（约束：规范名 + Avoid + 表面） |
+| 术语与 public 用词 | [glossary.md](glossary.md)（约束：规范名 + Avoid + 表面）。抄进 website / README 只许 public 行；独占槽、kind、Attempt、suite 不当普通中文 |
 | 当前/目标代码结构 | [../ARCHITECTURE.md](../ARCHITECTURE.md) |
 | Agent 交付路由、红线、校验 | [../AGENTS.md](../AGENTS.md) |
 | 增量交付与验收跟踪 | GitHub Issues |

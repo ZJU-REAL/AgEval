@@ -51,7 +51,7 @@ ageval.yaml (ageval.dataset/1)
   → .ageval/runs/<attempt_id>/
 ```
 
-打开 `src/ageval/attempt/__init__.py` 能说出相位。插件改的是 lock 时的绑定，不是运行时改写这五行。
+打开 `src/ageval/attempt/__init__.py` 能说出 phase 顺序。插件改的是 lock 时的绑定，不是运行时改写这五行。
 
 ## 三层各管什么
 
@@ -112,7 +112,7 @@ ageval.yaml (ageval.dataset/1)
 
 ### US3 — setup 是 environment 末槽，不进 run.py
 
-有 `environment/setup.sh` 则 environment phase 最后 `emit("environment_setup")` → `host.exec`。无文件则默认 no-op。失败是 environment 相位失败，不是 Agent 轨迹。重依赖进 Dockerfile。
+有 `environment/setup.sh` 则 environment phase 最后 `emit("environment_setup")` → `host.exec`。无文件则默认 no-op。失败是 environment 阶段失败，不是 Agent 轨迹。重依赖进 Dockerfile。
 
 ### US4 — ACP 进任意环境
 
@@ -193,7 +193,7 @@ gold 隔离是**时间切**：不 mount，evaluate 再 upload。这是默认，�
 
 ## 审查问题（实现时对照）
 
-1. `attempt/__init__.py` 能否不打开别的文件就说出相位顺序？
+1. `attempt/__init__.py` 能否不打开别的文件就说出 phase 顺序？
 2. ACP / `run.py` 有没有 `if kind == e2b`？
 3. ACP 还能不能看见 container/sandbox id？
 4. 缺 cap 会不会仍开跑？

@@ -11,13 +11,13 @@
 
 ageval 锁定一份 dataset，在选定的环境里跑一次 Attempt，由独立 evaluator 出分。环境可以是本机、Docker、E2B、SSH 或 Daytona；编排始终在本机 `ageval run`。
 
-设计口令：**边界硬、契约薄、实现可胖。** 胖的是题包 `run.py`，不是 Core。
+Core 只做 lock、开环境、invoke、评测、evidence、cleanup。题怎么 loop 写在 dataset 的 `run.py`，不写进 Core。
 
 ## 2. 问题
 
 Agent 评测把编排、隔离、可见性和打分权威散落在各家 harness 里。换 coding agent 或换环境，分数就不可比。
 
-ageval **统一** lock、开环境、invoke、评测、存证、拆环境；**不统一** 题内部怎么 loop、怎么用 Tool。
+ageval **统一** lock、开环境、invoke、评测、evidence、拆环境；**不统一** 题内部怎么 loop、怎么用 Tool。
 
 ## 3. 用户与 Jobs
 
@@ -31,7 +31,7 @@ ageval **统一** lock、开环境、invoke、评测、存证、拆环境；**�
 
 ## 4. 成功标准
 
-1. 打开 `src/ageval/attempt/__init__.py` 能说出相位顺序。
+1. 打开 `src/ageval/attempt/__init__.py` 能说出 phase 顺序。
 2. 换环境只改 job `environment:`，ACP / `run.py` 不见 `container_id`。
 3. 同一份 `environment/Dockerfile` 可供 docker 与 e2b 使用。
 4. PASS 只来自独立 evaluator；`RunTerminal.completed` 不是 PASS。
