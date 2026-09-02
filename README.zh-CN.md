@@ -110,7 +110,7 @@
 
 ## 快速开始
 
-从 PyPI 直接安装 CLI——无需 clone 仓库。需要 CPython **3.12+**。实际运行 coding agent 还需要本机 ACP 入口与凭据。仅执行 `ageval lock` 时不需要。
+从 PyPI 直接安装 CLI。需要 CPython **3.12+**。实际运行 coding agent 还需要本机 ACP 入口与凭据。仅执行 `ageval lock` 时不需要。
 
 ```bash
 uv tool install ageval-cli
@@ -133,6 +133,12 @@ ageval view <org>/<name>@<version> --no-browser
 ```
 
 默认 profiles 使用 `environment: docker`（需要可用的 Docker 引擎）。内置 Agent 包用 `--agent pi`（不必 install）。可选 `--model` 改这次 run。定制 overlays 包先 `ageval agent install`，再 `--agent org/name@version`。缺 extras 或凭据时检查不过就不能进入运行，报错里带准确的安装命令。
+
+给你本机 coding agent 用的技能（CLI、插件、dataset 编写、`run.py`/SDK）：
+
+```bash
+npx skills add ZJU-REAL/ageval
+```
 
 ### 从源码开发
 

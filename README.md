@@ -111,7 +111,7 @@ Write a dataset once. Swap the environment and the Agent without rewriting `run.
 
 ## Getting started
 
-Install the CLI from PyPI — no clone needed. Requires CPython **3.12+**. A live coding-agent run also requires a host ACP entry and credentials. `ageval lock` does not.
+Install the CLI from PyPI. Requires CPython **3.12+**. A live coding-agent run also requires a host ACP entry and credentials. `ageval lock` does not.
 
 ```bash
 uv tool install ageval-cli
@@ -134,6 +134,12 @@ ageval view <org>/<name>@<version> --no-browser
 ```
 
 Default profiles use `environment: docker` (a working Docker engine is needed). Bind a shipped Agent package with `--agent pi` (no install). Optional `--model` overrides this run. Custom overlay packs use `ageval agent install` then `--agent org/name@version`. Missing extras or credentials fail the check and the run does not start; the error includes the exact install command.
+
+Skills for your coding agent (CLI, plugins, dataset authoring, `run.py`/SDK):
+
+```bash
+npx skills add ZJU-REAL/ageval
+```
 
 ### Develop from source
 
