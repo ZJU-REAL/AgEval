@@ -8,7 +8,7 @@
 | 项 | 值 |
 | --- | --- |
 | 全称 / 发版名 | **ageval**（agent eval） |
-| 题包根 | **dataset**（`ageval.dataset/1`），不是 SQL |
+| 交付单位 | **dataset**（`ageval.dataset/1`），不是 SQL |
 | CLI / 包 | `ageval` / import `ageval` |
 | 家目录 / 环境变量 | `~/.ageval`、`AGEVAL_*` |
 | GitHub 路径 | [`ZJU-REAL/AgEval`](https://github.com/ZJU-REAL/AgEval) |
@@ -20,7 +20,7 @@
 修改代码、契约或公开行为前，**按序**阅读：
 
 1. [ARCHITECTURE.md](ARCHITECTURE.md) — 当前/目标结构、模块所有权、依赖方向、生命周期与数据流
-2. [docs/README.md](docs/README.md) 与本次相关的 [docs/design/](docs/design/) — **设计权威（自包含）**
+2. [docs/README.md](docs/README.md) 与本次相关的 [docs/design/](docs/design/) — **设计权威（自包含）**；用词先读 [docs/glossary.md](docs/glossary.md)（规范名 + Avoid + 表面）
 3. [docs/PRD.md](docs/PRD.md) — 产品规格与非目标
 4. 相关 **GitHub Issue**（Acceptance / 非目标 / 证据要求）
 5. 代码、测试、`examples/`、公开 smoke
