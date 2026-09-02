@@ -1,28 +1,16 @@
 ---
-title: Mechanism plugins
-description: Install ageval.plugin/1, bind executors, and distinguish Recognition from “this host can run”.
+title: Swap Agent or environment with plugins
+description: Install a plugin, flip one line in profiles, run the same dataset.
 ---
 
-Mechanism plugins extend **how** agents, environments, and trajectories run — not the
-dataset `run.py` loop.
+Swapping the Agent or the environment does not rewrite the dataset: install the
+plugin and switch it in `profiles.yaml`.
 
-## Executor and environment: require the service by name
+ACP is the default path (pi / Codex / Claude Code / OpenCode). dsh, nooa, and
+miniswe are the same kind of plugin. Switching `environment: docker` to `e2b`,
+`ssh`, or `daytona` changes that one line in the ACP profiles — not ACP code.
 
-An executor does not import docker, e2b, ssh, or daytona. It asks for the service named
-`environment` and the capabilities it will call. The environment implementation registers
-under that name. Lock checks the graph before any invoke.
-
-| | Meaning |
-| --- | --- |
-| **export** | The environment is the `environment` service |
-| **inject** | The agent backend needs `environment` plus `attach_stdio` or `exec` |
-| **call** | Protocol only: `attach_stdio` (live session) or `exec` / `upload` (run to completion) |
-
-Switching `environment: docker` to `e2b`, `ssh`, or `daytona` changes the environment winner, not ACP
-code. `exec` is a method on that service, not a second service. A host SDK bound to
-a parent path does not satisfy this seam. Contract: `docs/design/11`.
-
-## Install (local cache only)
+## Install
 
 ```bash
 ageval plugin install plugins/nooa
@@ -43,7 +31,7 @@ Uninstall:
 ageval plugin uninstall nooa
 ```
 
-## Bind (profiles)
+## Switch in config
 
 ```yaml
 format: ageval.profiles/1
@@ -58,14 +46,17 @@ agent_profiles:
           method: "run"
 ```
 
-`executor:` selects the Agent implementation for this profiles file — it does **not** bake. Plugin knobs live on that plugin's `extensions` row. Docker image layers are read by the environment at `host.start()`. ACP `entry` lives on `- plugin: acp` / `options.entry`.
+`executor:` selects the Agent for this profiles file. Plugin options live on that
+plugin's `extensions` row. Docker image layers are written when the environment
+starts. ACP `entry` lives on `- plugin: acp` / `options.entry`.
 
 ```bash
 ageval run examples/datasets/minimal-demo --task terminal-jsonl-agg \
   --profiles examples/datasets/minimal-demo/profiles.nooa.yaml
 ```
 
-`ageval lock` writes the resolved graph as `extension_bindings`.
+`ageval lock` writes the resolved graph as `extension_bindings`. If capabilities
+or credentials do not match, the check fails and the run does not start.
 
 ```bash
 ageval run examples/datasets/minimal-demo --task terminal-jsonl-agg \
@@ -74,21 +65,19 @@ ageval run examples/datasets/minimal-demo --task terminal-jsonl-agg \
 
 `--probe` checks whether this **`environment`** can open here: `host_requires`, Docker daemon (docker), locator **names**. Unsatisfied paths exit non-zero. Skip is not a pass.
 
-## Recognition ≠ this host can run ≠ layers written into the image
+## Installed is not the same as runnable
 
-| Stage | Meaning |
+| What you see | Meaning |
 | --- | --- |
-| **install / list** | Host recognizes the plugin |
+| **install / list** | This machine recognizes the plugin |
 | **host can run** | Declared `host_requires` satisfied |
 | **profiles bind** | This profiles file selected that executor / environment |
 | **image layers** | docker: `image_layers` present and written |
 
-`ageval executors.host_ready` is not “installed” and not “layers are in the image”. Installed plugins that are not listed in `extensions` stay off the Attempt image.
+`ageval executors.host_ready` is not “installed” and not “layers are in the image”. Installed plugins that are not listed in `extensions` stay off this run's image.
 
 ## Relation to ACP
 
-The default coding-agent path remains `executor: acp` + `options.entry` (parent JSON-RPC, needs `attach_stdio`). `acp-oneshot` is the other path: a one-shot client+server inside the environment, over `exec` only. Plugins are optional; the same `run.py` switches only via profiles. miniswe keeps the model on the host; bash goes only through `host.exec`. Missing `exec` fails at lock.
+The default coding-agent path remains `executor: acp` + `options.entry` (parent JSON-RPC, needs `attach_stdio`). `acp-oneshot` is the other path: a one-shot client+server inside the environment, over `exec` only. Plugins are optional; the same dataset switches only via profiles. miniswe keeps the model on the host; bash goes only through `host.exec`. Missing `exec` fails at lock.
 
-In-environment `evaluator.py` and trajectory writes default to `evaluation_runtime` / `trajectory_seal` (no extra config field). PASS still binds only in the engine.
-
-Contracts: `docs/design/11`. This page does not raise evidence grades.
+In-environment `evaluator.py` and trajectory writes default to `evaluation_runtime` / `trajectory_seal` (no extra config field). PASS still comes only from `evaluator.py`.

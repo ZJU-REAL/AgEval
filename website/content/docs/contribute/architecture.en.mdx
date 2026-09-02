@@ -7,11 +7,10 @@ Module placement, dependency direction, lifecycle, and data flow: **[`ARCHITECTU
 
 | Path | Role |
 | --- | --- |
-| `src/ageval/` | Attempt pipeline, boxes, CLI |
+| `src/ageval/` | Run pipeline, environments, CLI |
 | `src/ageval_sdk/` | `ageval_sdk` for `run.py` (same distribution as `ageval`) |
 | `apps/viewer` · `apps/hub` | Local Jobs / Hub SPA |
 | `website/` | This site |
 | `docs/` | Design |
 
-Why: in-repo `docs/design/`. Executor and environment decouple through **named
-export / inject**, not imports — see `docs/design/11`.
+Design notes: in-repo `docs/design/`. An executor does not import docker or e2b; it asks the environment for `attach_stdio` or `exec`, and lock checks before invoke. Wiring: `docs/design/11`.

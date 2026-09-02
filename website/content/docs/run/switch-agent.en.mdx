@@ -33,7 +33,7 @@ ACP `entry` lives on `- plugin: acp` / `options.entry`.
 
 ## Agent packages (`--agent`)
 
-`ageval.agent/1` is a harness package (executor, entry, overlays).
+`ageval.agent/1` is an Agent package (executor, entry, overlays).
 `binding.model` is the default, not identity. Built-in Agent packages (`pi`,
 `opencode`, `codex`, `claude-code`, `grok-build`, `openai-http`,
 `anthropic-http`) ship with
@@ -61,4 +61,4 @@ Only allowlisted `--set` pointers work, e.g. `/bindings/solver/options/reasoning
 
 `api_key` is always an env **name**, never the secret. More: [ACP profiles](/docs/agents/acp-profiles).
 
-Non-ACP mechanisms (nooa / dsh / miniswe) switch with a whole `--profiles` file. See [Mechanism plugins](/docs/run/plugins).
+Non-ACP agent runtimes (nooa / dsh / miniswe) switch with a whole `--profiles` file. See [Plugins](/docs/run/plugins).

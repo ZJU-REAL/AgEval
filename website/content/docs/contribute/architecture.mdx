@@ -7,10 +7,10 @@ description: 源码目录与结构权威。
 
 | 路径 | 角色 |
 | --- | --- |
-| `src/ageval/` | Attempt 流水线、环境、CLI |
+| `src/ageval/` | 一次运行的流水线、环境、CLI |
 | `src/ageval_sdk/` | `ageval_sdk`（`run.py` 用，与 `ageval` 同一发行） |
 | `apps/viewer` · `apps/hub` | 本机 Jobs / Hub SPA |
 | `website/` | 本站 |
 | `docs/` | 设计 |
 
-机制「为什么」在仓库 `docs/design/`。executor 与 environment 通过 **export / inject 服务名** 解耦，不互相 import：见 `docs/design/11`。
+设计说明在仓库 `docs/design/`。executor 不直接 import docker / e2b；它声明需要环境提供 `attach_stdio` 或 `exec`，lock 核过再跑。接线细节见 `docs/design/11`。

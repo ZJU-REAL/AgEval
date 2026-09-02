@@ -14,7 +14,7 @@ ageval run <dataset> --task <task_id>
 ```bash
 ageval run examples/datasets/minimal-demo --task terminal-jsonl-agg
 
-# Always-k：同一 task 固定 k 次独立 Attempt（CLI only；默认 k=1）
+# Always-k：同一 task 固定 k 次独立运行（CLI only；默认 k=1）
 ageval run examples/datasets/minimal-demo --task terminal-jsonl-agg -k 5
 ```
 
@@ -25,13 +25,13 @@ ageval lock examples/datasets/minimal-demo --task terminal-jsonl-agg
 ```
 
 `--task` 必须等于成员目录名和 `task.yaml` 里的 `task_id`。  
-TTY 下 stdout 是短 recap（单题含 `logs` 路径）；管道或 `--json` 仍是完整文档。`k>1` 走 suite job，写 `.ageval/suite-runs/`。更多见 [Suite](/docs/run/suite)。
+TTY 下 stdout 是短 recap（单题含 `logs` 路径）；管道或 `--json` 仍是完整文档。`k>1` 走整份 dataset 的 job，写 `.ageval/suite-runs/`。更多见 [整份 dataset](/docs/run/suite)。
 
 ## 跑完你会看到什么
 
 - 终端里的 **Result 摘要**（状态、分数相关字段、错误信息）  
 - **`logs` 路径**：Dataset 根下 `.ageval/runs/<run_id>/`（`k=1`）  
-- `k>1` 时：suite `summary.json` 里的 **pass@k / pass^k** 等 job 指标  
+- `k>1` 时：`summary.json` 里的 **pass@k / pass^k** 等 job 指标  
 
 PASS / FAIL 仅来自 `evaluator.py`，与 Agent 完成态分离。更细的读法见 [结果与 PASS](/docs/reference/results-and-pass)。
 
@@ -43,4 +43,4 @@ PASS / FAIL 仅来自 `evaluator.py`，与 Agent 完成态分离。更细的读�
 | agent 起不来 | `ageval executors -v`、凭据 → [ACP](/docs/agents/acp-profiles) |
 | 评测 FAIL | artifacts 是否写出、evaluator 输入 → [写 evaluator](/docs/author/write-evaluator) |
 
-下一步：[整包 suite](/docs/run/suite) · [换 agent](/docs/run/switch-agent) · [机制插件](/docs/run/plugins) · [本机 Viewer](/docs/run/local-viewer)。
+下一步：[整份 dataset](/docs/run/suite) · [换 agent](/docs/run/switch-agent) · [插件](/docs/run/plugins) · [本机 Viewer](/docs/run/local-viewer)。
