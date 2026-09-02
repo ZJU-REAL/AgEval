@@ -1,7 +1,6 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { BookOpen, Orbit } from "lucide-react";
-import { DshWhale } from "@/components/landing/dsh-whale";
 import { landingCopy } from "@/components/landing/copy";
 import { LandingNav } from "@/components/landing/landing-nav";
 import { HeroSignal } from "@/components/landing/hero-signal";
@@ -199,65 +198,16 @@ export default async function HomePage({ params }: { params: Promise<HomeParams>
           </div>
         </section>
 
-        <section className="block" id="principles">
+        <section className="block" id="environment">
           <div className="wrap">
             <div className="sec-head">
-              <span className="sec-index">{text.principles.index}</span>
-              <span className="sec-name">{text.principles.name}</span>
+              <span className="sec-index">{text.environment.index}</span>
+              <span className="sec-name">{text.environment.name}</span>
             </div>
-            <h2>{text.principles.title}</h2>
-            <ol className="principles">
-              {text.principles.items.map(([title, body]) => (
-                <li key={title}>
-                  <strong>{title}</strong>
-                  <p>{body}</p>
-                </li>
-              ))}
-            </ol>
-            <div className="ink-banner">
-              <div className="en">
-                {text.principles.bannerEn[0]}
-                <br />
-                {text.principles.bannerEn[1]}
-                <br />
-                {text.principles.bannerEn[2]}
-              </div>
-              <p className="zh">{text.principles.bannerZh}</p>
-            </div>
-          </div>
-        </section>
-
-        <section className="block" id="core">
-          <div className="wrap">
-            <div className="sec-head">
-              <span className="sec-index">{text.core.index}</span>
-              <span className="sec-name">{text.core.name}</span>
-            </div>
-            <h2>{text.core.title}</h2>
-            <p className="lead">{text.core.lead}</p>
-            <div className="core-grid">
-              {text.core.items.map(([id, title, body, own, hot]) => (
-                <article key={id} className={hot ? "hot" : undefined}>
-                  <span className="id">{id}</span>
-                  <h3>{title}</h3>
-                  <p>{body}</p>
-                  <p className="own">{own}</p>
-                </article>
-              ))}
-            </div>
-          </div>
-        </section>
-
-        <section className="block" id="isolation">
-          <div className="wrap">
-            <div className="sec-head">
-              <span className="sec-index">{text.isolation.index}</span>
-              <span className="sec-name">{text.isolation.name}</span>
-            </div>
-            <h2>{text.isolation.title}</h2>
-            <p className="lead">{text.isolation.lead}</p>
+            <h2>{text.environment.title}</h2>
+            <p className="lead">{text.environment.lead}</p>
             <div className="tiers">
-              {text.isolation.items.map(([st, title, body, tag, hot]) => (
+              {text.environment.items.map(([st, title, body, tag, hot]) => (
                 <article key={st} className={hot ? "hot" : undefined}>
                   <p className="st">{st}</p>
                   <h3>{title}</h3>
@@ -312,158 +262,16 @@ export default async function HomePage({ params }: { params: Promise<HomeParams>
                 </article>
               ))}
             </div>
-          </div>
-        </section>
-
-        <section className="block" id="plugin-code">
-          <div className="wrap">
-            <div className="sec-head">
-              <span className="sec-index">{text.pluginCode.index}</span>
-              <span className="sec-name">{text.pluginCode.name}</span>
-            </div>
-            <h2>{text.pluginCode.title}</h2>
-            <p className="lead">{text.pluginCode.lead}</p>
-            <div className="duo">
-              <div className="duo-col">
-                <p className="duo-tag">
-                  <span className="num">01</span> {text.pluginCode.coreTag}
-                </p>
-                <pre className="code-panel" tabIndex={0}>
-                  <span className="cc"># src/ageval/plugins/slots.py</span>
-                  {"\n"}
-                  <span className="ck">class</span> SlotKind(StrEnum):{"\n"}
-                  {"    "}CHAIN = <span className="cs">&quot;chain&quot;</span>
-                  {"      "}
-                  <span className="cc"># (ctx, value, nxt)</span>
-                  {"\n"}
-                  {"    "}EXCLUSIVE = <span className="cs">&quot;exclusive&quot;</span>
-                  {"  "}
-                  <span className="cc"># one implementation</span>
-                  {"\n\n"}
-                  ENVIRONMENT: Final = <span className="cs">&quot;environment&quot;</span>
-                  {"\n"}
-                  EXECUTOR: Final = <span className="cs">&quot;executor&quot;</span>
-                  {"\n\n"}
-                  <span className="cc"># src/ageval/environments/protocol.py</span>
-                  {"\n"}
-                  <span className="ck">class</span> ExecutorSPI(Protocol):{"\n"}
-                  {"    "}kind: str{"\n"}
-                  {"    "}
-                  <span className="ck">def</span> invoke(self, prompt, *, timeout=60.0,{"\n"}
-                  {"               "}workdir=None, collect_dir=None) -&gt; Any: ...{"\n"}
-                  {"    "}
-                  <span className="ck">def</span> close(self) -&gt; None: ...{"\n\n"}
-                  HookHandler = Callable[[Any, Any, NextFn], Awaitable[Any]]
-                </pre>
-                <p className="code-note">{text.pluginCode.note}</p>
+            <div className="plugin-example">
+              <div>
+                <p className="duo-tag">{text.plugin.exampleTag}</p>
+                <h3>{text.plugin.exampleTitle}</h3>
+                <p>{text.plugin.exampleBody}</p>
               </div>
-              <div className="duo-col accent">
-                <DshWhale />
-                <p className="duo-tag">
-                  <span className="num">02</span> {text.pluginCode.pluginTag}
-                </p>
-                <pre className="code-panel" tabIndex={0}>
-                  <span className="cc"># plugins/dsh/plugin.yaml</span>
-                  {"\n"}
-                  <span className="ck">format:</span> ageval.plugin/1{"\n"}
-                  <span className="ck">plugin_id:</span> dsh{"\n"}
-                  <span className="ck">host_requires:</span>
-                  {"\n"}
-                  {"  "}- <span className="ck">import:</span> deepseek_harness{"\n"}
-                  <span className="ck">slots:</span>
-                  {"\n"}
-                  {"  "}
-                  <span className="ck">exclusive:</span>
-                  {"\n"}
-                  {"    "}- <span className="ck">id:</span> executor{"\n"}
-                  {"      "}
-                  <span className="ck">entry:</span> <span className="cs">&quot;dsh_plugin.factory:build_executor&quot;</span>
-                  {"\n"}
-                  <span className="ck">inject:</span>
-                  {"\n"}
-                  {"  "}- <span className="ck">service:</span> environment{"\n"}
-                  {"    "}
-                  <span className="ck">capabilities:</span> [exec, upload]
-                </pre>
-                <pre className="code-panel mini" tabIndex={0}>
-                  <span className="cc"># plugins/dsh — parent never imports the harness</span>
-                  {"\n"}
-                  <span className="ck">def</span> build_executor(*, host, placement, **kw) -&gt; DshBoxExecutor:{"\n"}
-                  {"    "}
-                  <span className="ck">return</span> DshBoxExecutor(host=host, placement=placement, **kw)
-                  {"\n\n"}
-                  <span className="ck">await</span> host.upload(worker, <span className="cs">&quot;/attempt/home/_dsh/…&quot;</span>){"\n"}
-                  <span className="ck">await</span> host.exec([*host.python_command, worker, request], env=creds)
-                </pre>
-              </div>
+              <pre className="code-panel" tabIndex={0}>
+                {text.plugin.exampleCode}
+              </pre>
             </div>
-          </div>
-        </section>
-
-        <section className="block" id="flow">
-          <div className="wrap">
-            <div className="sec-head">
-              <span className="sec-index">{text.flow.index}</span>
-              <span className="sec-name">{text.flow.name}</span>
-            </div>
-            <h2>{text.flow.title}</h2>
-            <ol className="flow">
-              {text.flow.steps.map(([n, title, body]) => (
-                <li key={n}>
-                  <span className="n">{n}</span>
-                  <strong>{title}</strong>
-                  <span>{body}</span>
-                </li>
-              ))}
-            </ol>
-            <div className="traj">
-              {text.flow.traj.map(([title, body]) => (
-                <article key={title}>
-                  <h3>{title}</h3>
-                  <p>{body}</p>
-                </article>
-              ))}
-            </div>
-          </div>
-        </section>
-
-        <section className="take">
-          <div className="take-left">
-            <div>
-              <p className="hero-tag">{text.take.tag}</p>
-              <h2>{text.take.title}</h2>
-            </div>
-            <p>{text.take.body}</p>
-          </div>
-          <div className="take-right">
-            <ol>
-              {text.take.items.map(([num, title, body]) => (
-                <li key={num}>
-                  <div className="num">{num}</div>
-                  <div>
-                    <h3>{title}</h3>
-                    <p>{body}</p>
-                  </div>
-                </li>
-              ))}
-            </ol>
-          </div>
-        </section>
-
-        <section className="cta-band">
-          <div className="wrap">
-            <h2>
-              {text.cta.title[0]}
-              <br />
-              {text.cta.title[1]}
-            </h2>
-            <p className="lead">{text.cta.lead}</p>
-            <HeroCtas
-              repoLabel={text.cta.primary}
-              hubLabel={text.cta.hub}
-              docsLabel={text.cta.docs}
-              docsHref={`/${lang}/docs`}
-            />
           </div>
         </section>
 
@@ -488,6 +296,23 @@ export default async function HomePage({ params }: { params: Promise<HomeParams>
                 </details>
               ))}
             </div>
+          </div>
+        </section>
+
+        <section className="cta-band">
+          <div className="wrap">
+            <h2>
+              {text.cta.title[0]}
+              <br />
+              {text.cta.title[1]}
+            </h2>
+            <p className="lead">{text.cta.lead}</p>
+            <HeroCtas
+              repoLabel={text.cta.primary}
+              hubLabel={text.cta.hub}
+              docsLabel={text.cta.docs}
+              docsHref={`/${lang}/docs`}
+            />
           </div>
         </section>
       </main>

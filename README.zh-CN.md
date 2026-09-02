@@ -34,12 +34,10 @@
 
 ## 是什么
 
-一键切换待评测 Agent。让 Agent 学会自动评测。在 Hub 上分享与复用。
-
-- **一键切换待评测 Agent。** 为运行基座按需编写、安装插件，补上你的自定义能力。默认 [ACP](https://agentclientprotocol.com)（[pi](https://pi.dev)、[Codex](https://github.com/openai/codex)、[Claude Code](https://github.com/anthropics/claude-code)、[OpenCode](https://github.com/sst/opencode)）；[nooa](https://github.com/NVIDIA-NeMo/labs-OO-Agents)、[dsh](https://github.com/deepseek-ai/deepseek-harness)、[miniswe](https://github.com/SWE-agent/mini-swe-agent) 同样经插件进来。
-- **让 Agent 学会自动评测。** 装上 CLI 和 skill，让 Agent 能设计、转化 benchmark，并自动跑评测。
-- **在 Hub 上分享与复用。** 在 ageval Hub 上分享或复用 dataset、插件和 Agent 配置，并上传评测结果。
-- **交付单位是 dataset。** 一份 dataset 含若干 task；环境和 Agent 写在 `profiles.yaml` 里，不写进 dataset。
+- **切换待评测 Agent。** 环境和 Agent 运行时都经插件接入——默认 ACP（[pi](https://pi.dev)、[Codex](https://github.com/openai/codex)、[Claude Code](https://github.com/anthropics/claude-code)、[OpenCode](https://github.com/sst/opencode)）；[nooa](https://github.com/NVIDIA-NeMo/labs-OO-Agents)、[dsh](https://github.com/deepseek-ai/deepseek-harness)、[miniswe](https://github.com/SWE-agent/mini-swe-agent) 走同一条路。不用 fork 框架。
+- **让 Agent 自己跑评测。** CLI 加 skill，教你的 coding agent 自己设计、转化 benchmark 并跑完评测。
+- **在 Hub 上分享与复用。** dataset、插件、Agent 配置和评测结果都放在 ageval Hub——别人拿去是接着跑，不只是看一张分数表。
+- **交付 dataset，而不是脚手架。** task 里写业务循环；环境和 Agent 在运行时经 `profiles.yaml` 绑定。
 
 ## 如何运行
 
@@ -69,24 +67,24 @@
                                   └─────────────────┘
 ```
 
-1. **lock。** 把 dataset、环境和 Agent 合成 digest。密钥只当 locator，不以明文写入 lock。
+1. **lock。** 把 dataset、环境和 Agent 定成一份组合。密钥只当 locator，不以明文写入 lock。
 2. **打开环境。** 本机、Docker，或云沙箱 / 远端。缺能力或缺凭证时，在打开之前失败。
 3. **跑 `run.py`。** 循环、工具与 Agent 调用写在这里。换环境或 Agent 不用改这份文件。
 4. **独立评分。** gold 在这个阶段进入环境，由 `evaluator.py` 给出 PASS / FAIL / ERROR。cleanup 始终执行。
 
 ## 功能
 
-**一键切换待评测 Agent**
+**切换待评测 Agent**
 
-为运行基座按需编写、安装插件，补上你的自定义能力。环境和 Agent 运行时经插件接入，不用 fork 框架、不用改基座。默认 [ACP](https://agentclientprotocol.com)；[nooa](https://github.com/NVIDIA-NeMo/labs-OO-Agents)、[dsh](https://github.com/deepseek-ai/deepseek-harness)、[miniswe](https://github.com/SWE-agent/mini-swe-agent) 同样走插件。Agent 包 format `ageval.agent/1`；内置包用 `--agent pi`（不必 install），定制包先 `ageval agent install`。
+环境和 Agent 运行时都经插件接入，不用 fork 框架、不用改基座。默认 [ACP](https://agentclientprotocol.com)；[nooa](https://github.com/NVIDIA-NeMo/labs-OO-Agents)、[dsh](https://github.com/deepseek-ai/deepseek-harness)、[miniswe](https://github.com/SWE-agent/mini-swe-agent) 走同一条插件路。切换就是 `profiles.yaml` 里的一行。插件要的能力或凭证对不上，`lock` 就失败——什么都不会开始跑。Agent 包 format `ageval.agent/1`；内置包用 `--agent pi`（不必 install），定制包先 `ageval agent install`。
 
-**让 Agent 学会自动评测**
+**让 Agent 自己跑评测**
 
-装上 CLI 和 skill，让 Agent 能设计、转化 benchmark，并自动跑评测。`uv tool install ageval-cli`，再 `npx skills add ZJU-REAL/ageval`。
+skill 会告诉你的 coding agent 怎么调用 lock / run、怎么写 dataset；之后它自己设计或转化 benchmark，端到端跑完评测。`uv tool install ageval-cli`，再 `npx skills add ZJU-REAL/ageval`。
 
 **在 Hub 上分享与复用**
 
-在 ageval Hub 上分享或复用 dataset、插件和 Agent 配置，并上传评测结果。组织管理成员、公开范围与版本。部署可用 `docker compose -f services/registry/docker-compose.yml up -d`。本机 Viewer 按 Jobs → Tasks 打开一次运行。
+dataset、插件和 Agent 配置放在 ageval Hub，评测结果也上传——你分享出去的是别人能接着跑的东西。组织管理成员、公开范围与版本。部署可用 `docker compose -f services/registry/docker-compose.yml up -d`。本机 Viewer 按 Jobs → Tasks 打开一次运行。
 
 ## 快速开始
 

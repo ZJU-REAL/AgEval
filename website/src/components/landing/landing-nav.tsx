@@ -15,8 +15,7 @@ type LandingNavProps = {
 
 const anchors = [
   ["problem", "problem"],
-  ["core", "core"],
-  ["isolation", "isolation"],
+  ["environment", "environment"],
   ["eval", "eval"],
   ["plugin", "plugin"],
   ["faq", "faq"],

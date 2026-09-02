@@ -35,12 +35,10 @@ Most agent evaluation still measures the **model**: same prompts, same tool cont
 
 ## What it is
 
-Switch the agent under test with one click. Teach the Agent automated evaluation. Share and reuse on Hub.
-
-- **Switch between Agents to be evaluated with one click.** Write and install plugins on demand for the running base to enhance your customization capabilities. Default is [ACP](https://agentclientprotocol.com) ([pi](https://pi.dev), [Codex](https://github.com/openai/codex), [Claude Code](https://github.com/anthropics/claude-code), [OpenCode](https://github.com/sst/opencode)); [nooa](https://github.com/NVIDIA-NeMo/labs-OO-Agents), [dsh](https://github.com/deepseek-ai/deepseek-harness), and [miniswe](https://github.com/SWE-agent/mini-swe-agent) join through plugins too.
-- **Teach the Agent automated evaluation.** Install the CLI and skills so the Agent can design, convert benchmarks, and run evaluations.
-- **Share and reuse on Hub.** Share or reuse datasets, plugins, and Agent configurations on ageval Hub, and upload evaluation results.
-- **The unit of delivery is a dataset.** A dataset holds tasks; environment and Agent bind in `profiles.yaml`, not in the dataset.
+- **Switch the agent under test.** Environments and agent runtimes arrive as plugins — ACP by default ([pi](https://pi.dev), [Codex](https://github.com/openai/codex), [Claude Code](https://github.com/anthropics/claude-code), [OpenCode](https://github.com/sst/opencode)); [nooa](https://github.com/NVIDIA-NeMo/labs-OO-Agents), [dsh](https://github.com/deepseek-ai/deepseek-harness), and [miniswe](https://github.com/SWE-agent/mini-swe-agent) take the same path. You never fork the framework.
+- **Let the Agent run the eval.** The CLI plus a skill teaches your coding agent to design, convert, and run benchmarks on its own.
+- **Share and reuse on Hub.** Datasets, plugins, agent configs, and results live on ageval Hub — others run what you shared, not just read a score table.
+- **Ship a dataset, not a scaffold.** Tasks carry the loop; environment and Agent bind in `profiles.yaml` at run time.
 
 ## How it works
 
@@ -70,24 +68,24 @@ Switch the agent under test with one click. Teach the Agent automated evaluation
                                    └─────────────────┘
 ```
 
-1. **lock.** Dataset, environment, and Agent compose into a digest. Secrets stay locators; they are not stored as plaintext in the lock.
+1. **lock.** The dataset, the environment, and the Agent resolve into one pinned combination. Secrets stay locators; they are not stored as plaintext in the lock.
 2. **Open an environment.** Host, Docker, a cloud sandbox, or a remote. Missing capability or credentials fail before the environment opens.
 3. **Run `run.py`.** Loop, tools, and Agent invocation live here. Changing the environment or the Agent does not require rewriting this file.
 4. **Score independently.** Gold enters the environment at this phase. `evaluator.py` binds PASS / FAIL / ERROR. Cleanup always runs.
 
 ## Features
 
-**Switch between Agents to be evaluated with one click**
+**Switch the agent under test**
 
-Write and install plugins on demand for the running base to enhance your customization capabilities. Environment and agent runtime join through plugins; you do not fork the framework or change the base. Default is [ACP](https://agentclientprotocol.com); [nooa](https://github.com/NVIDIA-NeMo/labs-OO-Agents), [dsh](https://github.com/deepseek-ai/deepseek-harness), and [miniswe](https://github.com/SWE-agent/mini-swe-agent) take the same plugin path. Agent packages use format `ageval.agent/1`; bind a shipped pack with `--agent pi` (no install), or `ageval agent install` for a custom pack.
+Environments and agent runtimes join as plugins; you do not fork the framework or change the base. Default is [ACP](https://agentclientprotocol.com); [nooa](https://github.com/NVIDIA-NeMo/labs-OO-Agents), [dsh](https://github.com/deepseek-ai/deepseek-harness), and [miniswe](https://github.com/SWE-agent/mini-swe-agent) take the same plugin path. Switching is one line in `profiles.yaml`. A plugin whose capabilities or credentials do not match fails at `lock` — nothing starts. Agent packages use format `ageval.agent/1`; bind a shipped pack with `--agent pi` (no install), or `ageval agent install` for a custom pack.
 
 **Teach the Agent automated evaluation**
 
-Install the CLI and skills so the Agent can design, convert benchmarks, and run evaluations. `uv tool install ageval-cli`, then `npx skills add ZJU-REAL/ageval`.
+The skill tells your coding agent how to call lock / run and how to author a dataset; from there it designs or converts a benchmark and runs the eval end to end. `uv tool install ageval-cli`, then `npx skills add ZJU-REAL/ageval`.
 
 **Share and reuse on Hub**
 
-Share or reuse datasets, plugins, and Agent configurations on ageval Hub, and upload evaluation results. Organizations manage members, public/private scope, and versions. Operators can `docker compose -f services/registry/docker-compose.yml up -d`. The local Viewer opens a run under Jobs → Tasks.
+Datasets, plugins, and agent configs live on ageval Hub, and results upload there too — what you share is something others can run. Organizations manage members, public/private scope, and versions. Operators can `docker compose -f services/registry/docker-compose.yml up -d`. The local Viewer opens a run under Jobs → Tasks.
 
 ## Getting started
 

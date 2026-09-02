@@ -816,124 +816,10 @@ html:has(.ageval-landing) body {
   color: var(--muted);
 }
 
-.ageval-landing .ink-banner {
-  margin-top: 48px;
-  padding: 36px 36px 32px;
-  background: var(--cream);
-  color: var(--paper-ink);
-}
-
-.ageval-landing .ink-banner .en {
-  font-family: var(--font-display);
-  font-size: clamp(28px, 3.4vw, 42px);
-  line-height: 0.98;
-  letter-spacing: 0.02em;
-}
-
-.ageval-landing .ink-banner .zh {
-  margin-top: 16px;
-  max-width: 52em;
-  font-size: 15px;
-  line-height: 1.7;
-  color: var(--paper-muted);
-}
-
-.ageval-landing .principles {
-  display: grid;
-  gap: 0;
-  margin-top: 40px;
-}
-
-.ageval-landing .principles li {
-  display: grid;
-  grid-template-columns: 140px 1fr;
-  gap: 24px;
-  padding: 26px 0;
-  border-top: 1px solid var(--border);
-}
-
-.ageval-landing .principles li:last-child {
-  border-bottom: 1px solid var(--border);
-}
-
-.ageval-landing .principles strong {
-  font-family: var(--font-cjk);
-  font-size: 22px;
-  font-weight: 700;
-}
-
-.ageval-landing .principles p {
-  color: var(--muted);
-  font-size: 15.5px;
-  line-height: 1.75;
-}
-
-.ageval-landing .core-grid {
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 1px;
-  margin-top: 52px;
-  background: var(--border);
-  border: 1px solid var(--border);
-}
-
-.ageval-landing .core-grid article {
-  background: var(--ink-2);
-  padding: 26px 24px 22px;
-  min-height: 214px;
-  display: flex;
-  flex-direction: column;
-  transition:
-    background var(--t) var(--ease),
-    transform var(--t) var(--ease);
-}
-
-.ageval-landing .core-grid article:hover {
-  background: var(--ink-3);
-}
-
 @media (prefers-reduced-motion: no-preference) {
-  .ageval-landing .core-grid article:hover,
   .ageval-landing .slots article:hover {
     transform: translateY(-1px);
   }
-}
-
-.ageval-landing .core-grid article.hot {
-  background: color-mix(in srgb, var(--accent) 10%, var(--ink-2));
-}
-
-.ageval-landing .core-grid article.hot:hover {
-  background: color-mix(in srgb, var(--accent) 16%, var(--ink-2));
-}
-
-.ageval-landing .core-grid .id {
-  font-family: var(--font-mono);
-  font-size: 11px;
-  letter-spacing: 0.12em;
-  color: var(--red);
-}
-
-.ageval-landing .core-grid h3 {
-  font-size: 22px;
-  font-weight: 700;
-  letter-spacing: -0.03em;
-  margin: 16px 0 10px;
-}
-
-.ageval-landing .core-grid p {
-  font-size: 13.5px;
-  line-height: 1.65;
-  color: var(--muted);
-}
-
-.ageval-landing .core-grid .own {
-  margin-top: auto;
-  padding-top: 18px;
-  font-family: var(--font-mono);
-  font-size: 11px;
-  letter-spacing: 0.1em;
-  color: var(--cream);
 }
 
 .ageval-landing .tiers {
@@ -1038,7 +924,7 @@ html:has(.ageval-landing) body {
 
 .ageval-landing .slots {
   display: grid;
-  grid-template-columns: repeat(6, minmax(0, 1fr));
+  grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 1px;
   margin-top: 48px;
   background: var(--border);
@@ -1078,32 +964,17 @@ html:has(.ageval-landing) body {
   line-height: 1.6;
 }
 
-.ageval-landing .duo {
+.ageval-landing .plugin-example {
   display: grid;
   grid-template-columns: 1fr 1fr;
-  gap: 0 0;
+  gap: 36px;
+  align-items: center;
   margin-top: 48px;
-  align-items: stretch;
+  padding-top: 40px;
+  border-top: 1px solid var(--border);
 }
 
-.ageval-landing .duo-col {
-  display: flex;
-  flex-direction: column;
-  gap: 14px;
-  min-width: 0;
-  position: relative;
-}
-
-.ageval-landing .duo-col:first-child {
-  padding-right: 36px;
-}
-
-.ageval-landing .duo-col + .duo-col {
-  padding-left: 36px;
-  border-left: 1px solid var(--border);
-}
-
-.ageval-landing .duo-tag {
+.ageval-landing .plugin-example .duo-tag {
   display: flex;
   align-items: center;
   gap: 10px;
@@ -1111,25 +982,25 @@ html:has(.ageval-landing) body {
   font-size: 11px;
   letter-spacing: 0.16em;
   text-transform: uppercase;
+  color: var(--red);
+}
+
+.ageval-landing .plugin-example h3 {
+  margin-top: 16px;
+  font-family: var(--font-cjk);
+  font-size: clamp(20px, 2.2vw, 26px);
+  font-weight: 700;
+  line-height: 1.35;
+  letter-spacing: -0.01em;
+  max-width: 22em;
+}
+
+.ageval-landing .plugin-example h3 + p {
+  margin-top: 14px;
+  font-size: 14.5px;
+  line-height: 1.8;
   color: var(--muted);
-}
-
-.ageval-landing .duo-tag .num {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  min-width: 28px;
-  height: 22px;
-  padding: 0 7px;
-  border: 1px solid var(--cream);
-  color: var(--cream);
-  font-weight: 600;
-  letter-spacing: 0.08em;
-}
-
-.ageval-landing .duo-col.accent .duo-tag .num {
-  border-color: var(--accent);
-  color: var(--accent);
+  max-width: 34em;
 }
 
 .ageval-landing .code-panel {
@@ -1158,198 +1029,6 @@ html:has(.ageval-landing) body {
 
 .ageval-landing .code-panel .cs {
   color: oklch(95.2% 0.012 264 / 0.7);
-}
-
-.ageval-landing .code-panel.mini {
-  font-size: 12px;
-  padding: 16px 18px 14px;
-}
-
-.ageval-landing .code-note {
-  margin-top: auto;
-  padding-top: 4px;
-  font-size: 13.5px;
-  line-height: 1.65;
-  color: var(--muted);
-}
-
-.ageval-landing .duo-foot {
-  margin-top: 28px;
-  font-family: var(--font-mono);
-  font-size: 11px;
-  letter-spacing: 0.04em;
-  color: var(--muted);
-  line-height: 1.7;
-}
-
-.ageval-landing .dsh-whale {
-  position: absolute;
-  right: -6px;
-  top: -8px;
-  width: min(280px, 58%);
-  height: auto;
-  opacity: 0.16;
-  pointer-events: none;
-  z-index: 0;
-}
-
-.ageval-landing .dsh-whale path {
-  fill: var(--accent);
-}
-
-.ageval-landing .flow {
-  display: grid;
-  grid-template-columns: repeat(7, minmax(0, 1fr));
-  gap: 28px 0;
-  margin-top: 48px;
-}
-
-.ageval-landing .flow li {
-  padding: 0 16px 0 0;
-  border-top: 2px solid var(--border);
-  position: relative;
-}
-
-.ageval-landing .flow li::before {
-  content: "";
-  position: absolute;
-  top: -5px;
-  left: 0;
-  width: 8px;
-  height: 8px;
-  border-radius: 50%;
-  background: var(--red);
-}
-
-.ageval-landing .flow .n {
-  display: block;
-  margin-top: 16px;
-  font-family: var(--font-mono);
-  font-size: 11px;
-  letter-spacing: 0.12em;
-  color: var(--red);
-}
-
-.ageval-landing .flow strong {
-  display: block;
-  margin-top: 8px;
-  font-size: 16px;
-}
-
-.ageval-landing .flow span {
-  display: block;
-  margin-top: 6px;
-  font-size: 13px;
-  color: var(--muted);
-  line-height: 1.55;
-}
-
-.ageval-landing .traj {
-  display: grid;
-  grid-template-columns: 1fr 1fr 1fr;
-  gap: 28px;
-  margin-top: 48px;
-  padding-top: 32px;
-  border-top: 1px solid var(--border);
-}
-
-.ageval-landing .traj h3 {
-  font-family: var(--font-mono);
-  font-size: 12px;
-  letter-spacing: 0.12em;
-  color: var(--red);
-  margin-bottom: 8px;
-}
-
-.ageval-landing .traj p {
-  font-size: 14.5px;
-  color: var(--muted);
-  line-height: 1.7;
-}
-
-.ageval-landing .take {
-  display: grid;
-  grid-template-columns: 0.9fr 1.1fr;
-  min-height: 520px;
-}
-
-.ageval-landing .take-left {
-  background: var(--accent-ink);
-  color: var(--cream);
-  padding: 52px 44px;
-  display: flex;
-  flex-direction: column;
-  justify-content: space-between;
-}
-
-.ageval-landing .take-left .hero-tag {
-  color: oklch(95.2% 0.012 264 / 0.78);
-}
-
-.ageval-landing .take-left .hero-tag::before {
-  background: var(--cream);
-}
-
-.ageval-landing .take-left h2 {
-  font-family: var(--font-display);
-  font-size: clamp(40px, 5.4vw, 72px);
-  line-height: 0.94;
-  letter-spacing: 0.01em;
-  font-weight: 400;
-  max-width: none;
-}
-
-.ageval-landing .take-left p {
-  max-width: 28em;
-  font-size: 16px;
-  line-height: 1.7;
-  color: oklch(95.2% 0.012 264 / 0.88);
-}
-
-.ageval-landing .take-right {
-  background: var(--paper);
-  color: var(--paper-ink);
-  padding: 44px 40px 28px;
-}
-
-.ageval-landing .take-right ol {
-  margin-top: 12px;
-}
-
-.ageval-landing .take-right li {
-  display: grid;
-  grid-template-columns: 56px 1fr;
-  gap: 18px;
-  padding: 22px 0;
-  border-top: 1px solid oklch(18% 0.024 264 / 0.12);
-}
-
-.ageval-landing .take-right li:last-child {
-  border-bottom: 2px solid var(--red);
-}
-
-.ageval-landing .take-right .num {
-  font-family: var(--font-display);
-  font-size: 40px;
-  line-height: 0.9;
-  color: var(--paper-ink);
-}
-
-.ageval-landing .take-right li:last-child .num,
-.ageval-landing .take-right li:last-child h3 {
-  color: var(--red);
-}
-
-.ageval-landing .take-right h3 {
-  font-size: 20px;
-  font-weight: 700;
-  margin-bottom: 8px;
-}
-
-.ageval-landing .take-right p {
-  color: var(--paper-muted);
-  font-size: 14.5px;
-  line-height: 1.65;
 }
 
 .ageval-landing .cta-band {
@@ -1496,26 +1175,14 @@ html:has(.ageval-landing) body {
   color: var(--muted);
 }
 
-@media (max-width: 1100px) {
-  .ageval-landing .slots {
-    grid-template-columns: repeat(3, minmax(0, 1fr));
-  }
-
-  .ageval-landing .flow {
-    grid-template-columns: repeat(4, minmax(0, 1fr));
-  }
-}
-
 @media (max-width: 1024px) {
   .ageval-landing .split,
   .ageval-landing .barrier,
-  .ageval-landing .take,
-  .ageval-landing .duo {
+  .ageval-landing .plugin-example {
     grid-template-columns: 1fr;
   }
 
-  .ageval-landing .problem-grid,
-  .ageval-landing .core-grid {
+  .ageval-landing .problem-grid {
     grid-template-columns: 1fr 1fr;
   }
 
@@ -1525,17 +1192,6 @@ html:has(.ageval-landing) body {
 
   .ageval-landing .problem-grid article:nth-child(odd) {
     padding-left: 0;
-  }
-
-  .ageval-landing .duo-col:first-child {
-    padding-right: 0;
-  }
-
-  .ageval-landing .duo-col + .duo-col {
-    padding-left: 0;
-    border-left: 0;
-    padding-top: 28px;
-    border-top: 1px solid var(--border);
   }
 }
 
@@ -1549,8 +1205,7 @@ html:has(.ageval-landing) body {
   }
 
   .ageval-landing .pact-inner,
-  .ageval-landing .tiers,
-  .ageval-landing .traj {
+  .ageval-landing .tiers {
     grid-template-columns: 1fr;
   }
 
@@ -1592,9 +1247,7 @@ html:has(.ageval-landing) body {
   }
 
   .ageval-landing .problem-grid,
-  .ageval-landing .slots,
-  .ageval-landing .flow,
-  .ageval-landing .core-grid {
+  .ageval-landing .slots {
     grid-template-columns: 1fr;
   }
 
@@ -1604,13 +1257,6 @@ html:has(.ageval-landing) body {
     padding: 24px 0;
   }
 
-  .ageval-landing .principles li {
-    grid-template-columns: 1fr;
-    gap: 8px;
-  }
-
-  .ageval-landing .take-left,
-  .ageval-landing .take-right,
   .ageval-landing .split > div {
     padding: 28px 22px;
   }
@@ -1624,10 +1270,6 @@ html:has(.ageval-landing) body {
     padding: 80px 0;
   }
 
-  .ageval-landing .dsh-whale {
-    display: none;
-  }
-
   .ageval-landing .owl-wash {
     right: 2%;
     bottom: 4%;
@@ -1635,8 +1277,7 @@ html:has(.ageval-landing) body {
     opacity: 0.4;
   }
 
-  .ageval-landing .code-panel,
-  .ageval-landing .code-panel.mini {
+  .ageval-landing .code-panel {
     font-size: 12px;
   }
 }
@@ -1718,7 +1359,6 @@ html:has(.ageval-landing) body {
   @media (prefers-reduced-motion: no-preference) {
     .ageval-landing .pact,
     .ageval-landing .block,
-    .ageval-landing .take,
     .ageval-landing .cta-band {
       animation: ageval-land-in 400ms var(--ease) both;
       animation-timeline: view();
@@ -1737,7 +1377,6 @@ html:has(.ageval-landing) body {
   .ageval-landing .faq-panel,
   .ageval-landing .faq-q::after,
   .ageval-landing .nav-links a,
-  .ageval-landing .core-grid article,
   .ageval-landing .slots article,
   .ageval-landing .nav-drawer-panel a {
     transition: none;
@@ -1745,7 +1384,6 @@ html:has(.ageval-landing) body {
 
   .ageval-landing .btn,
   .ageval-landing .btn:active,
-  .ageval-landing .core-grid article:hover,
   .ageval-landing .slots article:hover,
   .ageval-landing .faq-item[open] .faq-q::after {
     transform: none;
@@ -1760,7 +1398,6 @@ html:has(.ageval-landing) body {
   .ageval-landing .hero-foot,
   .ageval-landing .pact,
   .ageval-landing .block,
-  .ageval-landing .take,
   .ageval-landing .cta-band {
     animation: none;
   }
