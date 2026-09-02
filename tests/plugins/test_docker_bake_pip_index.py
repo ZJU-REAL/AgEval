@@ -149,3 +149,12 @@ def test_pip_index_changes_plugin_layer_tag_not_recipe_only(
 
     assert tag_unset != tag_set
     assert tag_recipe == tag_recipe_set
+
+
+def test_contrib_bake_recipes_declare_pip_index_arg() -> None:
+    root = Path(__file__).resolve().parents[2] / "plugins"
+    bakes = sorted(root.glob("*/docker/Dockerfile.bake"))
+    assert bakes, "expected contrib Dockerfile.bake files"
+    for bake in bakes:
+        text = bake.read_text(encoding="utf-8")
+        assert "ARG PIP_INDEX_URL=" in text, bake
