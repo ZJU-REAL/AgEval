@@ -110,11 +110,37 @@ ageval treats **Harness** as a first-class evaluation axis.
 
 ## Getting started
 
-Requires [uv](https://docs.astral.sh/uv/) and CPython **3.12+**. A live coding-agent run also requires a host ACP entry and credentials. `ageval lock` does not.
+Install the CLI from PyPI — no clone needed. Requires CPython **3.12+**. A live coding-agent run also requires a host ACP entry and credentials. `ageval lock` does not.
+
+```bash
+uv tool install ageval-cli
+ageval -V
+```
+
+Optional backends ship as extras: `e2b`, `daytona`, `registry`, `nooa`, `dsh`, `miniswe` — or everything at once:
+
+```bash
+uv tool install 'ageval-cli[all]'
+```
+
+Run a dataset straight from the Hub by registry ref (`<dataset_id>@<version>`), or any local dataset root:
+
+```bash
+ageval registry list                        # datasets visible on the Hub
+ageval run <org>/<name>@<version> --task <task-id>
+ageval executors -v
+ageval view <org>/<name>@<version> --no-browser
+```
+
+Default profiles use `environment: docker` (a working Docker engine is needed). Bind a shipped harness with `--agent pi` (no install). Optional `--model` overrides this run. Custom overlay packs use `ageval agent install` then `--agent org/name@version`. Missing extras or credentials fail closed with the exact install command.
+
+### Develop from source
+
+The in-repo examples — [`examples/README.md`](examples/README.md): `minimal-demo`, a five-task `tau3-airline-5` cut, and catalog Agents — need a repo checkout:
 
 ```bash
 git clone https://github.com/ZJU-REAL/AgEval.git
-cd ageval
+cd AgEval
 uv sync --frozen --all-packages
 uv run ageval -V
 ```
@@ -125,13 +151,8 @@ uv run ageval lock examples/datasets/minimal-demo --task terminal-jsonl-agg
 uv run ageval run  examples/datasets/minimal-demo --task terminal-jsonl-agg
 uv run ageval run  examples/datasets/minimal-demo --task terminal-jsonl-agg \
   --profiles examples/datasets/minimal-demo/profiles.e2b-acp.yaml --probe
-uv run ageval executors -v
 uv run ageval view examples/datasets/minimal-demo --no-browser
 ```
-
-Default `examples/datasets/minimal-demo` profiles use `environment: docker`. Bind a shipped harness with `--agent pi` (no install). Optional `--model` overrides this run. Custom overlay packs still use `ageval agent install` then `--agent org/name@version`.
-
-In-repo examples: [`examples/README.md`](examples/README.md) — `minimal-demo`, a five-task `tau3-airline-5` cut, and catalog Agents.
 
 ## Architecture
 
