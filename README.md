@@ -102,7 +102,7 @@ sequenceDiagram
     participant v as evaluator.py
 
     u->>r: ageval lock<br/>dataset + profiles → lock.json
-    Note over r: the check fails; the run does not start
+    Note over r: the check fails — the run does not start
     u->>r: ageval run
     r->>r: mint run identity
     r->>e: open one environment
