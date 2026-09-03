@@ -20,12 +20,15 @@ from pathlib import Path
 from PIL import Image, ImageChops, ImageDraw, ImageFilter, ImageFont, ImageOps
 
 ROOT = Path(__file__).resolve().parent
-ASSETS = ROOT.parent
+ASSETS = ROOT.parent  # docs/assets — overwrites README posters
+HERO_NAME = {"en": "hero.png", "zh": "hero.zh-CN.png"}
 MARKS = ROOT / "marks"
 FONTS = ROOT / "fonts"
 GLYPHS = ROOT
 ZH_GLYPHS = ROOT
 OWL_PNG = ROOT / "owl-black.png"
+
+
 def _rsvg_bin() -> str:
     for cand in (
         shutil.which("rsvg-convert"),
@@ -87,6 +90,7 @@ MONO_REG = FONTS / "IBMPlexMono-Regular.ttf"
 
 TITLE_1X = 56
 TITLE_TRACK = -0.02
+TITLE_GAP_1X = 16  # space between the two title lines (was 8)
 NOTE_1X = 19
 NOTE_MAX_W = 720
 PACT_KICKER = 11
@@ -668,7 +672,7 @@ def measure_headline_h(locale: str) -> int:
     n_h = nbb[3] - nbb[1]
     n_lh = int(round(s(NOTE_1X) * 1.55))
     notes = split_note(COPY[locale]["note"])
-    return th + s(8) + th + s(20) + n_lh * (len(notes) - 1) + n_h
+    return th + s(TITLE_GAP_1X) + th + s(20) + n_lh * (len(notes) - 1) + n_h
 
 
 def headline_top(locale: str) -> int:
@@ -721,7 +725,7 @@ def draw_headline(im: Image.Image, locale: str, title_y: int) -> Image.Image:
     th = d.textbbox((0, 0), "Hg", font=tf)
     th = th[3] - th[1]
     draw_accent_line(d, title_y, copy["titleA"], copy["accentA"], tf, track)
-    y2 = title_y + th + s(8)
+    y2 = title_y + th + s(TITLE_GAP_1X)
     draw_accent_line(d, y2, copy["titleB"], copy["accentB"], tf, track)
     nbb = d.textbbox((0, 0), "Hg", font=nf)
     n_lh = int(round(s(NOTE_1X) * 1.55))
@@ -784,8 +788,6 @@ def draw_marquee(im: Image.Image, logos: dict[str, Image.Image], rule_y: int, lo
     d = ImageDraw.Draw(im)
     pad_x = s(PAD_1X)
     inner_w = W - pad_x * 2
-    border = CREAM + (BORDER_A,)
-    d.line([(pad_x, rule_y), (pad_x + inner_w, rule_y)], fill=border, width=max(1, s(1)))
     label = COPY[locale]["plugins"]
     mf = sc_font(False, s(12)) if locale == "zh" else font(MONO_REG, s(12))
     plug_w = int(d.textlength(label, font=mf))
@@ -831,20 +833,12 @@ def save_locale(locale: str) -> None:
     im = render(locale)
     rgb = Image.new("RGB", im.size, INK)
     rgb.paste(im, mask=im.split()[-1])
-    src = ROOT
-    tag = "zh" if locale == "zh" else "en"
-    two_x = src / f"hero-{tag}@2x.png"
-    rgb.save(two_x, "PNG", optimize=True, compress_level=9)
     hero = rgb.resize((W1, H1), Image.Resampling.LANCZOS)
-    hero_name = "hero.zh-CN.png" if locale == "zh" else "hero.png"
-    hero_path = ASSETS / hero_name
+    hero_path = ASSETS / HERO_NAME[locale]
     hero.save(hero_path, "PNG", optimize=True, compress_level=9)
-    p900_h = int(round(H1 * 900 / W1))
-    p900 = hero.resize((900, p900_h), Image.Resampling.LANCZOS)
-    p900_name = "hero-preview-900.zh-CN.png" if locale == "zh" else "hero-preview-900.png"
-    p900.save(src / p900_name, "PNG", optimize=True, compress_level=9)
     print(
-        f"{locale} {hero.size} {hero_path.stat().st_size / 1024:.0f}KB "
+        f"{locale} {hero.size} -> {hero_path} "
+        f"{hero_path.stat().st_size / 1024:.0f}KB "
         f"title_y={headline_top(locale)} pact_h={measure_pact_h(locale)}"
     )
 
