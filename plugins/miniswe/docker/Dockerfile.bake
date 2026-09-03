@@ -2,5 +2,7 @@
 # ageval-attempt:base). This file is bake input for the environment winner.
 ARG BASE_IMAGE
 FROM ${BASE_IMAGE}
+# Optional. Parent forwards AGEVAL_PIP_INDEX as this ARG. Empty = pip default.
+ARG PIP_INDEX_URL=
 USER ageval
 WORKDIR /attempt/workspace

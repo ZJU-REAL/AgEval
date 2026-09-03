@@ -93,6 +93,9 @@ image build. No invoke-time `npm i` / floating pip. Official ACP entries do not
 use this external chain.
 
 `${BASE_IMAGE}` is usually `ageval-attempt:base` (CPython 3.12).
+Declare `ARG PIP_INDEX_URL=` after `FROM` so a parent `AGEVAL_PIP_INDEX` is
+consumed. Empty means pip's default index. Do not `ENV` a blank `PIP_INDEX_URL`.
+A `RUN pip` should `unset PIP_INDEX_URL` when the ARG is empty.
 
 ## Hook shape
 

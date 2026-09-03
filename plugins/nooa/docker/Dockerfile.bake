@@ -6,9 +6,14 @@
 ARG BASE_IMAGE
 FROM ${BASE_IMAGE}
 
+# Optional. Parent forwards AGEVAL_PIP_INDEX as this ARG. Empty = pip default.
+# Do not ENV an empty PIP_INDEX_URL — a blank value overrides pip's default index.
+ARG PIP_INDEX_URL=
+
 USER root
 # NVIDIA OO Agents (LiteLLM-backed). Bake needs network at image build time.
-RUN python3 -m pip install --no-cache-dir "nooa>=0.0.7"
+RUN if [ -z "${PIP_INDEX_URL}" ]; then unset PIP_INDEX_URL; fi; \
+    python3 -m pip install --no-cache-dir "nooa>=0.0.7"
 
 # Prefer non-root actor when base defines it.
 USER ageval
