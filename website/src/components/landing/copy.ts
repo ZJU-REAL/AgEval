@@ -27,10 +27,13 @@ export const landingCopy = {
       primary: "打开仓库",
       hub: "前往 Hub",
       secondary: "阅读文档",
-      startAria: "快速开始",
-      startLabel: "快速开始",
+      startAria: "开始使用",
+      startTabs: ["快速开始", "源码安装"],
       copy: "复制",
       copied: "已复制",
+      demo: "查看演示",
+      demoAria: "产品演示视频：配置一次评测，切换待评测 Agent，自动跑完看结果",
+      demoClose: "关闭",
     },
     pactAria: "三个特点",
     pact: [
@@ -71,6 +74,7 @@ export const landingCopy = {
       index: "// 02",
       name: "Positioning",
       title: "运行基座不动，装插件换 Agent。",
+      lead: "ageval 的运行时基座是一条固定流水线：lock → environment → run → evaluate → record。环境和 Agent 运行时都经插件接入，不必修改基座；装插件，在配置里切一行，同一份 dataset 原样跑。",
       flow: {
         aria: "一次运行的控制流：输入之后从 lock 走到 evidence",
         svgTitle: "ageval Core 基座：一次运行的构成",
@@ -176,7 +180,6 @@ ageval run <dataset> --task <task-id> \\
     },
     cta: {
       title: ["装上 CLI 和 skill，", "开始跑评测。"],
-      lead: "uv tool install ageval-cli。公开入口以 ageval --help 为准。",
       primary: "打开仓库",
       hub: "前往 Hub",
       docs: "阅读文档",
@@ -261,10 +264,13 @@ ageval run <dataset> --task <task-id> \\
       primary: "Open repo",
       hub: "Go to Hub",
       secondary: "Read the docs",
-      startAria: "Quick start",
-      startLabel: "Quick start",
+      startAria: "Get started",
+      startTabs: ["Quick start", "From source"],
       copy: "Copy",
       copied: "Copied",
+      demo: "Watch demo",
+      demoAria: "Product demo: configure the eval once, swap the agent under test, and run it end to end",
+      demoClose: "Close",
     },
     pactAria: "Three things you can do",
     pact: [
@@ -305,6 +311,7 @@ ageval run <dataset> --task <task-id> \\
       index: "// 02",
       name: "Positioning",
       title: "Keep the base. Swap the agent with plugins.",
+      lead: "The ageval runtime base is a fixed pipeline: lock → environment → run → evaluate → record. Environments and agent runtimes join as plugins; the base stays untouched. Install a plugin, flip one line of config, and the same dataset runs as-is.",
       flow: {
         aria: "Control flow of one run: after the inputs, lock through evidence",
         svgTitle: "The ageval Core base: what one run is made of",
@@ -410,7 +417,6 @@ ageval run <dataset> --task <task-id> \\
     },
     cta: {
       title: ["Install the CLI and skills.", "Start running evals."],
-      lead: "uv tool install ageval-cli. Public entrypoints follow ageval --help.",
       primary: "Open repo",
       hub: "Go to Hub",
       docs: "Read the docs",

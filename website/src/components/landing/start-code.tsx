@@ -3,29 +3,58 @@
 import { useState } from "react";
 import { Check, Copy } from "lucide-react";
 
-const INSTALL = "uv tool install ageval-cli";
-const SKILLS = "npx skills add ZJU-REAL/ageval";
-const COPY_TEXT = `${INSTALL}\n${SKILLS}`;
+const QUICK = ["uv tool install ageval-cli", "npx skills add ZJU-REAL/ageval"];
+const SOURCE = [
+  "git clone https://github.com/ZJU-REAL/ageval.git && cd ageval",
+  "uv sync --frozen --all-packages",
+];
 
 type StartCodeProps = {
-  label: string;
+  tabs: readonly string[];
   copyLabel: string;
   copiedLabel: string;
 };
 
-export function StartCode({ label, copyLabel, copiedLabel }: StartCodeProps) {
+export function StartCode({ tabs, copyLabel, copiedLabel }: StartCodeProps) {
+  const [tab, setTab] = useState(0);
   const [copied, setCopied] = useState(false);
+  const lines = tab === 0 ? QUICK : SOURCE;
 
   async function onCopy() {
-    await navigator.clipboard.writeText(COPY_TEXT);
+    await navigator.clipboard.writeText(lines.join("\n"));
     setCopied(true);
     window.setTimeout(() => setCopied(false), 1600);
+  }
+
+  function onTabKey(event: React.KeyboardEvent) {
+    const delta = event.key === "ArrowRight" ? 1 : event.key === "ArrowLeft" ? -1 : 0;
+    if (!delta) return;
+    event.preventDefault();
+    const next = (tab + delta + tabs.length) % tabs.length;
+    setTab(next);
+    document.getElementById(`start-tab-${next}`)?.focus();
   }
 
   return (
     <div className="start-code">
       <div className="start-head">
-        <p className="start-label">{label}</p>
+        <div className="start-tabs" role="tablist" onKeyDown={onTabKey}>
+          {tabs.map((label, index) => (
+            <button
+              key={label}
+              type="button"
+              role="tab"
+              id={`start-tab-${index}`}
+              aria-selected={tab === index}
+              aria-controls="start-panel"
+              tabIndex={tab === index ? 0 : -1}
+              className="start-tab"
+              onClick={() => setTab(index)}
+            >
+              {label}
+            </button>
+          ))}
+        </div>
         <button
           type="button"
           className="start-copy"
@@ -36,12 +65,14 @@ export function StartCode({ label, copyLabel, copiedLabel }: StartCodeProps) {
           {copied ? copiedLabel : copyLabel}
         </button>
       </div>
-      <pre className="start-snippet" tabIndex={0}>
-        <span className="prompt">$ </span>
-        {INSTALL}
-        {"\n"}
-        <span className="prompt">$ </span>
-        {SKILLS}
+      <pre className="start-snippet" id="start-panel" role="tabpanel" tabIndex={0}>
+        {lines.map((line, index) => (
+          <span key={line}>
+            <span className="prompt">$ </span>
+            {line}
+            {index < lines.length - 1 ? "\n" : null}
+          </span>
+        ))}
       </pre>
     </div>
   );

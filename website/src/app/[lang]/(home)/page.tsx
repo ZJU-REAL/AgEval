@@ -8,6 +8,7 @@ import { HeroRotate } from "@/components/landing/hero-rotate";
 import { OwlPixelMark } from "@/components/landing/owl-pixel";
 import { StartCode } from "@/components/landing/start-code";
 import { CoreFlow } from "@/components/landing/core-flow";
+import { DemoVideo } from "@/components/landing/demo-video";
 import { isSiteLocale } from "@/lib/i18n";
 import { gitConfig, hubSiteUrl } from "@/lib/shared";
 
@@ -29,30 +30,59 @@ const repoUrl = `https://github.com/${gitConfig.user}/${gitConfig.repo}`;
 const designUrl = `https://github.com/${gitConfig.user}/${gitConfig.repo}/tree/${gitConfig.branch}/docs/design`;
 const hubUrl = hubSiteUrl();
 
+type HeroCtasDemo = {
+  label: string;
+  title: string;
+  closeLabel: string;
+};
+
 function HeroCtas({
   repoLabel,
   hubLabel,
   docsLabel,
   docsHref,
+  demo,
+  line,
 }: {
   repoLabel: string;
   hubLabel: string;
   docsLabel: string;
   docsHref: string;
+  demo?: HeroCtasDemo;
+  line?: boolean;
 }) {
+  const rest = line ? "btn btn-line" : "btn btn-ghost";
   return (
     <div className="hero-ctas">
-      <a className="btn btn-pri" href={repoUrl} rel="noopener noreferrer">
+      <a
+        className={line ? "btn btn-line" : "btn btn-pri"}
+        href={repoUrl}
+        target="_blank"
+        rel="noopener noreferrer"
+      >
         <GitHubMark />
         {repoLabel}
       </a>
+      {demo ? (
+        <DemoVideo
+          className={rest}
+          label={demo.label}
+          title={demo.title}
+          closeLabel={demo.closeLabel}
+        />
+      ) : null}
       {hubUrl ? (
-        <a className="btn btn-ghost" href={hubUrl} rel="noopener noreferrer">
+        <a
+          className={rest}
+          href={hubUrl}
+          target="_blank"
+          rel="noopener noreferrer"
+        >
           <Orbit aria-hidden="true" />
           {hubLabel}
         </a>
       ) : null}
-      <a className="btn btn-ghost" href={docsHref}>
+      <a className={rest} href={docsHref}>
         <BookOpen aria-hidden="true" />
         {docsLabel}
       </a>
@@ -121,10 +151,16 @@ export default async function HomePage({ params }: { params: Promise<HomeParams>
               </h1>
               <p className="hero-note">{text.hero.note}</p>
               <HeroCtas
+                line
                 repoLabel={text.hero.primary}
                 hubLabel={text.hero.hub}
                 docsLabel={text.hero.secondary}
                 docsHref={`/${lang}/docs`}
+                demo={{
+                  label: text.hero.demo,
+                  title: text.hero.demoAria,
+                  closeLabel: text.hero.demoClose,
+                }}
               />
             </div>
             <div className="hero-foot">
@@ -132,7 +168,7 @@ export default async function HomePage({ params }: { params: Promise<HomeParams>
                 <span className="cross tl" aria-hidden="true" />
                 <span className="cross br" aria-hidden="true" />
                 <StartCode
-                  label={text.hero.startLabel}
+                  tabs={text.hero.startTabs}
                   copyLabel={text.hero.copy}
                   copiedLabel={text.hero.copied}
                 />
@@ -186,6 +222,7 @@ export default async function HomePage({ params }: { params: Promise<HomeParams>
               <span className="sec-name">{text.position.name}</span>
             </div>
             <h2>{text.position.title}</h2>
+            <p className="lead">{text.position.lead}</p>
             <CoreFlow copy={text.position.flow} />
           </div>
         </section>
@@ -298,12 +335,17 @@ export default async function HomePage({ params }: { params: Promise<HomeParams>
               <br />
               {text.cta.title[1]}
             </h2>
-            <p className="lead">{text.cta.lead}</p>
             <HeroCtas
+              line
               repoLabel={text.cta.primary}
               hubLabel={text.cta.hub}
               docsLabel={text.cta.docs}
               docsHref={`/${lang}/docs`}
+              demo={{
+                label: text.hero.demo,
+                title: text.hero.demoAria,
+                closeLabel: text.hero.demoClose,
+              }}
             />
           </div>
         </section>
