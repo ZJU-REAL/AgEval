@@ -10,7 +10,10 @@ COPY pyproject.toml uv.lock VERSION README.md ./
 COPY src ./src
 COPY services/registry ./services/registry
 
-RUN uv sync --frozen --extra registry --no-dev
+# Cache mount keeps uv's download cache across builds; requires BuildKit
+# (DOCKER_BUILDKIT=1 — the legacy builder rejects RUN --mount).
+RUN --mount=type=cache,target=/root/.cache/uv \
+    uv sync --frozen --extra registry --no-dev
 
 ENV PYTHONUNBUFFERED=1 \
     PYTHONDONTWRITEBYTECODE=1 \
