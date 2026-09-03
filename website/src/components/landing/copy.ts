@@ -41,31 +41,31 @@ export const landingCopy = {
     problem: {
       index: "// 01",
       name: "The Problem",
-      title: ["评测仍停留在模型层面。", "模型和运行时已经不是一回事。"],
+      title: ["评测还在只比模型。", "可你交付的是整个 Agent。"],
       items: [
         [
           "01 / MODEL",
-          "模型层评测",
-          "同一套提示、同一套工具约定，比较不同权重或不同 API。",
+          "只换模型名",
+          "提示、工具、流程全都不动，把模型从 A 换成 B，跑一遍记一个分。",
         ],
         [
           "02 / RUNTIME",
-          "Agent 是组合",
-          "可交付的 Agent 是模型加上它的运行时。",
+          "交付的是整个 Agent",
+          "真正干活的是模型加上它外面的 coding agent；模型只是其中一块。",
         ],
         [
           "03 / DRIFT",
-          "行为与成本都会变",
-          "同一套权重接到不同的 coding agent、工具策略或环境上，行为和成本都会变。",
+          "换个跑法，分数就变",
+          "同一个模型，接上不同的 coding agent、放进不同的环境，得分和花费都会不一样。",
         ],
         [
           "04 / RECORD",
-          "分数要记下组合",
-          "分数要带上用了哪个 Agent 运行时、哪套环境，不能只报模型名。",
+          "只报模型名，分数没法比",
+          "『模型 X 跑了 80 分』说明不了什么：是哪个 Agent、哪套环境跑出来的？不说清就没法比。",
         ],
       ] as const,
       solLabel: "SOLUTION →",
-      sol: "用插件切换待评测 Agent，组合写进 lock，分数才可比",
+      sol: "ageval 用插件换待评测 Agent，把每次用的组合写进 lock，分数才有得比",
     },
     position: {
       index: "// 02",
@@ -231,31 +231,31 @@ ageval run <dataset> --task <task-id> \\
     problem: {
       index: "// 01",
       name: "The Problem",
-      title: ["Evaluation still sits at the model.", "The model is not the runtime."],
+      title: ["Evaluation still compares models only.", "What you ship is the whole agent."],
       items: [
         [
           "01 / MODEL",
-          "Model-level eval",
-          "Same prompts, same tool contract, different weights or APIs.",
+          "Only the model swaps",
+          "Prompts, tools, and flow stay frozen; swap in model B for model A, run once, record a score.",
         ],
         [
           "02 / RUNTIME",
-          "Agent is a combination",
-          "A shippable agent is a model plus its runtime.",
+          "You ship the whole agent",
+          "What does the work is the model plus the coding agent around it; the model is one part.",
         ],
         [
           "03 / DRIFT",
-          "Behavior and cost change",
-          "The same weights on a different coding agent, tool policy, or environment change behavior and cost.",
+          "Different setup, different score",
+          "The same model through another coding agent or in another environment scores differently — and bills differently.",
         ],
         [
           "04 / RECORD",
-          "Record the combination",
-          "A score has to name which agent runtime and which environment ran it, not only the model.",
+          "A bare model name compares nothing",
+          "“Model X scored 80” says little: which agent, which environment? Without that, scores cannot be compared.",
         ],
       ] as const,
       solLabel: "SOLUTION →",
-      sol: "Swap the agent under test with plugins; the lock pins the combination, and that is what makes scores comparable",
+      sol: "ageval swaps the agent under test with plugins and pins the combination in lock — that is what makes scores comparable",
     },
     position: {
       index: "// 02",

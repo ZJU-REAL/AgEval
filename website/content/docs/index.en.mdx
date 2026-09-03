@@ -4,23 +4,27 @@ description: Write a dataset once. Swap the environment and the Agent in config.
 icon: BookOpen
 ---
 
-Most agent evaluation still measures the **model**: same prompts, same tool contract, different weights or APIs. A shippable agent is a model plus its runtime. The same weights on a different coding agent, tool policy, or environment behave differently and cost differently. A score has to name which agent runtime and which environment ran it, not only the model.
+How do you avoid rewriting scaffolds for the massive set of agent runtime, model, and environment combinations?
 
-**ageval** (agent eval) puts environment and Agent in config. Switching either does not rewrite the dataset.
+**ageval** (agent eval) switches the agent under test with plugins on one running base: write a dataset once, and swap Agent or environment in config. With the CLI and skills installed, your coding agent can design, convert, and run benchmarks end to end; results upload to the Hub together with datasets, plugins, and agent configs, ready to share or reuse.
 
-The CLI and packages are `ageval`. The delivery unit is a dataset.
+- **Swap the agent under test fast** — environments and agent runtimes join as plugins ([ACP](https://agentclientprotocol.com) by default; nooa / dsh / miniswe take the same plugin path), no base changes; one line in `profiles.yaml`, or `--agent` for a single run.
+- **Let the Agent run the eval** — skills teach your coding agent the CLI and dataset authoring; from there it designs or converts a benchmark and runs the eval itself.
+- **Share and reuse on the Hub** — public datasets, plugins, and agent configs are there to reuse: `ageval run <org>/<name>@<version>`.
+
+The CLI is `ageval` (PyPI package `ageval-cli`).
 
 ## Where to go
 
-| Goal | Docs |
-| --- | --- |
-| Install and first run | [Install](/docs/getting-started/install) → [First run](/docs/getting-started/first-run) |
-| Run an existing dataset | [Run](/docs/run/single-task) |
-| Author a dataset | [Task authoring](/docs/author/tutorial) |
-| Coding agents | [ACP profiles](/docs/agents/acp-profiles) · [Switch agent](/docs/run/switch-agent) |
-| Environments | [Environments](/docs/agents/environments) |
-| Swap Agent or environment with plugins | [Plugins](/docs/run/plugins) |
-| Commands and fields | [CLI](/docs/reference/cli) · [Config](/docs/reference/config-fields) |
-| Local results / Hub | [Viewer](/docs/run/local-viewer) · [Hub](/docs/share/hub) |
+| Goal                                   | Docs                                                                                    |
+| -------------------------------------- | --------------------------------------------------------------------------------------- |
+| Install and first run                  | [Install](/docs/getting-started/install) → [First run](/docs/getting-started/first-run) |
+| Run an existing dataset                | [Run](/docs/run/single-task)                                                            |
+| Author a dataset                       | [Task authoring](/docs/author/tutorial)                                                 |
+| Coding agents                          | [ACP profiles](/docs/agents/acp-profiles) · [Switch agent](/docs/run/switch-agent)      |
+| Environments                           | [Environments](/docs/agents/environments)                                               |
+| Swap Agent or environment with plugins | [Plugins](/docs/run/plugins)                                                            |
+| Commands and fields                    | [CLI](/docs/reference/cli) · [Config](/docs/reference/config-fields)                    |
+| Local results / Hub                    | [Viewer](/docs/run/local-viewer) · [Hub](/docs/share/hub)                               |
 
 Design notes live under [`docs/design/`](https://github.com/ZJU-REAL/ageval/tree/main/docs/design).
