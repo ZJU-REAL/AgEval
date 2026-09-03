@@ -99,16 +99,12 @@
 
 ### 架构路径
 
-- Landing 使用只读、可选择的阶段节点展示 Task 编译、Harness 执行、评估与证据三条架构路径。
-- 每条路径保持线性阅读顺序，只解释当前接受的编译、执行和评估边界。
-- 节点聚焦或点击后展示职责、输入和输出；状态由文字与视觉样式共同表达。
-- 移动端保持可横向阅读的完整节点，不压缩技术标签。
-
-### 执行生命周期
-
-- 生命周期使用左侧阶段矩阵和右侧三节点流程图，避免只展示稀疏表格。
-- 默认选中第一阶段；pointer hover、点击与键盘 focus 使用同一选中状态。
-- 阶段切换只交叉淡入流程内容，不移动表格、流程节点或容器。
+- Positioning 用 Core 高阶图（`CoreFlow`）代替「ageval 管 / dataset 管」对照：输入 → lock → environment → run → evaluate → record。
+- 默认停在第一列（INPUTS）。不自动播放。hover 整列热区高亮该列；离开后停在最后一次高亮的列。
+- 当前列的说明用注释字样写在嵌入图块下方（`// PHASE` + 一句），不是图上 tooltip。
+- 高亮色走 landing `--accent`（`#5B7BFF`）。
+- 节点文案中英随 locale；阶段条（INPUTS / LOCK / …）保持英文。
+- 移动端横向滚动看完整节点，不压缩技术标签。
 
 ### 其他视觉内容
 
@@ -128,6 +124,7 @@ SPA 第二档曲线见 `docs/design/13`（`--ease-spring` / `--ease-glide`）。
 - Landing 章节 8px `view-timeline` 揭示（`@supports` 回退为静止）。浏览器不支持时不得把内容停在 `opacity: 0`。
 - FAQ 用 `<details>` + `grid-template-rows` 开合，不用 hover 展开。
 - Landing 卡片 hover 最多 `translateY(-1px)`。
+- Positioning `CoreFlow`：默认第一列高亮；hover 整列热区切换列，离开后保持最后一列。列切换 200ms `--ease`。不自动播放。`prefers-reduced-motion` 关掉列切换过渡。
 - 按钮 Squish：`:active` `scale(0.97)`、80ms 按下；松开用 `--ease` 回弹。不要 6px 实体底边。
 - Landing 像素标（`OwlPixelMark`，canvas 2D）：hero 一次性从散点 assemble（约 1.4s）；指针在 hero 内时，邻近方块径向推开。assemble 完成后整标一起做透明度呼吸（6s 一周期，最暗 35%，最亮 80%），并带轻微整体起伏。导航 logo 用静态 SVG。无磁吸、无光标拖尾。`prefers-reduced-motion` 为静止像素标。
 - Landing hero 背景允许 ThreeUI `signal-particles` 点阵场（本地 canvas；`speed` 是原步进倍率，`1` 为库默认）。只铺 hero、不接收指针、`prefers-reduced-motion` 不挂载。

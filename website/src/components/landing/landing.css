@@ -826,6 +826,309 @@ html:has(.ageval-landing) body {
   color: var(--muted);
 }
 
+.ageval-landing .core-flow-block {
+  margin-top: 40px;
+}
+
+.ageval-landing .core-flow {
+  --flow-bg: var(--paper);
+  --flow-ink: var(--paper-ink);
+  --flow-mute: var(--paper-muted);
+  --flow-card: color-mix(in srgb, var(--paper) 28%, white);
+  --flow-line: color-mix(in srgb, var(--paper-ink) 22%, transparent);
+  --flow-accent: var(--accent);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--flow-bg);
+  color: var(--flow-ink);
+  overflow: hidden;
+}
+
+.ageval-landing .core-flow-scroll {
+  overflow-x: auto;
+  overscroll-behavior-x: contain;
+  -webkit-overflow-scrolling: touch;
+}
+
+.ageval-landing .core-flow-canvas {
+  position: relative;
+  min-width: 920px;
+}
+
+.ageval-landing .core-flow-svg {
+  display: block;
+  width: 100%;
+  height: auto;
+}
+
+.ageval-landing .core-flow-bg {
+  fill: var(--flow-bg);
+}
+
+.ageval-landing .core-flow-dot {
+  fill: color-mix(in srgb, var(--flow-ink) 12%, transparent);
+}
+
+.ageval-landing .core-flow-zone {
+  fill: color-mix(in srgb, var(--flow-ink) 2%, transparent);
+  stroke: var(--flow-line);
+  stroke-width: 1.2;
+}
+
+.ageval-landing .core-flow-zone.is-dash {
+  stroke-width: 0.8;
+  stroke-dasharray: 6 3;
+}
+
+.ageval-landing .core-flow-zone-t {
+  fill: var(--flow-mute);
+  font-family: var(--font-mono);
+  font-size: 7px;
+  letter-spacing: 0.14em;
+  text-anchor: middle;
+}
+
+.ageval-landing .core-flow-bar {
+  fill: color-mix(in srgb, var(--flow-ink) 5%, transparent);
+  stroke: var(--flow-line);
+  stroke-width: 0.8;
+}
+
+.ageval-landing .core-flow-beam {
+  fill: color-mix(in srgb, var(--accent) 16%, transparent);
+  pointer-events: none;
+  transform-box: fill-box;
+  transform-origin: 0 0;
+  transition: transform var(--t) var(--ease);
+}
+
+.ageval-landing .core-flow-hit {
+  fill: transparent;
+  cursor: pointer;
+}
+
+.ageval-landing .core-flow-chevron {
+  fill: var(--flow-ink);
+  transition: fill var(--t) var(--ease);
+}
+
+.ageval-landing .core-flow-chevron.is-alt {
+  fill: color-mix(in srgb, var(--flow-ink) 78%, var(--flow-mute));
+}
+
+.ageval-landing .core-flow-col.is-active .core-flow-chevron {
+  fill: var(--flow-accent);
+}
+
+.ageval-landing .core-flow-chevron-t {
+  fill: var(--paper);
+  font-family: var(--font-mono);
+  font-size: 7px;
+  font-weight: 500;
+  letter-spacing: 0.14em;
+  text-anchor: middle;
+}
+
+.ageval-landing .core-flow-col,
+.ageval-landing .core-flow-span,
+.ageval-landing .core-flow-edge {
+  transition: opacity var(--t) var(--ease);
+}
+
+.ageval-landing .core-flow-col.is-upcoming {
+  opacity: 0.34;
+}
+
+.ageval-landing .core-flow-col.is-passed {
+  opacity: 0.72;
+}
+
+.ageval-landing .core-flow-col.is-active {
+  opacity: 1;
+}
+
+.ageval-landing .core-flow-span {
+  opacity: 0.4;
+}
+
+.ageval-landing .core-flow-span.is-on {
+  opacity: 1;
+}
+
+.ageval-landing .core-flow-card {
+  fill: var(--flow-card);
+  stroke: color-mix(in srgb, var(--flow-ink) 25%, transparent);
+  stroke-width: 1;
+  transition:
+    stroke var(--t) var(--ease),
+    fill var(--t) var(--ease),
+    stroke-width var(--t) var(--ease);
+}
+
+.ageval-landing .core-flow-card.is-focal {
+  fill: color-mix(in srgb, var(--flow-accent) 8%, var(--flow-card));
+  stroke: var(--flow-accent);
+  stroke-width: 1.2;
+}
+
+.ageval-landing .core-flow-col.is-active .core-flow-card {
+  stroke: var(--accent);
+  stroke-width: 1.4;
+  fill: color-mix(in srgb, var(--accent) 10%, var(--flow-card));
+}
+
+.ageval-landing .core-flow-col.is-active .core-flow-card.is-focal {
+  stroke: var(--flow-accent);
+  fill: color-mix(in srgb, var(--flow-accent) 12%, var(--flow-card));
+}
+
+.ageval-landing .core-flow-plugin {
+  fill: color-mix(in srgb, var(--flow-ink) 2%, transparent);
+  stroke: color-mix(in srgb, var(--flow-ink) 20%, transparent);
+  stroke-width: 1;
+  stroke-dasharray: 4 3;
+  transition: stroke var(--t) var(--ease);
+}
+
+.ageval-landing .core-flow-col.is-active .core-flow-plugin {
+  stroke: var(--accent);
+}
+
+.ageval-landing .core-flow-badge {
+  fill: transparent;
+  stroke: color-mix(in srgb, var(--flow-ink) 28%, transparent);
+  stroke-width: 0.8;
+}
+
+.ageval-landing .core-flow-badge.is-accent {
+  stroke: color-mix(in srgb, var(--flow-accent) 50%, transparent);
+}
+
+.ageval-landing .core-flow-badge-t {
+  fill: color-mix(in srgb, var(--flow-ink) 55%, transparent);
+  font-family: var(--font-mono);
+  font-size: 7px;
+  letter-spacing: 0.08em;
+  text-anchor: middle;
+}
+
+.ageval-landing .core-flow-badge.is-accent + .core-flow-badge-t {
+  fill: color-mix(in srgb, var(--flow-accent) 80%, transparent);
+}
+
+.ageval-landing .core-flow-icon {
+  color: var(--flow-ink);
+}
+
+.ageval-landing .core-flow-icon.is-accent {
+  color: var(--flow-accent);
+}
+
+.ageval-landing .core-flow-chip {
+  color: var(--flow-mute);
+}
+
+.ageval-landing .core-flow-name,
+.ageval-landing .core-flow-plugin-t {
+  fill: var(--flow-ink);
+  font-family: var(--font-body);
+  font-size: 13px;
+  font-weight: 400;
+  text-anchor: middle;
+}
+
+.ageval-landing .core-flow-plugin-t {
+  font-size: 10px;
+}
+
+.ageval-landing .core-flow-name.is-accent {
+  fill: var(--flow-accent);
+  font-size: 14px;
+}
+
+.ageval-landing .core-flow-meta {
+  fill: var(--flow-mute);
+  font-family: var(--font-mono);
+  font-size: 9px;
+  text-anchor: middle;
+}
+
+.ageval-landing .core-flow-meta.is-accent {
+  fill: var(--flow-accent);
+  opacity: 0.75;
+}
+
+.ageval-landing .core-flow-note {
+  color: var(--flow-mute);
+}
+
+.ageval-landing .core-flow-note-t {
+  fill: var(--flow-mute);
+  font-family: var(--font-body);
+  font-size: 8px;
+  font-weight: 500;
+}
+
+.ageval-landing .core-flow-edge {
+  fill: none;
+  stroke: var(--flow-mute);
+  stroke-width: 1;
+  opacity: 0.22;
+}
+
+.ageval-landing .core-flow-edge.is-dash {
+  stroke-dasharray: 4 3;
+}
+
+.ageval-landing .core-flow-edge.is-accent {
+  stroke: var(--flow-accent);
+  stroke-width: 1.2;
+}
+
+.ageval-landing .core-flow-edge.is-live {
+  opacity: 1;
+  stroke: var(--accent);
+  stroke-width: 1.35;
+}
+
+.ageval-landing .core-flow-edge.is-accent.is-live {
+  stroke: var(--flow-accent);
+}
+
+.ageval-landing .core-flow-caption {
+  margin-top: 16px;
+  font-family: var(--font-mono);
+  font-size: 12px;
+  line-height: 1.7;
+  letter-spacing: 0.02em;
+  color: var(--comment);
+  max-width: 62em;
+  min-height: 4.1em;
+}
+
+.ageval-landing .core-flow-caption-k {
+  color: var(--accent);
+  margin-right: 10px;
+}
+
+.ageval-landing .core-flow-legend-rule {
+  stroke: color-mix(in srgb, var(--flow-ink) 10%, transparent);
+  stroke-width: 0.8;
+}
+
+.ageval-landing .core-flow-legend-k {
+  fill: var(--flow-mute);
+  font-family: var(--font-mono);
+  font-size: 8px;
+  letter-spacing: 0.18em;
+}
+
+.ageval-landing .core-flow-legend-t {
+  fill: var(--flow-mute);
+  font-family: var(--font-body);
+  font-size: 8.5px;
+}
+
 @media (prefers-reduced-motion: no-preference) {
   .ageval-landing .slots article:hover {
     transform: translateY(-1px);
@@ -1381,5 +1684,15 @@ html:has(.ageval-landing) body {
   .ageval-landing .block,
   .ageval-landing .cta-band {
     animation: none;
+  }
+
+  .ageval-landing .core-flow-beam,
+  .ageval-landing .core-flow-col,
+  .ageval-landing .core-flow-span,
+  .ageval-landing .core-flow-edge,
+  .ageval-landing .core-flow-card,
+  .ageval-landing .core-flow-plugin,
+  .ageval-landing .core-flow-chevron {
+    transition: none;
   }
 }

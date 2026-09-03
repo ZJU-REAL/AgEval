@@ -7,6 +7,7 @@ import { HeroSignal } from "@/components/landing/hero-signal";
 import { HeroRotate } from "@/components/landing/hero-rotate";
 import { OwlPixelMark } from "@/components/landing/owl-pixel";
 import { StartCode } from "@/components/landing/start-code";
+import { CoreFlow } from "@/components/landing/core-flow";
 import { isSiteLocale } from "@/lib/i18n";
 import { gitConfig, hubSiteUrl } from "@/lib/shared";
 
@@ -185,19 +186,7 @@ export default async function HomePage({ params }: { params: Promise<HomeParams>
               <span className="sec-name">{text.position.name}</span>
             </div>
             <h2>{text.position.title}</h2>
-            <p className="lead">{text.position.lead}</p>
-            <div className="split">
-              <div className="owned">
-                <h3>{text.position.ownedLabel}</h3>
-                <p>{text.position.owned}</p>
-                <small>{text.position.ownedNote}</small>
-              </div>
-              <div className="not">
-                <h3>{text.position.notLabel}</h3>
-                <p>{text.position.not}</p>
-                <small>{text.position.notNote}</small>
-              </div>
-            </div>
+            <CoreFlow copy={text.position.flow} />
           </div>
         </section>
 
