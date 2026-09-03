@@ -1,26 +1,51 @@
+<div align="center"><a name="readme-top"></a>
+
+<img src="docs/assets/hero.png" alt="ageval: Write your agent eval once. Run it anywhere." width="100%">
+
 # ageval
 
-<p align="center">
-  <img src="docs/assets/hero.png" alt="ageval: Write your agent eval once. Run it anywhere." width="100%">
-</p>
+**English** · [简体中文](README.zh-CN.md)
 
-<p align="center">
-  <a href="README.md">English</a> · <a href="README.zh-CN.md">中文</a>
-</p>
+<br/>
 
-<p align="center">
-  <a href="https://github.com/ZJU-REAL/ageval/stargazers"><img alt="stars" src="https://shieldcn.dev/github/stars/ZJU-REAL/ageval.svg?variant=secondary&size=sm&logo=ri%3AGoStarFill&logoColor=F5C518"></a>
-  <a href="https://github.com/ZJU-REAL/ageval/blob/main/LICENSE"><img alt="license" src="https://shieldcn.dev/github/license/ZJU-REAL/ageval.svg?variant=secondary&size=sm&logo=ri%3AFaBalanceScale&logoColor=34D399"></a>
-  <a href="https://github.com/ZJU-REAL/ageval/releases"><img alt="release" src="https://shieldcn.dev/github/release/ZJU-REAL/ageval.svg?variant=secondary&size=sm&logo=ri%3AGoTag&logoColor=60A5FA"></a>
-  <a href="https://github.com/ZJU-REAL/ageval/commits"><img alt="last commit" src="https://shieldcn.dev/github/last-commit/ZJU-REAL/ageval.svg?variant=secondary&size=sm&logo=ri%3AGoGitCommit&logoColor=A78BFA"></a>
-</p>
+<!-- SHIELD GROUP -->
+
+<a href="https://github.com/ZJU-REAL/ageval/stargazers"><img alt="stars" src="https://img.shields.io/github/stars/ZJU-REAL/ageval?style=for-the-badge&logo=github&color=E3B341&labelColor=20242D"></a>
+<a href="https://github.com/ZJU-REAL/ageval/releases"><img alt="release" src="https://img.shields.io/github/v/release/ZJU-REAL/ageval?style=for-the-badge&logo=github&color=1B54E8&labelColor=20242D"></a>
+<a href="https://github.com/ZJU-REAL/ageval/actions/workflows/ci.yml"><img alt="CI" src="https://img.shields.io/github/actions/workflow/status/ZJU-REAL/ageval/ci.yml?branch=main&label=CI&logo=githubactions&logoColor=white&style=for-the-badge&labelColor=20242D"></a>
+<a href="https://github.com/ZJU-REAL/ageval/blob/main/LICENSE"><img alt="license" src="https://img.shields.io/github/license/ZJU-REAL/ageval?style=for-the-badge&logo=opensourceinitiative&logoColor=white&color=34D399&labelColor=20242D"></a>
+<a href="#getting-started"><img alt="install uv" src="https://img.shields.io/badge/install-uv-DE5FE9?style=for-the-badge&logo=uv&logoColor=white&labelColor=20242D"></a>
+<a href="https://youtu.be/MxiM9A9YvLc"><img alt="demo" src="https://img.shields.io/badge/demo-YouTube-FF0000?style=for-the-badge&logo=youtube&logoColor=white&labelColor=20242D"></a>
+
+</div>
+
+<details>
+<summary><kbd>Table of contents</kbd></summary>
+
+#### TOC
+
+- [⚡ Getting started](#getting-started)
+  - [Install skills](#install-skills)
+  - [Develop from source](#develop-from-source)
+- [✨ Features](#features)
+- [⚙️ How it works](#how-it-works)
+  - [End-to-end flow](#end-to-end-flow)
+  - [The base and plugins](#the-base-and-plugins)
+- [📁 Project structure](#project-structure)
+- [📖 Docs](#docs)
+
+<br/>
+
+</details>
 
 How to avoid rewriting scaffolds for the massive set of agent runtime × model × environment combinations?
 
 **ageval** switches the agent under test with plugins on one running base; install the CLI and skills so the Agent can design, convert, and run benchmarks; upload results to the open platform, and share or reuse public datasets, plugins, and agent configs.
 
 <p align="center">
-  <img src="docs/assets/why-ageval.svg" alt="N environments × M agent runtimes: each combination would need its own scaffold; ageval composes environment and Agent through plugins, so one dataset runs anywhere." width="100%">
+  <a href="https://youtu.be/MxiM9A9YvLc">
+    <img src="docs/assets/demo-cover.png" alt="N environments × M agent runtimes: each combination would need its own scaffold; ageval composes environment and Agent through plugins, so one dataset runs anywhere. Click to watch the demo." width="100%">
+  </a>
 </p>
 
 ## Getting started
@@ -73,6 +98,12 @@ uv run ageval run  examples/datasets/minimal-demo --task terminal-jsonl-agg
 uv run ageval view examples/datasets/minimal-demo --no-browser
 ```
 
+<div align="right">
+
+[![][back-to-top]](#readme-top)
+
+</div>
+
 ## Features
 
 **Quickly switch the agent under test**
@@ -86,6 +117,12 @@ The skill tells your coding agent how to use the CLI and how to author a dataset
 **Share and reuse on Hub**
 
 Upload datasets, plugins, and agent configs together with results to ageval Hub, and manage members, dataset visibility, and versions there.
+
+<div align="right">
+
+[![][back-to-top]](#readme-top)
+
+</div>
 
 ## How it works
 
@@ -118,7 +155,7 @@ sequenceDiagram
     r->>r: record · finally cleanup<br/>lock.json · result.json · trajectory.jsonl
 ```
 
-1. **`ageval lock` resolves dataset, environment, and Agent into one reproducible combination.** The binding and its digest are written to `lock.json`; secrets stay locators and never appear in plaintext.
+1. **`ageval lock` statically resolves the dependency graph (`ExtensionGraph`).** It maps plugins to the extension points exposed by the runtime base, establishing how implementations are dynamically invoked during execution. After checking capabilities and credentials, the resolved bindings are written to `lock.json`; secrets stay locators and never appear in plaintext.
 2. **`ageval run` opens an environment and uploads the task files.** The environment can be local, Docker, or a cloud sandbox / remote host; missing pieces — Docker not running, a credential not set — are reported before anything runs.
 3. **`run.py` runs the task loop inside that environment.** The loop, local tools, and Agent invocations all live in this file; changing the environment or the Agent doesn't touch it.
 4. **Scoring is independent: only `evaluator.py` can return PASS.** gold uploads after the task ends, and it decides PASS / FAIL / ERROR; whatever the outcome, cleanup runs.
@@ -127,7 +164,9 @@ sequenceDiagram
 
 The ageval runtime base is a fixed pipeline: lock → environment → run → evaluate → record. The base exposes two main extension points: environment decides how the environment opens, and executor decides how the Agent is invoked — each binds exactly one plugin per run; chain hooks such as `after_environment_ready` run between phases.
 
-Plugins fill these points through a single `ageval.plugin/1` manifest. export declares what it is, and the selected plugin registers into the service table under its service name; inject declares what it needs, listing dependencies by service name plus capabilities. Bindings resolve at lock, and a capabilities or credentials mismatch fails right there. For example, the dsh plugin declares itself as the executor and injects the environment service, while docker exports the environment service — the two sides meet at lock:
+Plugins fill these points through a single `ageval.plugin/1` manifest: export declares what it is, and the selected plugin registers into the service table under its service name; inject declares what it needs, listing dependencies by service name plus capabilities.
+
+At `ageval lock`, the system resolves a deterministic, complete dependency graph (`ExtensionGraph`) for each profile. This graph locks the plugin bindings to the runtime base. During subsequent execution phases, the runtime base dynamically dispatches and invokes extension points strictly according to this graph. A capabilities or credentials mismatch fails right at lock, preventing failures mid-run. For example, the dsh plugin declares itself as the executor and injects the environment service, while docker exports the environment service — the two sides meet at lock:
 
 ```yaml
 # plugins/dsh/plugin.yaml — the Agent plugin
@@ -151,6 +190,12 @@ Environment plugins (docker / e2b / daytona, …) and Agent plugins (ACP by defa
 <p align="center">
   <img src="docs/assets/core-base.png" alt="The ageval Core base: external inputs (User / dataset / profiles) flow through lock, environment, run, evaluate, and record into evidence; environment plugins and Agent plugins bind at lock; limits and cleanup span every phase" width="100%">
 </p>
+
+<div align="right">
+
+[![][back-to-top]](#readme-top)
+
+</div>
 
 ## Project structure
 
@@ -190,6 +235,12 @@ ageval/
 └── website/                         # product docs
 ```
 
+<div align="right">
+
+[![][back-to-top]](#readme-top)
+
+</div>
+
 ## Docs
 
 - Usage: [`website/`](website/)
@@ -197,3 +248,13 @@ ageval/
 - Examples: [`examples/README.md`](examples/README.md)
 - [`AGENTS.md`](AGENTS.md)
 - [`ARCHITECTURE.md`](ARCHITECTURE.md)
+
+<div align="right">
+
+[![][back-to-top]](#readme-top)
+
+</div>
+
+<!-- LINK GROUP -->
+
+[back-to-top]: https://img.shields.io/badge/-↑_BACK_TO_TOP-1B54E8?style=flat-square
