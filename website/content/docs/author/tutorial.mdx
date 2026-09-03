@@ -5,6 +5,17 @@ description: 从 examples/datasets/minimal-demo 抄一题，改 run.py 与评测
 
 目标：本机能 lock、能 run、能出评测结果。
 
+<Callout type="idea" title="让 agent 代写">
+
+```bash
+npx skills add ZJU-REAL/ageval --skill ageval-config-package
+npx skills add ZJU-REAL/ageval --skill ageval-sdk-harness
+```
+
+把你要的 task 描述给本机 coding agent，它会写完目录、`task.yaml`、`run.py`、`evaluator.py`；照下面的步骤手抄也一样。
+
+</Callout>
+
 ## 1. 复制最小结构
 
 [`examples/datasets/minimal-demo`](https://github.com/ZJU-REAL/ageval/tree/main/examples/datasets/minimal-demo) 已是完整 dataset。复制一个 `tasks/<id>/`（可从 `terminal-jsonl-agg` 起步），目录名必须等于 `task_id`。

@@ -3,6 +3,16 @@ title: Package layout
 description: Dataset root vs task members; how the two yamls split work.
 ---
 
+<Callout type="idea" title="Have an agent write it">
+
+```bash
+npx skills add ZJU-REAL/ageval --skill ageval-config-package
+```
+
+Install it, tell your coding agent what you need, and it writes the dataset root and `tasks/<id>/`. Hand-writing against the conventions below works just as well.
+
+</Callout>
+
 ## Two layers
 
 | Layer | File | Owns |

@@ -12,6 +12,16 @@ description: 业务 loop 写在 dataset 里；用 SDK 调 agent。
 
 `RunTerminal.completed` **不等于** PASS。分数在 [写 evaluator](/docs/author/write-evaluator)（确定性脚本，或 gold 之后可选 LLM-as-judge）。
 
+<Callout type="idea" title="让 agent 代写">
+
+```bash
+npx skills add ZJU-REAL/ageval --skill ageval-sdk-harness
+```
+
+说清 loop 要怎么走，让本机 coding agent 写 `run.py`；下面的片段就是它要满足的约定。
+
+</Callout>
+
 ```python
 from ageval_sdk import RunContext, RunTerminal
 
@@ -26,4 +36,4 @@ async def run(ctx: RunContext) -> RunTerminal:
 
 `session.invoke` 可传 `tools` 与 `messages`。`openai-http` / `anthropic-http` 返回结构化 `tool_calls`；ACP 忽略工具目录，仍走文本 invoke。省略这两项就是 prompt-only。`tool_calls` 不是 PASS。
 
-有文件就认，不必再写 `harness.entrypoint`。skill：`ageval-sdk-harness`。
+有文件就认，不必再写 `harness.entrypoint`。

@@ -5,6 +5,17 @@ description: Independent scoring; wire evaluation inputs to artifacts.
 
 The evaluator owns **scoring and truth** — no agent start, no host secrets. PASS/FAIL comes only from here (then the Result).
 
+<Callout type="idea" title="Have an agent write it">
+
+```bash
+npx skills add ZJU-REAL/ageval --skill ageval-config-package
+npx skills add ZJU-REAL/ageval --skill ageval-sdk-harness
+```
+
+`ageval-config-package` covers the evaluation block and script scoring; `ageval-sdk-harness` is only needed when `evaluator.py` also calls `Agent.session` (LLM-as-judge). Then describe the scoring you need and let your coding agent finish it.
+
+</Callout>
+
 ## Config snippet
 
 ```yaml

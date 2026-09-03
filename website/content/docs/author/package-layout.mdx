@@ -3,6 +3,16 @@ title: Package 布局
 description: Dataset 根与 task 成员目录、根 yaml 与成员 yaml 怎么分工。
 ---
 
+<Callout type="idea" title="让 agent 代写">
+
+```bash
+npx skills add ZJU-REAL/ageval --skill ageval-config-package
+```
+
+装好后把需求说给本机 coding agent，让它写出 dataset 根和 `tasks/<id>/`；照下面的约定手写也一样。
+
+</Callout>
+
 ## 两层
 
 | 层 | 文件 | 职责 |

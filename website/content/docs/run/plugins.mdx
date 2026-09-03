@@ -78,3 +78,13 @@ ageval run examples/datasets/minimal-demo --task terminal-jsonl-agg \
 默认 coding-agent 路径仍是 `executor: acp` + `options.entry`（parent JSON-RPC，要 `attach_stdio`）。`acp-oneshot` 是另一条路径：环境内一次性 client+server，只要 `exec`。插件是可选的；同一份 dataset 只靠 profiles 切换。miniswe 把模型放在本机，bash 只经 `host.exec`；缺 `exec` 则 lock 失败。
 
 PASS 仍只来自 `evaluator.py`。
+
+<Callout type="idea" title="想自己写一份插件？">
+
+```bash
+npx skills add ZJU-REAL/ageval --skill ageval-plugin
+```
+
+上面各节是**使用**已有插件。想自己写 `ageval.plugin/1`（`plugin.yaml`、README 里的能力表和参数表），装好后把要接的能力和参数说给本机 coding agent 即可；手写也可以，格式约定看 skill。
+
+</Callout>

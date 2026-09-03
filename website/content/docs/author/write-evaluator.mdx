@@ -5,6 +5,17 @@ description: 独立打分；evaluation 块与 artifacts 怎么接。
 
 Evaluator 只负责**算法与真值**，不启 agent、不持宿主密钥。PASS/FAIL 只能从这里来（再写进 Result）。
 
+<Callout type="idea" title="让 agent 代写">
+
+```bash
+npx skills add ZJU-REAL/ageval --skill ageval-config-package
+npx skills add ZJU-REAL/ageval --skill ageval-sdk-harness
+```
+
+`ageval-config-package` 覆盖 evaluation 段与脚本打分；`evaluator.py` 里还要 `Agent.session`（LLM-as-judge）才需要 `ageval-sdk-harness`。装好后把打分需求说给本机 coding agent，让它写完即可。
+
+</Callout>
+
 ## `task.yaml` 片段
 
 ```yaml

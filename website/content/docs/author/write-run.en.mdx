@@ -12,6 +12,16 @@ description: The task loop lives in the dataset; call the agent through the SDK.
 
 `RunTerminal.completed` is **not** PASS. Scoring: [write evaluator](/docs/author/write-evaluator) (deterministic script, or optional LLM-as-judge after gold).
 
+<Callout type="idea" title="Have an agent write it">
+
+```bash
+npx skills add ZJU-REAL/ageval --skill ageval-sdk-harness
+```
+
+Describe the loop you need and let your coding agent produce `run.py`; the snippet below is what it must satisfy.
+
+</Callout>
+
 ```python
 from ageval_sdk import RunContext, RunTerminal
 
@@ -28,4 +38,4 @@ async def run(ctx: RunContext) -> RunTerminal:
 `anthropic-http` return structured `tool_calls`; ACP ignores the catalog
 and stays on text invoke. Omit both for prompt-only. `tool_calls` is not PASS.
 
-Files present are recognized. Do not declare a harness entrypoint. Skill: `ageval-sdk-harness`.
+Files present are recognized. Do not declare a harness entrypoint.
