@@ -33,4 +33,4 @@ environment: docker    # 或 local / e2b / ssh / daytona
 
 真隔离靠 **不 mount + 评测前 upload**，不是靠删配置字段。这不是 `path_views`。打分 Host 的 work root 不是 Agent 的 bind-mount：harvest 的 tree 快照（含 `exclude`）在第一次 `exec` / `session(environment=)` 时拷到那只 Host。
 
-多 actor topology、镜像 构建时写入镜像 见 [环境](/docs/agents/environments)。
+多 actor 的逻辑 isolation（`shared-container` / `container-per-group`）也声明在 `profiles.yaml`，container id 与 UID 由 ageval 安排；agent 引擎与 ACP entry 在构建期写入镜像，运行期不会现场安装。

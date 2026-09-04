@@ -65,7 +65,7 @@ Runtime 注入的 path 前缀是 **`[task_dir, dataset_root]`**，**不会**再�
 - docker 镜像 **不会** 由 Core 隐式 COPY `shared/`；容器内要用时在 Dockerfile 里显式 `COPY`，并把 **dataset 根** 放进 `PYTHONPATH`  
 - 本地自检：`uv run python scripts/check_shared_lib_collisions.py <dataset-root>`  
 
-权威细节见 design `02-task-package-and-config`（Dataset 级 shared/）。**有 shared/、改 import 契约或 Hub Shared 浏览 ≠ 证据等级升级。**
+**有 shared/、改 import 契约或 Hub Shared 浏览 ≠ 证据等级升级。**
 
 ## 根 `ageval.yaml`
 

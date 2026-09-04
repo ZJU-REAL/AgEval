@@ -65,7 +65,7 @@ Hard rules (summary):
 - Core never silently COPYs `shared/` into docker images — task Dockerfile must declare it and put **dataset root** on `PYTHONPATH`  
 - Author gate: `uv run python scripts/check_shared_lib_collisions.py <dataset-root>`  
 
-Authority: design `02-task-package-and-config` (Dataset-level shared/). **Having `shared/`, changing the import contract, or Hub Shared browse ≠ evidence-grade upgrade.**
+**Having `shared/`, changing the import contract, or Hub Shared browse ≠ evidence-grade upgrade.**
 
 ## Root `ageval.yaml`
 
