@@ -3,12 +3,14 @@ import { useSearchParams } from "react-router-dom";
 import { Boxes } from "lucide-react";
 
 import { CatalogScopeBar } from "@/components/catalog-scope-bar";
+import { ModKeyHint } from "@/components/mod-key-hint";
 import { EmptyState, LoadingState } from "@/components/empty-state";
 import { MODALITY_TAB_META } from "@/components/modality-mark";
 import { ModelLabTables, type ModelLabRow } from "@/components/model-lab-tables";
 import { ModelSearchModal } from "@/components/model-search-modal";
 import { PageHead } from "@/components/page-head";
 import { UnderlineTabs } from "@/components/underline-tabs";
+import { modKeyShortcut, useModKey } from "@/hooks/use-mod-key";
 import { getToken } from "@/lib/auth";
 import {
   appearancesByCanonical,
@@ -39,6 +41,7 @@ export function ModelsPage() {
   const modality = modalityTabFromSearch(searchParams.get("mod"));
   const [query, setQuery] = useState("");
   const [searchOpen, setSearchOpen] = useState(false);
+  const mod = useModKey();
   const token = getToken();
   const pin = loadModelPin();
   const [perfCanonicals, setPerfCanonicals] = useState<Set<string> | null>(null);
@@ -144,6 +147,8 @@ export function ModelsPage() {
           onQuery={setQuery}
           searchLabel="Search models"
           searchPlaceholder="Search models…"
+          searchHint={<ModKeyHint keycap="F" />}
+          searchKeyshortcuts={modKeyShortcut(mod, "F")}
           variant="select"
           className="mb-3"
         />

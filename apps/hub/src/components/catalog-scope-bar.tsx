@@ -61,6 +61,42 @@ export function catalogListOpts(scope: CatalogScope): {
   return { orgs: true };
 }
 
+function CatalogSearch({
+  query,
+  onQuery,
+  searchLabel,
+  searchPlaceholder,
+  hint,
+  keyshortcuts,
+}: {
+  query: string;
+  onQuery: (next: string) => void;
+  searchLabel: string;
+  searchPlaceholder: string;
+  hint?: ReactNode;
+  keyshortcuts?: string;
+}) {
+  const showHint = Boolean(hint) && !query;
+  return (
+    <div className="relative min-w-0 w-full max-w-sm">
+      <Input
+        value={query}
+        onChange={(e) => onQuery(e.target.value)}
+        placeholder={showHint ? undefined : searchPlaceholder}
+        aria-label={searchLabel}
+        aria-keyshortcuts={keyshortcuts}
+        className="min-w-0 w-full"
+      />
+      {showHint ? (
+        <div className="pointer-events-none absolute inset-y-0 left-3.5 right-3.5 flex items-center gap-1.5 text-sm text-mute">
+          <span className="min-w-0 truncate">{searchPlaceholder}</span>
+          {hint}
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
 export function CatalogScopeBar<T extends string>({
   scope,
   onScope,
@@ -69,6 +105,8 @@ export function CatalogScopeBar<T extends string>({
   onQuery,
   searchLabel,
   searchPlaceholder,
+  searchHint,
+  searchKeyshortcuts,
   end,
   variant = "tabs",
   className,
@@ -80,23 +118,30 @@ export function CatalogScopeBar<T extends string>({
   onQuery: (next: string) => void;
   searchLabel: string;
   searchPlaceholder: string;
+  /** Inside the field, right of the placeholder (e.g. ⌘F). Hidden while typing. */
+  searchHint?: ReactNode;
+  searchKeyshortcuts?: string;
   /** Trailing chrome on the search row. */
   end?: ReactNode;
   /** tabs = UnderlineTabs row above the search; group = hairline button group right of the search; select = Select right of the search. */
   variant?: "tabs" | "group" | "select";
   className?: string;
 }) {
+  const search = (
+    <CatalogSearch
+      query={query}
+      onQuery={onQuery}
+      searchLabel={searchLabel}
+      searchPlaceholder={searchPlaceholder}
+      hint={searchHint}
+      keyshortcuts={searchKeyshortcuts}
+    />
+  );
   if (variant === "group") {
     return (
       <div className={cn("mb-4", className)}>
         <div className="flex items-center gap-2">
-          <Input
-            value={query}
-            onChange={(e) => onQuery(e.target.value)}
-            placeholder={searchPlaceholder}
-            aria-label={searchLabel}
-            className="min-w-0 w-full max-w-sm"
-          />
+          {search}
           <div
             role="group"
             aria-label="Catalog scope"
@@ -129,13 +174,7 @@ export function CatalogScopeBar<T extends string>({
     return (
       <div className={cn("mb-4", className)}>
         <div className="flex items-center gap-2">
-          <Input
-            value={query}
-            onChange={(e) => onQuery(e.target.value)}
-            placeholder={searchPlaceholder}
-            aria-label={searchLabel}
-            className="min-w-0 w-full max-w-sm"
-          />
+          {search}
           <Select value={scope} onValueChange={(next) => onScope(next as T)}>
             <SelectTrigger aria-label="Catalog scope" className="shrink-0">
               <SelectValue />
@@ -162,13 +201,7 @@ export function CatalogScopeBar<T extends string>({
         ariaLabel="Catalog scope"
       />
       <div className="flex items-center gap-2 pt-3">
-        <Input
-          value={query}
-          onChange={(e) => onQuery(e.target.value)}
-          placeholder={searchPlaceholder}
-          aria-label={searchLabel}
-          className="min-w-0 w-full max-w-sm"
-        />
+        {search}
         {end ? <div className="ml-auto shrink-0">{end}</div> : null}
       </div>
     </div>
