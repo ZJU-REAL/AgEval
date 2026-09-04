@@ -8,6 +8,11 @@ Plugin bake layers honor parent ``AGEVAL_PIP_INDEX`` (same knob as
 ``docker/attempt/build.py``). Unset omits the build-arg and leaves the content
 key unchanged. A non-empty value is ``PIP_INDEX_URL`` on the plugin-layer
 build only — task recipes and the official base path are untouched.
+
+``python_version`` selects the official base's CPython. The default keeps the
+historical ``ageval-attempt:base`` tag; another minor builds
+``ageval-attempt:py<version>`` and the recipe's ``FROM ageval-attempt:base``
+resolves onto that tag, so two bases coexist locally.
 """
 
 from __future__ import annotations
@@ -27,7 +32,9 @@ from ageval.environments.protocol import EnvironmentFailure
 BASE_TAG = "ageval-attempt:base"
 PACKAGE_TAG_PREFIX = "ageval-pkg"
 BASE_LOCK_PATH = Path(".ageval") / "runtime-images" / "attempt-base.json"
+DEFAULT_PYTHON_VERSION = "3.12"
 
+_BASE_FROM_RE = re.compile(r"^FROM\s+ageval-attempt:base\b", re.IGNORECASE | re.MULTILINE)
 _COPY_HEAD = re.compile(r"^(COPY|ADD)\s+", re.IGNORECASE)
 _SKIP_COPY_NAMES = frozenset({".ageval", ".git", "__pycache__", "node_modules"})
 _DIGEST_FORMAT = "{{if .RepoDigests}}{{index .RepoDigests 0}}{{else}}{{.Id}}{{end}}"
@@ -56,38 +63,59 @@ def image_digest(tag: str) -> str | None:
     return (found.stdout or "").strip() or None
 
 
-def ensure_base_image(repo_root: Path) -> str:
+def base_tag_for(python_version: str | None) -> str:
+    """The official base tag this job's CPython resolves to."""
+    if not python_version or python_version == DEFAULT_PYTHON_VERSION:
+        return BASE_TAG
+    return f"ageval-attempt:py{python_version}"
+
+
+def base_lock_path(python_version: str | None) -> Path:
+    """Per-version build lock so two bases do not overwrite each other's record."""
+    tag = base_tag_for(python_version)
+    if tag == BASE_TAG:
+        return BASE_LOCK_PATH
+    return BASE_LOCK_PATH.with_name(f"{BASE_LOCK_PATH.stem}-py{python_version}.json")
+
+
+def ensure_base_image(repo_root: Path, *, python_version: str | None = None) -> str:
     """Digest of the official base image, building it when absent.
 
     The base bakes the ACP entries, so a run must never fall back to installing
-    an agent at invoke time.
+    an agent at invoke time. A base whose upstream ``python:`` tag cannot be
+    pulled fails the build once — there is no fallback to the default version.
     """
-    digest = image_digest(BASE_TAG)
+    tag = base_tag_for(python_version)
+    digest = image_digest(tag)
     if digest is not None:
         return digest
     build_script = repo_root / "docker" / "attempt" / "build.py"
     if not build_script.is_file():
         raise EnvironmentFailure(
             "environment_image_unresolved",
-            f"{BASE_TAG} is missing and {build_script} is not in this checkout",
+            f"{tag} is missing and {build_script} is not in this checkout",
         )
+    command = [
+        sys.executable,
+        str(build_script),
+        "--tag",
+        tag,
+        "--output-lock",
+        str(repo_root / base_lock_path(python_version)),
+    ]
+    if tag != BASE_TAG:
+        assert python_version is not None
+        command.extend(["--python-version", python_version])
     built = subprocess.run(  # noqa: S603 — repo-local build entrypoint
-        [
-            sys.executable,
-            str(build_script),
-            "--tag",
-            BASE_TAG,
-            "--output-lock",
-            str(repo_root / BASE_LOCK_PATH),
-        ],
+        command,
         check=False,
         cwd=str(repo_root),
     )
-    digest = image_digest(BASE_TAG)
+    digest = image_digest(tag)
     if built.returncode != 0 or digest is None:
         raise EnvironmentFailure(
             "environment_image_unresolved",
-            f"could not build the official base image {BASE_TAG}",
+            f"could not build the official base image {tag}",
         )
     return digest
 
@@ -101,12 +129,13 @@ def resolve_image(
     platform: str,
     force_build: bool,
     plugin_layers: Sequence[tuple[str, str, str, str]] = (),
+    python_version: str | None = None,
 ) -> tuple[str, str]:
     """Return ``(tag, digest)`` for this Attempt's image.
 
     A declared ``docker_image`` is used as-is. A task recipe is built on top of
-    the official base, and the bound plugins' declared layers are baked on top of
-    that. With neither, the base itself is the box.
+    the official base, and the bound plugins' declared layers are baked on top
+    of that. With neither, the base itself is the box.
 
     Each plugin layer is ``(plugin_id, dockerfile_path, package_root, body)``.
     """
@@ -123,14 +152,16 @@ def resolve_image(
                 )
         return declared_image, digest
 
-    base_digest = ensure_base_image(repo_root)
+    base_digest = ensure_base_image(repo_root, python_version=python_version)
+    base_tag = base_tag_for(python_version)
     if dockerfile_rel is None and not plugin_layers:
-        return BASE_TAG, base_digest
+        return base_tag, base_digest
     return build_task_image(
         task_root=task_root,
         dockerfile_rel=dockerfile_rel,
         platform=platform,
         base_digest=base_digest,
+        base_tag=base_tag,
         force_build=force_build,
         plugin_layers=plugin_layers,
     )
@@ -156,11 +187,16 @@ def build_task_image(
     dockerfile_rel: str | None,
     platform: str,
     base_digest: str,
+    base_tag: str = BASE_TAG,
     force_build: bool,
     plugin_layers: Sequence[tuple[str, str, str, str]] = (),
 ) -> tuple[str, str]:
-    """Build the task recipe, then each plugin bake with its own context."""
-    recipe = _recipe_text(task_root, dockerfile_rel)
+    """Build the task recipe, then each plugin bake with its own context.
+
+    The recipe's ``FROM ageval-attempt:base`` resolves onto ``base_tag`` so a
+    non-default CPython base is the one under the task image.
+    """
+    recipe = _recipe_text(task_root, dockerfile_rel, base_tag)
     layer_key = "\n".join(f"{plugin_id}\n{body}" for plugin_id, _, _, body in plugin_layers)
     pip_index = plugin_bake_pip_index()
     if plugin_layers and pip_index:
@@ -170,6 +206,7 @@ def build_task_image(
         context_root=task_root,
         platform=platform,
         base_digest=base_digest,
+        base_tag=base_tag,
     )
     tag = f"{PACKAGE_TAG_PREFIX}:{content[:12]}"
     if not force_build:
@@ -252,10 +289,10 @@ def _build_named(
     return tag, digest
 
 
-def _recipe_text(task_root: Path, dockerfile_rel: str | None) -> str:
-    """The task's recipe, or a bare FROM when only plugins contribute layers."""
+def _recipe_text(task_root: Path, dockerfile_rel: str | None, base_tag: str = BASE_TAG) -> str:
+    """The task's recipe (base FROM resolved), or a bare FROM for plugins only."""
     if dockerfile_rel is None:
-        return f"FROM {BASE_TAG}\n"
+        return f"FROM {base_tag}\n"
     dockerfile = (task_root / dockerfile_rel).resolve()
     try:
         dockerfile.relative_to(task_root.resolve())
@@ -269,7 +306,10 @@ def _recipe_text(task_root: Path, dockerfile_rel: str | None) -> str:
             "environment_image_unresolved",
             f"missing task recipe: {dockerfile_rel}",
         )
-    return dockerfile.read_text(encoding="utf-8")
+    recipe = dockerfile.read_text(encoding="utf-8")
+    if base_tag == BASE_TAG:
+        return recipe
+    return _BASE_FROM_RE.sub(f"FROM {base_tag}", recipe)
 
 
 def content_digest(
@@ -278,15 +318,23 @@ def content_digest(
     context_root: Path,
     platform: str,
     base_digest: str,
+    base_tag: str = BASE_TAG,
 ) -> str:
-    """Recipe + base identity + copied bytes + platform."""
+    """Recipe + base identity + copied bytes + platform.
+
+    A non-default ``base_tag`` also enters the key, so 3.12 and 3.13 bases
+    never share a task image even when the recipe text alone would collide.
+    """
     hasher = hashlib.sha256()
-    for label, payload in (
-        (b"dockerfile", recipe.encode("utf-8")),
-        (b"base", base_digest.encode("utf-8")),
-        (b"platform", platform.encode("utf-8")),
-    ):
-        hasher.update(label + b"\0" + payload + b"\0")
+    fields: list[tuple[bytes, str]] = [
+        (b"dockerfile", recipe),
+        (b"base", base_digest),
+        (b"platform", platform),
+    ]
+    if base_tag != BASE_TAG:
+        fields.append((b"python", base_tag))
+    for label, payload in fields:
+        hasher.update(label + b"\0" + payload.encode("utf-8") + b"\0")
     _hash_copy_sources(context_root, copy_sources(recipe), hasher)
     return hasher.hexdigest()
 
