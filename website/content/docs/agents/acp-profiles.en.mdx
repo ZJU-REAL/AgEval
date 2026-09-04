@@ -31,7 +31,7 @@ agent_profiles:
 
 No command/version/install in package yaml.
 
-Evaluate-phase ACP (for example `judge`) on a named map must `Agent.session("judge", environment="<name>")`; attach targets that scoring host. Naming a host during run, or omitting the name when the map is set, fails once. HTTP judges ignore `environment=`. See [Write an evaluator](/docs/author/write-evaluator).
+Evaluate-phase ACP (for example `judge`) must `Agent.session("judge", environment="<name>")` when the task declares `evaluation.environments`, the named scoring-host map; attach targets that scoring host. Naming a host during run, or omitting the name when the map is set, fails once. HTTP judges ignore `environment=`.
 
 ## Host readiness
 
@@ -48,4 +48,4 @@ ageval run <dataset> --task <id> \
   --set '/parameters/active_profile="main"'
 ```
 
-One ACP client in the parent process. Operator path: [Switch agent](/docs/run/switch-agent).
+One ACP client in the parent process. Without editing files, `--agent pi --model glm-4.7` picks this run's agent and model; non-ACP agent runtimes take a whole `--profiles` file instead.
