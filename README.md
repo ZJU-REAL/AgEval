@@ -29,9 +29,11 @@
   - [Install skills](#install-skills)
   - [Develop from source](#develop-from-source)
 - [✨ Features](#features)
+  - [Screenshots](#screenshots)
 - [⚙️ How it works](#how-it-works)
   - [End-to-end flow](#end-to-end-flow)
-  - [The base and plugins](#the-base-and-plugins)
+  - [Core base](#core-base)
+  - [Plugins](#plugins)
 - [📁 Project structure](#project-structure)
 - [📖 Docs](#docs)
 
@@ -39,14 +41,12 @@
 
 </details>
 
-How to avoid rewriting scaffolds for the massive set of agent runtime × model × environment combinations?
+How to avoid rewriting scaffolds for the huge set of agent runtime × model × environment combinations?
 
-**ageval** switches the agent under test with plugins on one running base; install the CLI and skills so the Agent can design, convert, and run benchmarks; upload results to the open platform, and share or reuse public datasets, plugins, and agent configs.
+**ageval** keeps one stable Core and swaps the agent under test and the environment through plugins. Install the CLI and skills so a coding agent can design or convert a benchmark and finish the eval; after results land on the Hub, datasets, plugins, and Agent packages can be shared or reused publicly.
 
 <p align="center">
-  <a href="https://youtu.be/MxiM9A9YvLc">
-    <img src="docs/assets/demo-cover.png" alt="N environments × M agent runtimes: each combination would need its own scaffold; ageval composes environment and Agent through plugins, so one dataset runs anywhere. Click to watch the demo." width="100%">
-  </a>
+  <video src="https://github.com/user-attachments/assets/3aa09ecf-d20a-4240-8e08-f8d9f13f0784" controls width="100%" title="ageval highlights"></video>
 </p>
 
 ## Getting started
@@ -109,15 +109,21 @@ uv run ageval view examples/datasets/minimal-demo --no-browser
 
 **Quickly switch the agent under test**
 
-Environments and agent runtimes join as plugins; the base stays untouched. Agents start over [ACP](https://agentclientprotocol.com) by default; [nooa](https://github.com/NVIDIA-NeMo/labs-OO-Agents), [dsh](https://github.com/deepseek-ai/deepseek-harness), and [miniswe](https://github.com/SWE-agent/mini-swe-agent) take the same plugin path. Switch by changing one line in `profiles.yaml`, or point at an agent for one run with `--agent`.
+Environments and agent runtimes both plug in. The default path is [ACP](https://agentclientprotocol.com); [nooa](https://github.com/NVIDIA-NeMo/labs-OO-Agents), [dsh](https://github.com/deepseek-ai/deepseek-harness), and [miniswe](https://github.com/SWE-agent/mini-swe-agent) use the same plugin path. Change one line in `profiles.yaml`, or pass `--agent` for a one-off switch.
 
 **Let the Agent run the eval**
 
-The skill tells your coding agent how to use the CLI and how to author a dataset; from there it designs or converts a benchmark and runs the eval end to end. See [Getting started](#getting-started) to install the CLI and skills.
+With the CLI and skills installed, a coding agent can author or convert a dataset and run the eval end to end. Afterwards, `ageval view` replays the trajectory locally: phase timing, tool calls, and a reproduce command for failed tasks. See [Getting started](#getting-started).
 
 **Share and reuse on Hub**
 
-Upload datasets, plugins, and agent configs together with results to ageval Hub, and manage members, dataset visibility, and versions there.
+Upload datasets, plugins, Agent packages, and results to ageval Hub. Leaderboard scores name the Agent and environment used; pull a published Agent with `--agent`; compare models side by side.
+
+### Screenshots
+
+| Plugin marketplace | Local Viewer | Compare models on Hub |
+| :---: | :---: | :---: |
+| <img src="docs/assets/demo/plugins-marketplace.png" alt="Plugin marketplace: environment and agent runtime plugins" width="100%"> | <img src="docs/assets/demo/viewer-trajectory.png" alt="Local Viewer: trajectory and event detail" width="100%"> | <img src="docs/assets/demo/agent-model-compare.png" alt="Compare models under one Agent on Hub" width="100%"> |
 
 <div align="right">
 
@@ -129,8 +135,13 @@ Upload datasets, plugins, and agent configs together with results to ageval Hub,
 
 ### End-to-end flow
 
+1. **`ageval lock`** resolves the plugin graph (`ExtensionGraph`), checks capabilities and credentials, and writes `lock.json` (secrets stay locators).
+2. **`ageval run`** opens an environment and uploads task files (local / Docker / E2B, …).
+3. **`run.py`** drives the task loop inside that environment; swapping env or Agent does not require editing this file.
+4. **Only `evaluator.py` can return PASS**; gold uploads after the run; cleanup always runs.
+
 ```mermaid
-%%{init: {"theme":"base","themeVariables":{"actorBkg":"#eaf1ff","actorBorder":"#2f6bff","actorTextColor":"#10233f","actorLineColor":"rgba(45,49,66,0.2)","signalColor":"#4f5d75","signalTextColor":"#2d3142","labelBoxBkgColor":"#eaf1ff","labelBoxBorderColor":"#2f6bff","labelTextColor":"#10233f","noteBkgColor":"#f1f5f9","noteBorderColor":"#64748b","noteTextColor":"#1e293b"}}}%%
+%%{init: {"theme":"base","themeVariables":{"actorBkg":"#eaf1ff","actorBorder":"#5B7BFF","actorTextColor":"#10233f","actorLineColor":"rgba(45,49,66,0.2)","signalColor":"#4f5d75","signalTextColor":"#2d3142","labelBoxBkgColor":"#eaf1ff","labelBoxBorderColor":"#5B7BFF","labelTextColor":"#10233f","noteBkgColor":"#f1f5f9","noteBorderColor":"#64748b","noteTextColor":"#1e293b"}}}%%
 sequenceDiagram
     autonumber
     actor u as you
@@ -156,40 +167,37 @@ sequenceDiagram
     r->>r: record · finally cleanup<br/>lock.json · result.json · trajectory.jsonl
 ```
 
-1. **`ageval lock` statically resolves the dependency graph (`ExtensionGraph`).** It maps plugins to the extension points exposed by the runtime base, establishing how implementations are dynamically invoked during execution. After checking capabilities and credentials, the resolved bindings are written to `lock.json`; secrets stay locators and never appear in plaintext.
-2. **`ageval run` opens an environment and uploads the task files.** The environment can be local, Docker, or a cloud sandbox / remote host; missing pieces — Docker not running, a credential not set — are reported before anything runs.
-3. **`run.py` runs the task loop inside that environment.** The loop, local tools, and Agent invocations all live in this file; changing the environment or the Agent doesn't touch it.
-4. **Scoring is independent: only `evaluator.py` can return PASS.** gold uploads after the task ends, and it decides PASS / FAIL / ERROR; whatever the outcome, cleanup runs.
+### Core base
 
-### The base and plugins
+ageval Core is a fixed five-phase pipeline: `lock → environment → run → evaluate → record`. Inputs are the user, dataset, and profiles; outputs land in evidence (`lock.json`, `result.json`, `trajectory.jsonl`). At `ageval lock`, one environment plugin and one Agent plugin are bound. Before the run starts, `limits` cap wall-clock time, memory, process forks, and call counts; `cleanup` always runs. Swapping an Agent or an environment does not require changing Core.
 
-The ageval runtime base is a fixed pipeline: lock → environment → run → evaluate → record. The base exposes two main extension points: environment decides how the environment opens, and executor decides how the Agent is invoked — each binds exactly one plugin per run; chain hooks such as `after_environment_ready` run between phases.
+<p align="center">
+  <img src="docs/assets/core-base.png" alt="ageval Core base overview" width="100%">
+</p>
 
-Plugins fill these points through a single `ageval.plugin/1` manifest: export declares what it is, and the selected plugin registers into the service table under its service name; inject declares what it needs, listing dependencies by service name plus capabilities.
+### Plugins
 
-At `ageval lock`, the system resolves a deterministic, complete dependency graph (`ExtensionGraph`) for each profile. This graph locks the plugin bindings to the runtime base. During subsequent execution phases, the runtime base dynamically dispatches and invokes extension points strictly according to this graph. A capabilities or credentials mismatch fails right at lock, preventing failures mid-run. For example, the dsh plugin declares itself as the executor and injects the environment service, while docker exports the environment service — the two sides meet at lock:
+Core does not hard-code a particular Agent or environment. Plugins declare what they provide and what capabilities they need; `ageval lock` resolves a dependency graph (`ExtensionGraph`), and later dispatch follows that graph.
 
 ```yaml
-# plugins/dsh/plugin.yaml — the Agent plugin
+# Agent plugin (e.g. dsh)
 plugin_id: dsh
 slots:
   exclusive:
-    - id: executor              # what it is: an agent runtime
+    - id: executor
 inject:
-  - service: environment        # what it needs: the environment service
+  - service: environment
     capabilities: [exec, upload]
 
-# src/ageval/plugins/contrib/docker/plugin.yaml — an environment plugin
+# Environment plugin (e.g. docker)
 plugin_id: docker
 slots:
   exclusive:
-    - id: environment           # what it is: registers as the environment service
+    - id: environment
 ```
 
-Environment plugins (docker / e2b / daytona, …) and Agent plugins (ACP by default; nooa / dsh / miniswe plug in the same way) all take this path; to add your own environment or Agent, write a plugin — no need to touch ageval source.
-
 <p align="center">
-  <img src="docs/assets/core-base.png" alt="The ageval Core base: external inputs (User / dataset / profiles) flow through lock, environment, run, evaluate, and record into evidence; environment plugins and Agent plugins bind at lock; limits and cleanup span every phase" width="100%">
+  <img src="docs/assets/ageval-plugin-graph.png" alt="Plugin mechanism: dependency graph drives Core dispatch" width="100%">
 </p>
 
 <div align="right">

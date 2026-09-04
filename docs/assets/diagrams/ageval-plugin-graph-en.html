@@ -1,0 +1,324 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ageval plugin mechanism · service decoupling &amp; ExtensionGraph</title>
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Serif:ital,wght@0,400;0,600&family=Noto+Serif+SC:wght@400;600&family=Geist:wght@400;500;600&family=Geist+Mono:wght@400;500;600&family=Noto+Sans+SC:wght@400;500;600&display=swap" rel="stylesheet">
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --color-paper:  #f5f5f5;
+      --color-ink:    #2d3142;
+      --color-muted:  #4f5d75;
+      --color-accent: #5B7BFF;
+      --font-sans:    'Geist', 'Noto Sans SC', system-ui, sans-serif;
+      --font-serif:   'Noto Serif','Noto Serif SC',serif;
+      --font-mono:    'Geist Mono', ui-monospace, monospace;
+    }
+    body {
+      font-family: var(--font-sans);
+      background: var(--color-paper);
+      color: var(--color-ink);
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 0;
+    }
+    .frame { max-width: none; width: 100%; }
+    svg { width: 100%; min-width: 960px; display: block; }
+  </style>
+</head>
+<body>
+  <div class="frame">
+    <svg viewBox="0 0 1000 500" xmlns="http://www.w3.org/2000/svg" role="img" aria-labelledby="plugin-graph-title plugin-graph-desc">
+      <title id="plugin-graph-title">ageval plugin mechanism: service decoupling &amp; static ExtensionGraph</title>
+      <desc id="plugin-graph-desc">Environment and Agent plugins decouple via export and inject, woven into an ExtensionGraph at lock, then driven by the runtime base.</desc>
+      
+      <defs>
+        <pattern id="dots" width="22" height="22" patternUnits="userSpaceOnUse">
+          <circle cx="1" cy="1" r="0.9" fill="rgba(45,49,66,0.10)"/>
+        </pattern>
+        <marker id="arrow" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto">
+          <polygon points="0 0, 8 3, 0 6" fill="#4f5d75"/>
+        </marker>
+        <linearGradient id="codex-grad" x1="12" y1="3" x2="12" y2="21" gradientUnits="userSpaceOnUse">
+          <stop stop-color="#B1A7FF"/>
+          <stop offset=".5" stop-color="#7A9DFF"/>
+          <stop offset="1" stop-color="#3941FF"/>
+        </linearGradient>
+      </defs>
+
+      <!-- Background -->
+      <rect width="100%" height="100%" fill="#f5f5f5"/>
+      <rect width="100%" height="100%" fill="url(#dots)" opacity="0.55"/>
+
+      <!-- ═══════════════════════════════════════════
+           HEADER BAR
+           ═══════════════════════════════════════════ -->
+      <polygon points="30,12 970,12 970,38 30,38" fill="#2d3142"/>
+      <text x="46" y="28" fill="#f5f5f5" font-size="8" font-family="'Geist Mono', monospace" letter-spacing="0.16em">PLUGIN MECHANISM &amp; EXTENSION GRAPH</text>
+      <text x="954" y="28" fill="#f5f5f5" font-size="8" font-family="'Geist Mono', monospace" text-anchor="end" opacity="0.8">STATIC GRAPH · DYNAMIC RUNTIME</text>
+
+      <!-- ═══════════════════════════════════════════
+           CONNECTORS / ARROWS (Drawn with clear margins)
+           ═══════════════════════════════════════════ -->
+      <!-- Env Plugin -> ExtensionGraph (x=294 -> x=348, length=54, mid=321) -->
+      <line x1="294" y1="145" x2="344" y2="145" stroke="#4f5d75" stroke-width="1.2" marker-end="url(#arrow)"/>
+      <rect x="304" y="131" width="34" height="12" rx="2" fill="#f5f5f5"/>
+      <text x="321" y="140" fill="#4f5d75" font-size="7" font-family="'Geist Mono', monospace" text-anchor="middle" letter-spacing="0.08em">EXPORT</text>
+
+      <!-- Agent Plugin -> ExtensionGraph (x=294 -> x=348, length=54, mid=321) -->
+      <line x1="294" y1="347" x2="344" y2="347" stroke="#4f5d75" stroke-width="1.2" marker-end="url(#arrow)"/>
+      <rect x="304" y="333" width="34" height="12" rx="2" fill="#f5f5f5"/>
+      <text x="321" y="342" fill="#4f5d75" font-size="7" font-family="'Geist Mono', monospace" text-anchor="middle" letter-spacing="0.08em">INJECT</text>
+
+      <!-- ExtensionGraph -> Runtime Base (x=678 -> x=728, length=50, mid=703) -->
+      <line x1="678" y1="246" x2="724" y2="246" stroke="#4f5d75" stroke-width="1.2" marker-end="url(#arrow)"/>
+      <rect x="688" y="232" width="30" height="12" rx="2" fill="#f5f5f5"/>
+      <text x="703" y="241" fill="#4f5d75" font-size="7" font-family="'Geist Mono', monospace" text-anchor="middle" letter-spacing="0.08em">DRIVE</text>
+
+      <!-- ═══════════════════════════════════════════
+           LEFT COLUMN: PLUGINS DECLARATION (w=264, x=30..294)
+           ═══════════════════════════════════════════ -->
+      
+      <!-- Top Card: ENVIRONMENT PLUGINS -->
+      <rect x="30" y="52" width="264" height="186" rx="6" fill="white" stroke="rgba(45,49,66,0.22)" stroke-width="1"/>
+      
+      <!-- Title -->
+      <svg x="44" y="66" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#2d3142" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/>
+        <polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/>
+      </svg>
+      <text x="68" y="80" fill="#2d3142" font-size="13" font-weight="600" font-family="'Noto Serif',serif">Environment plugins</text>
+      
+      <!-- Official Marks Strip: Docker, E2B, Daytona, Local -->
+      <g transform="translate(44, 96)">
+        <!-- Docker pill -->
+        <rect x="0" y="0" width="52" height="22" rx="4" fill="rgba(45,49,66,0.03)" stroke="rgba(45,49,66,0.12)" stroke-width="0.8"/>
+        <svg x="4" y="3" width="16" height="16" viewBox="0 0 24 24">
+          <path fill="#2496ED" d="M13.983 11.078h2.119a.186.186 0 00.186-.185V9.006a.186.186 0 00-.186-.185h-2.119a.185.185 0 00-.185.185v1.888c0 .102.083.185.185.185m-2.954-5.43h2.118a.186.186 0 00.186-.186V3.574a.186.186 0 00-.186-.185h-2.118a.185.185 0 00-.185.185v1.888c0 .102.082.185.185.185m0 2.716h2.118a.187.187 0 00.186-.186V6.29a.186.186 0 00-.186-.185h-2.118a.185.185 0 00-.185.185v1.887c0 .102.082.185.185.186m-2.93 0h2.12a.186.186 0 00.184-.186V6.29a.185.185 0 00-.185-.185H8.1a.185.185 0 00-.185.185v1.887c0 .102.083.185.185.186m-2.964 0h2.119a.186.186 0 00.185-.186V6.29a.185.185 0 00-.185-.185H5.136a.186.186 0 00-.186.185v1.887c0 .102.084.185.186.186m5.893 2.715h2.118a.186.186 0 00.186-.185V9.006a.186.186 0 00-.186-.186h-2.118a.185.185 0 00-.185.185v1.888c0 .102.082.185.185.185m-2.93 0h2.12a.185.185 0 00.184-.185V9.006a.185.185 0 00-.184-.186h-2.12a.185.185 0 00-.184.185v1.888c0 .102.083.185.185.185m-2.964 0h2.119a.185.185 0 00.185-.185V9.006a.185.185 0 00-.184-.186h-2.12a.186.186 0 00-.186.186v1.887c0 .102.084.185.186.185m-2.92 0h2.12a.185.185 0 00.184-.185V9.006a.185.185 0 00-.184-.186h-2.12a.185.185 0 00-.184.185v1.888c0 .102.082.185.185.185M23.763 9.89c-.065-.051-.672-.51-1.954-.51-.338.001-.676.03-1.01.087-.248-1.7-1.653-2.53-1.716-2.566l-.344-.199-.226.327c-.284.438-.49.922-.612 1.43-.23.97-.09 1.882.403 2.661-.595.332-1.55.413-1.744.42H.751a.751.751 0 00-.75.748 11.376 11.376 0 00.692 4.062c.545 1.428 1.355 2.48 2.41 3.124 1.18.723 3.1 1.137 5.275 1.137.983.003 1.963-.086 2.93-.266a12.248 12.248 0 003.823-1.389c.98-.567 1.86-1.288 2.61-2.136 1.252-1.418 1.998-2.997 2.553-4.4h.221c1.372 0 2.215-.549 2.68-1.009.309-.293.55-.65.707-1.046l.098-.288Z"/>
+        </svg>
+        <text x="23" y="15" fill="#2d3142" font-size="8.5" font-family="'Geist Mono', monospace">docker</text>
+
+        <!-- E2B pill -->
+        <rect x="58" y="0" width="46" height="22" rx="4" fill="rgba(45,49,66,0.03)" stroke="rgba(45,49,66,0.12)" stroke-width="0.8"/>
+        <svg x="63" y="4" width="14" height="14" viewBox="0 0 20.4 18">
+          <path d="M20.2235 0V4.67645H5.49328C5.04263 4.67661 4.67645 5.0426 4.67645 5.49328V5.84494C4.67645 6.29563 5.04263 6.66161 5.49328 6.66178H20.2235V11.3382H5.49328C5.04263 11.3384 4.67645 11.7044 4.67645 12.1551V12.5067C4.67657 12.9573 5.04271 13.3222 5.49328 13.3223H20.2235V18H3.12668C1.39998 17.9996 1.98414e-05 16.5989 0 14.8721V3.12668C0.000280465 1.40008 1.40013 0.000432767 3.12668 0H20.2235Z" fill="#ff8800"/>
+        </svg>
+        <text x="81" y="15" fill="#2d3142" font-size="8.5" font-family="'Geist Mono', monospace">e2b</text>
+
+        <!-- Daytona pill -->
+        <rect x="110" y="0" width="62" height="22" rx="4" fill="rgba(45,49,66,0.03)" stroke="rgba(45,49,66,0.12)" stroke-width="0.8"/>
+        <svg x="114" y="4" width="14" height="14" viewBox="0 0 275 287" fill="#2d3142">
+          <path d="M14.5584 193.736H114.275V227.925H14.5584V193.736Z"/>
+          <path d="M148.464 74.076H262.426V108.265H148.464V74.076Z"/>
+          <path d="M88.6338 84.6127L173.246 0L197.422 24.175L112.809 108.788L88.6338 84.6127Z"/>
+          <path d="M89.157 170.084L24.175 105.102L0 129.277L64.9819 194.259L89.157 170.084Z"/>
+          <path d="M174.629 217.911L106.133 286.407L81.9577 262.232L150.454 193.736L174.629 217.911Z"/>
+          <path d="M174.106 132.44L250.66 208.994L274.835 184.819L198.281 108.265L174.106 132.44Z"/>
+          <path d="M88.6338 48.434V131.057H54.4451L54.4451 48.434H88.6338Z"/>
+          <path d="M208.294 168.094V270.66H174.106V168.094H208.294Z"/>
+        </svg>
+        <text x="132" y="15" fill="#2d3142" font-size="8.5" font-family="'Geist Mono', monospace">daytona</text>
+
+        <!-- Local pill -->
+        <rect x="178" y="0" width="50" height="22" rx="4" fill="rgba(45,49,66,0.03)" stroke="rgba(45,49,66,0.12)" stroke-width="0.8"/>
+        <svg x="182" y="4" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#4f5d75" stroke-width="2">
+          <polyline points="4 17 10 11 4 5"/><line x1="12" y1="19" x2="20" y2="19"/>
+        </svg>
+        <text x="200" y="15" fill="#2d3142" font-size="8.5" font-family="'Geist Mono', monospace">local</text>
+      </g>
+
+      <line x1="44" y1="126" x2="280" y2="126" stroke="rgba(45,49,66,0.10)" stroke-width="0.8"/>
+      
+      <!-- Key declaration badge -->
+      <rect x="44" y="136" width="236" height="24" rx="4" fill="rgba(45,49,66,0.04)" stroke="rgba(45,49,66,0.15)"/>
+      <text x="162" y="152" fill="#2d3142" font-size="8.5" font-family="'Geist Mono', monospace" text-anchor="middle">export: service = environment</text>
+
+      <text x="44" y="176" fill="#2d3142" font-size="10" font-weight="600">· Expose standard environment capabilities</text>
+      <text x="54" y="192" fill="#7a8399" font-size="8.5" font-family="'Geist Mono', monospace">capabilities: [exec, upload, stdio]</text>
+      <text x="54" y="208" fill="#7a8399" font-size="8">Swap env via profiles · dataset unchanged</text>
+
+      <!-- Bottom Card: AGENT PLUGINS -->
+      <rect x="30" y="254" width="264" height="186" rx="6" fill="white" stroke="rgba(45,49,66,0.22)" stroke-width="1"/>
+      
+      <!-- Title -->
+      <svg x="44" y="268" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#2d3142" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <rect x="4" y="4" width="16" height="16" rx="2"/><rect x="9" y="9" width="6" height="6"/>
+        <line x1="9" y1="1" x2="9" y2="4"/><line x1="15" y1="1" x2="15" y2="4"/>
+      </svg>
+      <text x="68" y="282" fill="#2d3142" font-size="13" font-weight="600" font-family="'Noto Serif',serif">Agent plugins · Executor</text>
+      
+      <!-- Official Marks Strip: Claude Code, Codex, DeepSeek dsh, NOOA -->
+      <g transform="translate(44, 298)">
+        <!-- Claude Code -->
+        <rect x="0" y="0" width="54" height="22" rx="4" fill="rgba(45,49,66,0.03)" stroke="rgba(45,49,66,0.12)" stroke-width="0.8"/>
+        <svg x="4" y="3" width="16" height="16" viewBox="0 0 24 24">
+          <path clip-rule="evenodd" fill-rule="evenodd" fill="#D97757" d="M20.998 10.949H24v3.102h-3v3.028h-1.487V20H18v-2.921h-1.487V20H15v-2.921H9V20H7.488v-2.921H6V20H4.487v-2.921H3V14.05H0V10.95h3V5h17.998v5.949zM6 10.949h1.488V8.102H6v2.847zm10.51 0H18V8.102h-1.49v2.847z"/>
+        </svg>
+        <text x="23" y="15" fill="#2d3142" font-size="8.5" font-family="'Geist Mono', monospace">claude</text>
+
+        <!-- Codex -->
+        <rect x="60" y="0" width="50" height="22" rx="4" fill="rgba(45,49,66,0.03)" stroke="rgba(45,49,66,0.12)" stroke-width="0.8"/>
+        <svg x="64" y="3" width="16" height="16" viewBox="0 0 24 24">
+          <path d="M19.503 0H4.496A4.496 4.496 0 000 4.496v15.007A4.496 4.496 0 004.496 24h15.007A4.496 4.496 0 0024 19.503V4.496A4.496 4.496 0 0019.503 0z" fill="#1e293b"/>
+          <path d="M9.064 3.344a4.578 4.578 0 012.285-.312c1 .115 1.891.54 2.673 1.275.01.01.024.017.037.021a.09.09 0 00.043 0 4.55 4.55 0 013.046.275l.047.022.116.057a4.581 4.581 0 012.188 2.399c.209.51.313 1.041.315 1.595a4.24 4.24 0 01-.134 1.223.123.123 0 00.03.115c.594.607.988 1.33 1.183 2.17.289 1.425-.007 2.71-.887 3.854l-.136.166a4.548 4.548 0 01-2.201 1.388.123.123 0 00-.081.076c-.191.551-.383 1.023-.74 1.494-.9 1.187-2.222 1.846-3.711 1.838-1.187-.006-2.239-.44-3.157-1.302a.107.107 0 00-.105-.024c-.388.125-.78.143-1.204.138a4.441 4.441 0 01-1.945-.466 4.544 4.544 0 01-1.61-1.335c-.152-.202-.303-.392-.414-.617a5.81 5.81 0 01-.37-.961 4.582 4.582 0 01-.014-2.298.124.124 0 00.006-.056.085.085 0 00-.027-.048 4.467 4.467 0 01-1.034-1.651 3.896 3.896 0 01-.251-1.192 5.189 5.189 0 01.141-1.6c.337-1.112.982-1.985 1.933-2.618.212-.141.413-.251.601-.33.215-.089.43-.164.646-.227a.098.098 0 00.065-.066 4.51 4.51 0 01.829-1.615 4.535 4.535 0 011.837-1.388zm3.482 10.565a.637.637 0 000 1.272h3.636a.637.637 0 100-1.272h-3.636zM8.462 9.23a.637.637 0 00-1.106.631l1.272 2.224-1.266 2.136a.636.636 0 101.095.649l1.454-2.455a.636.636 0 00.005-.64L8.462 9.23z" fill="url(#codex-grad)"/>
+        </svg>
+        <text x="82" y="15" fill="#2d3142" font-size="8.5" font-family="'Geist Mono', monospace">codex</text>
+
+        <!-- DeepSeek dsh whale -->
+        <rect x="116" y="0" width="48" height="22" rx="4" fill="rgba(45,49,66,0.03)" stroke="rgba(45,49,66,0.12)" stroke-width="0.8"/>
+        <svg x="120" y="3" width="16" height="16" viewBox="0 0 512 509.64">
+          <path fill="#1D4ED8" fill-rule="nonzero" d="M440.898 139.167c-4.001-1.961-5.723 1.776-8.062 3.673-.801.612-1.479 1.407-2.154 2.141-5.848 6.246-12.681 10.349-21.607 9.859-13.048-.734-24.192 3.368-34.04 13.348-2.093-12.307-9.048-19.658-19.635-24.37-5.54-2.449-11.141-4.9-15.02-10.227-2.708-3.795-3.447-8.021-4.801-12.185-.861-2.509-1.725-5.082-4.618-5.512-3.139-.49-4.372 2.142-5.601 4.349-4.925 9.002-6.833 18.921-6.647 28.962.432 22.597 9.972 40.597 28.932 53.397 2.154 1.47 2.707 2.939 2.032 5.082-1.293 4.41-2.832 8.695-4.186 13.105-.862 2.817-2.157 3.429-5.172 2.205-10.402-4.346-19.391-10.778-27.332-18.553-13.481-13.044-25.668-27.434-40.873-38.702a177.614 177.614 0 00-10.834-7.409c-15.512-15.063 2.032-27.434 6.094-28.902 4.247-1.532 1.478-6.797-12.251-6.736-13.727.061-26.285 4.653-42.288 10.777-2.34.92-4.801 1.593-7.326 2.142-14.527-2.756-29.608-3.368-45.367-1.593-29.671 3.305-53.368 17.329-70.788 41.272-20.928 28.785-25.854 61.482-19.821 95.59 6.34 35.943 24.683 65.704 52.876 88.974 29.239 24.123 62.911 35.943 101.32 33.677 23.329-1.346 49.307-4.468 78.607-29.27 7.387 3.673 15.142 5.144 28.008 6.246 9.911.92 19.452-.49 26.839-2.019 11.573-2.449 10.773-13.166 6.586-15.124-33.915-15.797-26.47-9.368-33.24-14.573 17.235-20.39 43.213-41.577 53.369-110.222.8-5.448.121-8.877 0-13.287-.061-2.692.553-3.734 3.632-4.041 8.494-.981 16.742-3.305 24.314-7.471 21.975-12.002 30.84-31.719 32.933-55.355.307-3.612-.061-7.348-3.879-9.245v-.003zM249.4 351.89c-32.872-25.838-48.814-34.352-55.4-33.984-6.155.368-5.048 7.41-3.694 12.002 1.415 4.532 3.264 7.654 5.848 11.634 1.785 2.634 3.017 6.551-1.784 9.493-10.587 6.55-28.993-2.205-29.856-2.635-21.421-12.614-39.334-29.269-51.954-52.047-12.187-21.924-19.267-45.435-20.435-70.542-.308-6.061 1.478-8.207 7.509-9.307 7.94-1.471 16.127-1.778 24.068-.615 33.547 4.9 62.108 19.902 86.054 43.66 13.666 13.531 24.007 29.699 34.658 45.496 11.326 16.778 23.514 32.761 39.026 45.865 5.479 4.592 9.848 8.083 14.035 10.656-12.62 1.407-33.673 1.714-48.075-9.676zm15.899-102.519c.521-2.111 2.421-3.658 4.722-3.658a4.74 4.74 0 011.661.305c.678.246 1.293.614 1.786 1.163.861.859 1.354 2.083 1.354 3.368 0 2.695-2.154 4.837-4.862 4.837a4.748 4.748 0 01-4.738-4.034 5.01 5.01 0 01.077-1.981zm47.208 26.915c-2.606.996-5.2 1.778-7.707 1.88-4.679.244-9.787-1.654-12.556-3.981-4.308-3.612-7.386-5.631-8.679-11.941-.554-2.695-.247-6.858.246-9.246 1.108-5.144-.124-8.451-3.754-11.451-2.954-2.449-6.711-3.122-10.834-3.122-1.539 0-2.954-.673-4.001-1.224-1.724-.856-3.139-3-1.785-5.634.432-.856 2.525-2.939 3.018-3.305 5.6-3.185 12.065-2.144 18.034.244 5.54 2.266 9.727 6.429 15.759 12.307 6.155 7.102 7.263 9.063 10.773 14.39 2.771 4.163 5.294 8.451 7.018 13.348.877 2.561.071 4.74-2.341 6.277-.981.625-2.109 1.044-3.191 1.458z"/>
+        </svg>
+        <text x="138" y="15" fill="#2d3142" font-size="8.5" font-family="'Geist Mono', monospace">dsh</text>
+
+        <!-- NOOA -->
+        <rect x="172" y="0" width="52" height="22" rx="4" fill="rgba(45,49,66,0.03)" stroke="rgba(45,49,66,0.12)" stroke-width="0.8"/>
+        <svg x="176" y="3" width="16" height="16" viewBox="0 0 24 24">
+          <path d="M10.212 8.976V7.62c.127-.01.256-.017.388-.021 3.596-.117 5.957 3.184 5.957 3.184s-2.548 3.647-5.282 3.647a3.227 3.227 0 01-1.063-.175v-4.109c1.4.174 1.681.812 2.523 2.258l1.873-1.627a4.905 4.905 0 00-3.67-1.846 6.594 6.594 0 00-.729.044m0-4.476v2.025c.13-.01.259-.019.388-.024 5.002-.174 8.261 4.226 8.261 4.226s-3.743 4.69-7.643 4.69c-.338 0-.675-.031-1.007-.092v1.25c.278.038.558.057.838.057 3.629 0 6.253-1.91 8.794-4.169.421.347 2.146 1.193 2.501 1.564-2.416 2.083-8.048 3.763-11.24 3.763-.308 0-.603-.02-.894-.048V19.5H24v-15H10.21zm0 9.756v1.068c-3.356-.616-4.287-4.21-4.287-4.21a7.173 7.173 0 014.287-2.138v1.172h-.005a3.182 3.182 0 00-2.502 1.178s.615 2.276 2.507 2.931m-5.961-3.3c1.436-1.935 3.604-3.148 5.961-3.336V6.523C5.81 6.887 2 10.723 2 10.723s2.158 6.427 8.21 7.015v-1.166C5.77 16 4.25 10.958 4.25 10.958h-.002z" fill="#74B71B" fill-rule="nonzero"/>
+        </svg>
+        <text x="194" y="15" fill="#2d3142" font-size="8.5" font-family="'Geist Mono', monospace">nooa</text>
+      </g>
+
+      <line x1="44" y1="328" x2="280" y2="328" stroke="rgba(45,49,66,0.10)" stroke-width="0.8"/>
+      
+      <!-- Key declaration badge -->
+      <rect x="44" y="338" width="236" height="24" rx="4" fill="rgba(45,49,66,0.04)" stroke="rgba(45,49,66,0.15)"/>
+      <text x="162" y="354" fill="#2d3142" font-size="8.5" font-family="'Geist Mono', monospace" text-anchor="middle">inject: service = environment</text>
+
+      <text x="44" y="378" fill="#2d3142" font-size="10" font-weight="600">· Declare required environment capabilities</text>
+      <text x="54" y="394" fill="#7a8399" font-size="8.5" font-family="'Geist Mono', monospace">capabilities: [exec, upload]</text>
+      <text x="54" y="410" fill="#7a8399" font-size="8">Generic agents &amp; specialized harnesses plug in alike</text>
+
+      <!-- ═══════════════════════════════════════════
+           CENTER COLUMN: EXTENSION GRAPH (Clean Card, w=330, x=348..678)
+           ═══════════════════════════════════════════ -->
+      <rect x="348" y="52" width="330" height="388" rx="6" fill="white" stroke="rgba(45,49,66,0.22)" stroke-width="1"/>
+      
+      <!-- Header icon + title -->
+      <svg x="364" y="66" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#2d3142" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/>
+        <line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/>
+      </svg>
+      <text x="388" y="80" fill="#2d3142" font-size="13" font-weight="600" font-family="'Noto Serif',serif">Static dependency graph · ExtensionGraph</text>
+      <text x="364" y="96" fill="#4f5d75" font-size="8.5" font-family="'Geist Mono', monospace">ageval lock weaves statically · runtime dispatch blueprint</text>
+      
+      <line x1="364" y1="106" x2="662" y2="106" stroke="rgba(45,49,66,0.10)" stroke-width="0.8"/>
+
+      <!-- Step 1: Contract matching with CheckCircle icon -->
+      <g transform="translate(364, 118)">
+        <svg x="0" y="0" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#2d3142" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="9 12 12 15 16 10"/></svg>
+        <text x="24" y="12" fill="#2d3142" font-size="10.5" font-weight="600">1. Contract matching</text>
+        <text x="24" y="27" fill="#5B7BFF" font-size="8.5" font-family="'Geist Mono', monospace">requires ⊆ capabilities</text>
+        <text x="24" y="41" fill="#7a8399" font-size="8">Agent needs paired to env caps (e.g. dsh ↔ docker)</text>
+      </g>
+
+      <!-- Step 2: Early verification with ShieldAlert icon -->
+      <g transform="translate(364, 176)">
+        <svg x="0" y="0" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#2d3142" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+        <text x="24" y="12" fill="#2d3142" font-size="10.5" font-weight="600">2. Early verification</text>
+        <text x="24" y="27" fill="#7a8399" font-size="8">Preflight: Docker alive &amp; API keys ready</text>
+        <text x="24" y="41" fill="#4f5d75" font-size="8">Cap or credential mismatch blocks the run</text>
+      </g>
+
+      <!-- Step 3: Lock graph topology with Lock icon -->
+      <g transform="translate(364, 234)">
+        <svg x="0" y="0" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#2d3142" stroke-width="2"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+        <text x="24" y="12" fill="#2d3142" font-size="10.5" font-weight="600">3. Lock dispatch topology (lock.json)</text>
+        <text x="24" y="27" fill="#5B7BFF" font-size="8.5" font-family="'Geist Mono', monospace">extension_bindings frozen into an immutable lockfile</text>
+        <text x="24" y="41" fill="#7a8399" font-size="8">Same input → byte-identical; dispatch strictly by graph</text>
+      </g>
+
+      <!-- Unified 4th Point: DeepSeek Integration (No loud highlight, same weight) -->
+      <g transform="translate(364, 296)">
+        <svg x="0" y="0" width="16" height="16" viewBox="0 0 512 509.64">
+          <path fill="#1D4ED8" fill-rule="nonzero" d="M440.898 139.167c-4.001-1.961-5.723 1.776-8.062 3.673-.801.612-1.479 1.407-2.154 2.141-5.848 6.246-12.681 10.349-21.607 9.859-13.048-.734-24.192 3.368-34.04 13.348-2.093-12.307-9.048-19.658-19.635-24.37-5.54-2.449-11.141-4.9-15.02-10.227-2.708-3.795-3.447-8.021-4.801-12.185-.861-2.509-1.725-5.082-4.618-5.512-3.139-.49-4.372 2.142-5.601 4.349-4.925 9.002-6.833 18.921-6.647 28.962.432 22.597 9.972 40.597 28.932 53.397 2.154 1.47 2.707 2.939 2.032 5.082-1.293 4.41-2.832 8.695-4.186 13.105-.862 2.817-2.157 3.429-5.172 2.205-10.402-4.346-19.391-10.778-27.332-18.553-13.481-13.044-25.668-27.434-40.873-38.702a177.614 177.614 0 00-10.834-7.409c-15.512-15.063 2.032-27.434 6.094-28.902 4.247-1.532 1.478-6.797-12.251-6.736-13.727.061-26.285 4.653-42.288 10.777-2.34.92-4.801 1.593-7.326 2.142-14.527-2.756-29.608-3.368-45.367-1.593-29.671 3.305-53.368 17.329-70.788 41.272-20.928 28.785-25.854 61.482-19.821 95.59 6.34 35.943 24.683 65.704 52.876 88.974 29.239 24.123 62.911 35.943 101.32 33.677 23.329-1.346 49.307-4.468 78.607-29.27 7.387 3.673 15.142 5.144 28.008 6.246 9.911.92 19.452-.49 26.839-2.019 11.573-2.449 10.773-13.166 6.586-15.124-33.915-15.797-26.47-9.368-33.24-14.573 17.235-20.39 43.213-41.577 53.369-110.222.8-5.448.121-8.877 0-13.287-.061-2.692.553-3.734 3.632-4.041 8.494-.981 16.742-3.305 24.314-7.471 21.975-12.002 30.84-31.719 32.933-55.355.307-3.612-.061-7.348-3.879-9.245v-.003zM249.4 351.89c-32.872-25.838-48.814-34.352-55.4-33.984-6.155.368-5.048 7.41-3.694 12.002 1.415 4.532 3.264 7.654 5.848 11.634 1.785 2.634 3.017 6.551-1.784 9.493-10.587 6.55-28.993-2.205-29.856-2.635-21.421-12.614-39.334-29.269-51.954-52.047-12.187-21.924-19.267-45.435-20.435-70.542-.308-6.061 1.478-8.207 7.509-9.307 7.94-1.471 16.127-1.778 24.068-.615 33.547 4.9 62.108 19.902 86.054 43.66 13.666 13.531 24.007 29.699 34.658 45.496 11.326 16.778 23.514 32.761 39.026 45.865 5.479 4.592 9.848 8.083 14.035 10.656-12.62 1.407-33.673 1.714-48.075-9.676zm15.899-102.519c.521-2.111 2.421-3.658 4.722-3.658a4.74 4.74 0 011.661.305c.678.246 1.293.614 1.786 1.163.861.859 1.354 2.083 1.354 3.368 0 2.695-2.154 4.837-4.862 4.837a4.748 4.748 0 01-4.738-4.034 5.01 5.01 0 01.077-1.981zm47.208 26.915c-2.606.996-5.2 1.778-7.707 1.88-4.679.244-9.787-1.654-12.556-3.981-4.308-3.612-7.386-5.631-8.679-11.941-.554-2.695-.247-6.858.246-9.246 1.108-5.144-.124-8.451-3.754-11.451-2.954-2.449-6.711-3.122-10.834-3.122-1.539 0-2.954-.673-4.001-1.224-1.724-.856-3.139-3-1.785-5.634.432-.856 2.525-2.939 3.018-3.305 5.6-3.185 12.065-2.144 18.034.244 5.54 2.266 9.727 6.429 15.759 12.307 6.155 7.102 7.263 9.063 10.773 14.39 2.771 4.163 5.294 8.451 7.018 13.348.877 2.561.071 4.74-2.341 6.277-.981.625-2.109 1.044-3.191 1.458z"/>
+        </svg>
+        <text x="24" y="12" fill="#2d3142" font-size="10.5" font-weight="600">4. First-class official harnesses</text>
+        <text x="24" y="27" fill="#7a8399" font-size="8">DeepSeek dsh and peers align as plugins</text>
+        <text x="24" y="41" fill="#7a8399" font-size="8">No framework fork — the graph resolves dispatch</text>
+      </g>
+
+      <line x1="364" y1="356" x2="662" y2="356" stroke="rgba(45,49,66,0.10)" stroke-width="0.8"/>
+      
+      <rect x="364" y="368" width="298" height="26" rx="4" fill="rgba(45,49,66,0.04)"/>
+      <text x="513" y="385" fill="#2d3142" font-size="8.5" font-weight="500" text-anchor="middle">Static graph · dynamic runtime drive</text>
+
+      <!-- ═══════════════════════════════════════════
+           RIGHT COLUMN: RUNTIME BASE (w=256, x=714..970)
+           ═══════════════════════════════════════════ -->
+      <rect x="714" y="52" width="256" height="388" rx="6" fill="white" stroke="rgba(45,49,66,0.22)" stroke-width="1"/>
+      
+      <!-- Icon & Title -->
+      <svg x="728" y="66" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#2d3142" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <polygon points="5 3 19 12 5 21 5 3"/>
+      </svg>
+      <text x="752" y="80" fill="#2d3142" font-size="13" font-weight="600" font-family="'Noto Serif',serif">Stable runtime base</text>
+      <text x="728" y="96" fill="#4f5d75" font-size="8.5" font-family="'Geist Mono', monospace">Dispatch by graph · zero custom branches</text>
+      
+      <line x1="728" y1="106" x2="956" y2="106" stroke="rgba(45,49,66,0.10)" stroke-width="0.8"/>
+
+      <!-- Step 1: Env -->
+      <g transform="translate(728, 120)">
+        <rect x="0" y="0" width="18" height="18" rx="4" fill="rgba(45,49,66,0.05)"/>
+        <text x="9" y="13" fill="#4f5d75" font-size="8.5" font-family="'Geist Mono', monospace" text-anchor="middle">01</text>
+        <text x="26" y="13" fill="#2d3142" font-size="10" font-weight="600">Open environment</text>
+        <text x="26" y="27" fill="#7a8399" font-size="8">Bound env plugin from the graph (e.g. docker)</text>
+      </g>
+
+      <!-- Step 2: Run -->
+      <g transform="translate(728, 168)">
+        <rect x="0" y="0" width="18" height="18" rx="4" fill="rgba(45,49,66,0.05)"/>
+        <text x="9" y="13" fill="#4f5d75" font-size="8.5" font-family="'Geist Mono', monospace" text-anchor="middle">02</text>
+        <text x="26" y="13" fill="#2d3142" font-size="10" font-weight="600">Dispatch Agent</text>
+        <text x="26" y="27" fill="#7a8399" font-size="8">run.py invokes Agent via executor</text>
+      </g>
+
+      <!-- Step 3: Evaluate -->
+      <g transform="translate(728, 216)">
+        <rect x="0" y="0" width="18" height="18" rx="4" fill="rgba(45,49,66,0.05)"/>
+        <text x="9" y="13" fill="#4f5d75" font-size="8.5" font-family="'Geist Mono', monospace" text-anchor="middle">03</text>
+        <text x="26" y="13" fill="#2d3142" font-size="10" font-weight="600">Independent scoring</text>
+        <text x="26" y="27" fill="#7a8399" font-size="8">Upload gold now; isolated scoring yields PASS</text>
+      </g>
+
+      <!-- Step 4: Record -->
+      <g transform="translate(728, 264)">
+        <rect x="0" y="0" width="18" height="18" rx="4" fill="rgba(45,49,66,0.05)"/>
+        <text x="9" y="13" fill="#4f5d75" font-size="8.5" font-family="'Geist Mono', monospace" text-anchor="middle">04</text>
+        <text x="26" y="13" fill="#2d3142" font-size="10" font-weight="600">Seal evidence &amp; reclaim</text>
+        <text x="26" y="27" fill="#7a8399" font-size="8">Archive evidence; finally releases the env</text>
+      </g>
+
+      <line x1="728" y1="312" x2="956" y2="312" stroke="rgba(45,49,66,0.10)" stroke-width="0.8"/>
+      
+      <rect x="728" y="324" width="228" height="26" rx="4" fill="rgba(45,49,66,0.04)"/>
+      <text x="842" y="341" fill="#2d3142" font-size="8.5" font-weight="500" text-anchor="middle">No base forks · swap Agent/env via config only</text>
+
+      <!-- ═══════════════════════════════════════════
+           LEGEND
+           ═══════════════════════════════════════════ -->
+      <line x1="30" y1="462" x2="970" y2="462" stroke="rgba(45,49,66,0.12)" stroke-width="0.8"/>
+      <text x="30" y="484" fill="#4f5d75" font-size="8" font-family="'Geist Mono', monospace" letter-spacing="0.18em">LEGEND</text>
+
+      <rect x="94" y="474" width="16" height="12" rx="2" fill="white" stroke="rgba(45,49,66,0.22)" stroke-width="1"/>
+      <text x="118" y="484" fill="#4f5d75" font-size="9" font-family="'Geist',sans-serif">Plugin contract declaration</text>
+
+      <line x1="250" y1="480" x2="274" y2="480" stroke="#4f5d75" stroke-width="1.2" marker-end="url(#arrow)"/>
+      <text x="282" y="484" fill="#4f5d75" font-size="9" font-family="'Geist',sans-serif">Contract inputs</text>
+
+      <rect x="420" y="474" width="16" height="12" rx="2" fill="white" stroke="rgba(45,49,66,0.22)" stroke-width="1"/>
+      <text x="444" y="484" fill="#4f5d75" font-size="9" font-family="'Geist',sans-serif">ExtensionGraph dispatch core</text>
+
+      <line x1="640" y1="480" x2="664" y2="480" stroke="#4f5d75" stroke-width="1.2" marker-end="url(#arrow)"/>
+      <text x="672" y="484" fill="#4f5d75" font-size="9" font-family="'Geist',sans-serif">Dynamic drive along the graph</text>
+
+      <rect x="800" y="474" width="16" height="12" rx="2" fill="white" stroke="rgba(45,49,66,0.22)" stroke-width="1"/>
+      <text x="824" y="484" fill="#4f5d75" font-size="9" font-family="'Geist',sans-serif">Stable runtime base</text>
+    </svg>
+  </div>
+</body>
+</html>

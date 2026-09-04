@@ -29,9 +29,11 @@
   - [安装 skills](#安装-skills)
   - [从源码开发](#从源码开发)
 - [✨ 功能](#功能)
+  - [Screenshots](#screenshots)
 - [⚙️ 如何运行](#如何运行)
   - [整体链路](#整体链路)
-  - [基座与插件](#基座与插件)
+  - [基座总览](#基座总览)
+  - [插件接入](#插件接入)
 - [📁 目录结构](#目录结构)
 - [📖 文档](#文档)
 
@@ -41,12 +43,10 @@
 
 如何避免为 Agent 运行时、模型与环境的海量组合重复编写脚手架？
 
-**ageval** 在统一运行基座上用插件切换待评测 Agent；装上 CLI 和 skill，Agent 能设计、转化 benchmark 并自动跑评测；还能将评测结果上传到开放平台，分享或复用公开的 dataset、插件和 Agent 配置。
+**ageval** 用一套稳定的 Core，靠插件切换待测 Agent 和环境。装上 CLI 和 skill，coding agent 可以自己设计或转化 benchmark 并跑完评测；结果上传 Hub 后，dataset、插件和 Agent 包也能公开分享或复用。
 
 <p align="center">
-  <a href="https://youtu.be/MxiM9A9YvLc">
-    <img src="docs/assets/demo-cover.png" alt="N 种环境 × M 种 Agent 运行时：逐个组合需要 N·M 份定制脚手架；ageval 用插件组合环境和 Agent，一份 dataset 到处跑。点击观看演示。" width="100%">
-  </a>
+  <video src="https://github.com/user-attachments/assets/3aa09ecf-d20a-4240-8e08-f8d9f13f0784" controls width="100%" title="ageval highlights"></video>
 </p>
 
 ## 快速开始
@@ -109,15 +109,21 @@ uv run ageval view examples/datasets/minimal-demo --no-browser
 
 **快速切换待评测 Agent**
 
-环境和 Agent 运行时都经插件接入，不必修改基座。默认通过 [ACP](https://agentclientprotocol.com) 启动 agent；[nooa](https://github.com/NVIDIA-NeMo/labs-OO-Agents)、[dsh](https://github.com/deepseek-ai/deepseek-harness)、[miniswe](https://github.com/SWE-agent/mini-swe-agent) 的接入走同一条插件路。修改配置文件 `profiles.yaml` 里的一行，或者用 `--agent` 临时指定来切换 agent。
+环境和 Agent 运行时都经插件接入。默认走 [ACP](https://agentclientprotocol.com)；[nooa](https://github.com/NVIDIA-NeMo/labs-OO-Agents)、[dsh](https://github.com/deepseek-ai/deepseek-harness)、[miniswe](https://github.com/SWE-agent/mini-swe-agent) 也是同一条插件链路。改 `profiles.yaml` 一行，或用 `--agent` 临时指定即可切换。
 
 **让 Agent 自己跑评测**
 
-skill 会告诉你的 coding agent 怎么使用 CLI、怎么写 dataset；之后它自己设计或转化 benchmark，端到端跑完评测。参考[快速开始](#快速开始)，完成 CLI 和 skill 的安装。
+装上 CLI 和 skill 后，coding agent 能按规范写或转化 dataset，并端到端跑完。跑完用 `ageval view` 在本地复盘轨迹：各阶段耗时、工具调用，以及失败任务的复现命令。安装见[快速开始](#快速开始)。
 
 **在 Hub 上分享与复用**
 
-你可以将 dataset、插件和 Agent 配置与评测结果上传到 ageval Hub，并在 Hub 上组织管理成员、公开 dataset 范围与版本。
+把 dataset、插件、Agent 包和评测结果上传到 ageval Hub。榜单上的成绩会标明用的 Agent 和环境；已发布的 Agent 可用 `--agent` 直接拉取；也可以按模型横向对比。
+
+### Screenshots
+
+|                                                 插件市场                                                  |                                            本地 Viewer                                            |                                             Hub 上比较模型                                              |
+| :-------------------------------------------------------------------------------------------------------: | :-----------------------------------------------------------------------------------------------: | :-----------------------------------------------------------------------------------------------------: |
+| <img src="docs/assets/demo/plugins-marketplace.png" alt="插件市场：环境与 Agent 运行时插件" width="100%"> | <img src="docs/assets/demo/viewer-trajectory.png" alt="本地 Viewer：轨迹与事件明细" width="100%"> | <img src="docs/assets/demo/agent-model-compare.png" alt="在 Agent Hub 中比较不同模型表现" width="100%"> |
 
 <div align="right">
 
@@ -129,13 +135,13 @@ skill 会告诉你的 coding agent 怎么使用 CLI、怎么写 dataset；之后
 
 ### 整体链路
 
-1. **`ageval lock` 静态解析插件依赖图（`ExtensionGraph`）。** 明确声明各个插件如何接入 runtime 基座开放的接入点，以及各接入点在运行时如何被动态调用。静态检查能力与凭据后，将绑定结果写入 `lock.json`；密钥只当 locator，不以明文写入。
-2. **`ageval run` 打开一个环境，并把 task 文件传进去。** 环境可以是本机、Docker，或云沙箱 / 远端；缺 Docker、缺凭证这类问题会在正式运行前就报错提示。
-3. **`run.py` 在环境里跑任务循环。** 循环逻辑、本地工具和对 Agent 的调用都写在这份文件里；换环境或换 Agent 不用改它。
-4. **评分独立进行：只有 `evaluator.py` 能给出 PASS。** 任务结束才 upload gold，由它判定 PASS / FAIL / ERROR；无论结果如何，cleanup 都会执行。
+1. **`ageval lock`** 解析插件依赖图（`ExtensionGraph`），检查能力和凭据，写出 `lock.json`（密钥只当 locator）。
+2. **`ageval run`** 打开环境并上传 task 文件（本机 / Docker / E2B 等）。
+3. **`run.py`** 在环境里跑任务循环；换环境或换 Agent 不需要修改这份文件。
+4. **只有 `evaluator.py` 能给出 PASS**；任务结束后才 upload gold；无论结果如何都会 cleanup。
 
 ```mermaid
-%%{init: {"theme":"base","themeVariables":{"actorBkg":"#eaf1ff","actorBorder":"#2f6bff","actorTextColor":"#10233f","actorLineColor":"rgba(45,49,66,0.2)","signalColor":"#4f5d75","signalTextColor":"#2d3142","labelBoxBkgColor":"#eaf1ff","labelBoxBorderColor":"#2f6bff","labelTextColor":"#10233f","noteBkgColor":"#f1f5f9","noteBorderColor":"#64748b","noteTextColor":"#1e293b"}}}%%
+%%{init: {"theme":"base","themeVariables":{"actorBkg":"#eaf1ff","actorBorder":"#5B7BFF","actorTextColor":"#10233f","actorLineColor":"rgba(45,49,66,0.2)","signalColor":"#4f5d75","signalTextColor":"#2d3142","labelBoxBkgColor":"#eaf1ff","labelBoxBorderColor":"#5B7BFF","labelTextColor":"#10233f","noteBkgColor":"#f1f5f9","noteBorderColor":"#64748b","noteTextColor":"#1e293b"}}}%%
 sequenceDiagram
     autonumber
     actor u as 你
@@ -161,35 +167,37 @@ sequenceDiagram
     r->>r: record · finally cleanup<br/>lock.json · result.json · trajectory.jsonl
 ```
 
-### 基座与插件
+### 基座总览
 
-ageval 的运行时基座是一条固定流水线：lock → environment → run → evaluate → record。基座上开放了两类主要接入点：environment 决定环境怎么开，executor 决定 Agent 怎么被调用，每次运行各绑定一个实现；另有 `after_environment_ready` 这类钩子穿插在阶段之间。
+ageval Core 是固定的五阶段流水线：`lock → environment → run → evaluate → record`。输入是用户、dataset 和 profiles，输出落到 evidence（`lock.json`、`result.json`、`trajectory.jsonl`）。环境插件和 Agent 插件在 `ageval lock` 时各自绑定一个；开跑前按 `limits` 施加资源上限（墙钟 / 内存 / 进程 / 调用次数），`cleanup` 始终会跑。换 Agent 或换环境，不需要修改 Core。
 
-插件机制负责往这些接入点里装实现。插件用一份 `ageval.plugin/1` 声明自己：export 写明「我是什么」，选中的插件以服务名登记进服务表；inject 写明「我需要什么」，按服务名列出依赖和 capabilities。
+<p align="center">
+  <img src="docs/assets/core-base.zh-CN.png" alt="ageval Core 基座总览" width="100%">
+</p>
 
-在 `ageval lock` 阶段，系统会为每个 profile 解析出一张确定且完整的依赖图（`ExtensionGraph`）。这张 graph 锁定了插件与基座接入点的绑定关系，runtime 基座在后续运行阶段，严格沿着这张 graph 动态调度和调用各个实现。绑定与检查在 lock 期完成，capabilities 或凭证对不上直接失败，避免运行时中途出错。比如 dsh 插件声明自己是 executor、并 inject `environment` 服务，docker 插件则 export 出 `environment` 服务，两边在 lock 期完成图节点的连接与校验：
+### 插件接入
+
+Core 不会写死某个 Agent 或环境。插件声明自己提供什么、需要什么能力；`ageval lock` 解析成依赖图（`ExtensionGraph`），之后按图调度。
 
 ```yaml
-# plugins/dsh/plugin.yaml —— Agent 插件
+# Agent 插件（如 dsh）
 plugin_id: dsh
 slots:
   exclusive:
-    - id: executor              # 我是什么：一个 Agent 运行时
+    - id: executor
 inject:
-  - service: environment        # 我需要什么：环境服务
+  - service: environment
     capabilities: [exec, upload]
 
-# src/ageval/plugins/contrib/docker/plugin.yaml —— 环境插件
+# 环境插件（如 docker）
 plugin_id: docker
 slots:
   exclusive:
-    - id: environment           # 我是什么：登记为 environment 服务
+    - id: environment
 ```
 
-环境插件（docker / e2b / daytona 等）和 Agent 插件（ACP 默认，nooa / dsh / miniswe 接入）都走这条机制；想接自己的环境或 Agent，写一个插件就行，不用改 ageval 源码。
-
 <p align="center">
-  <img src="docs/assets/core-base.zh-CN.png" alt="ageval Core 基座构成：外部输入（用户 / dataset / profiles）经 lock、environment、run、evaluate、record 到 evidence；环境插件与 Agent 插件在 lock 期绑定；limits 与 cleanup 横贯全程" width="100%">
+  <img src="docs/assets/ageval-plugin-graph-zh.png" alt="插件机制：依赖图驱动 Core 调度" width="100%">
 </p>
 
 <div align="right">
