@@ -17,6 +17,7 @@ evaluate
   [无名表] upload artifacts / gold 到那只 Host
   [isolated, 无名表] 对未在 run 用过的 ACP profile 再跑 after_environment_ready
   evaluation_runtime.evaluate # 独占槽赢家；默认 parent 子进程跑 evaluator.py
+                              # 无名表：scoring.exec 打缺省打分 Host（= run 环境，或 isolated 那一只）
                               # 有名表：evaluate 开头 **不** start；worker 管道 op=exec
                               #   或 session(environment=) 第一次点到某名才 start + upload
                               # 可选：evaluator.py 调 Agent.session(<role>).invoke
@@ -134,7 +135,7 @@ cleanup                           → 停已 start 的每一只 + Agent Host
 - 名表非空 ⇒ lock 要求 `evaluate_host.isolated: true` + `environment: docker`。缺配方文件一次失败。
 - evaluate 相位 **懒启动**：未 `exec` / 未 `session(environment=)` 的名字不 build、不 start。
 - `scoring.exec` 走 eval worker 管道 `{"op":"exec","environment":…,"argv":[…]}`，parent 答 `exit_code` / stdout / stderr。不要把 docker socket 挂进 worker。
-- 未知名、run 相位 `session(environment=)`、或有名表时 ACP 省略名字：`unknown_evaluate_environment`，不 start。
+- 省略 `evaluation.environments`：`scoring.exec` 打缺省打分 Host（run 环境，或 `evaluate_host.isolated` 的那一只）。名表非空时必须点名；未知名、run 相位 `session(environment=)`、或有名表时 ACP 省略名字：`unknown_evaluate_environment`，不 start。
 - evidence 可记 `evaluate_host_started`（含 `name`）与 `evaluate_exec`（name + exit_code）。都不是 PASS。
 - 阶梯与短路在 `evaluator.py` / `shared/lib`。
 

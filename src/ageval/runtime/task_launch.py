@@ -277,7 +277,11 @@ def _resolve_scoring_env(raw: object) -> dict[str, str]:
 
 
 async def _handle_eval_exec(ctx: Any, frame: dict[str, Any]) -> dict[str, Any]:
-    from ageval.attempt.phases.evaluate import UNKNOWN_EVALUATE_ENVIRONMENT, ensure_named_host
+    from ageval.attempt.phases.evaluate import (
+        UNKNOWN_EVALUATE_ENVIRONMENT,
+        ensure_named_host,
+        named_evaluate_environments,
+    )
 
     req_id = frame.get("id")
     name = str(frame.get("environment") or "")
@@ -290,10 +294,23 @@ async def _handle_eval_exec(ctx: Any, frame: dict[str, Any]) -> dict[str, Any]:
     if remaining is not None and remaining <= 0:
         return {"op": "exec_result", "id": req_id, "error": "task_run_timeout"}
     try:
-        if remaining is not None:
-            host = await asyncio.wait_for(ensure_named_host(ctx, name), timeout=max(0.1, remaining))
+        recipes = named_evaluate_environments(ctx)
+        if recipes:
+            if remaining is not None:
+                host = await asyncio.wait_for(
+                    ensure_named_host(ctx, name), timeout=max(0.1, remaining)
+                )
+            else:
+                host = await ensure_named_host(ctx, name)
         else:
-            host = await ensure_named_host(ctx, name)
+            # No named map: exec the singular scoring host (run box, or isolated one).
+            host = getattr(ctx, "scoring_host", None)
+            if host is None:
+                return {
+                    "op": "exec_result",
+                    "id": req_id,
+                    "error": UNKNOWN_EVALUATE_ENVIRONMENT,
+                }
         leftover = _remaining_seconds(ctx)
         if leftover is not None and leftover <= 0:
             return {"op": "exec_result", "id": req_id, "error": "task_run_timeout"}

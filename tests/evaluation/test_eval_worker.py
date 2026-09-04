@@ -304,7 +304,7 @@ async def test_evaluate_in_box_unknown_exec_name_fails_closed(tmp_path: Path) ->
 
 
 @pytest.mark.asyncio
-async def test_evaluate_in_box_exec_without_named_map_fails_closed(tmp_path: Path) -> None:
+async def test_evaluate_in_box_exec_without_named_map_uses_scoring_host(tmp_path: Path) -> None:
     from ageval.attempt.ctx import AttemptCtx
     from ageval.plugins.defaults import register_defaults
     from ageval.plugins.protocol import BindingIntent, ExplicitBinding
@@ -318,8 +318,12 @@ async def test_evaluate_in_box_exec_without_named_map_fails_closed(tmp_path: Pat
     task.mkdir()
     (task / "evaluator.py").write_text(
         "async def evaluate(inputs):\n"
-        "    await inputs['scoring'].exec('audit', ['echo', 'ok'])\n"
-        "    return {'status': 'PASS', 'score': 1.0}\n",
+        "    result = await inputs['scoring'].exec('verifier', ['echo', 'ok'])\n"
+        "    return {\n"
+        "        'status': 'PASS' if result.exit_code == 0 else 'FAIL',\n"
+        "        'score': 1.0 if result.ok else 0.0,\n"
+        "        'metrics': {'stdout': result.stdout.strip()},\n"
+        "    }\n",
         encoding="utf-8",
     )
     evidence = AttemptEvidenceStore(root=tmp_path / "run", attempt_id="a", run_id="r")
@@ -360,7 +364,8 @@ async def test_evaluate_in_box_exec_without_named_map_fails_closed(tmp_path: Pat
     )
     ctx.mark_writers_stopped()
     ctx.phase = "evaluate"
-    with pytest.raises(RuntimeError, match="unknown_evaluate_environment"):
-        await evaluate_in_box(ctx)
+    verdict = await evaluate_in_box(ctx)
+    assert verdict["status"] == "PASS"
+    assert verdict["metrics"]["stdout"] == "ok-from-box"
     assert singular.started is False
-    assert singular.execs == []
+    assert singular.execs == [["echo", "ok"]]
