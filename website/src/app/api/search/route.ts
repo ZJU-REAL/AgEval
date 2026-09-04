@@ -1,13 +1,12 @@
 import { source } from "@/lib/source";
 import { createFromSource } from "fumadocs-core/search/server";
-import { createTokenizer } from "@orama/tokenizers/mandarin";
 
-export const { GET } = createFromSource(source, {
+export const revalidate = false;
+
+/** `zh-CN` is not an Orama language; empty options keep the default tokenizer. */
+export const { staticGET: GET } = createFromSource(source, {
   localeMap: {
-    en: { language: "english" },
-    "zh-CN": {
-      components: { tokenizer: createTokenizer() },
-      search: { threshold: 0, tolerance: 0 },
-    },
+    en: "english",
+    "zh-CN": {},
   },
 });

@@ -4,6 +4,7 @@ import { useRef } from "react";
 import Link from "next/link";
 import { OwlFlatIcon } from "@/components/owl-flat";
 import type { SiteLocale } from "@/lib/i18n";
+import { sitePath } from "@/lib/shared";
 import type { LandingCopy } from "./copy";
 
 type LandingNavProps = {
@@ -49,7 +50,7 @@ export function LandingNav({ lang, copy, navAria, repoUrl }: LandingNavProps) {
               </a>
             ),
           )}
-          <a href={`/${otherLang}`}>{copy.lang}</a>
+          <a href={sitePath(`/${otherLang}`)}>{copy.lang}</a>
           <details ref={drawerRef} className="nav-drawer">
             <summary className="nav-drawer-btn">{copy.menu}</summary>
             <div className="nav-drawer-panel">
@@ -64,7 +65,7 @@ export function LandingNav({ lang, copy, navAria, repoUrl }: LandingNavProps) {
                   </a>
                 ),
               )}
-              <a href={`/${otherLang}`} onClick={closeDrawer}>
+              <a href={sitePath(`/${otherLang}`)} onClick={closeDrawer}>
                 {copy.lang}
               </a>
             </div>

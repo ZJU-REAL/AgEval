@@ -10,7 +10,7 @@ import { StartCode } from "@/components/landing/start-code";
 import { CoreFlow } from "@/components/landing/core-flow";
 import { DemoVideo } from "@/components/landing/demo-video";
 import { isSiteLocale } from "@/lib/i18n";
-import { gitConfig, hubSiteUrl } from "@/lib/shared";
+import { gitConfig, hubSiteUrl, sitePath } from "@/lib/shared";
 
 /** GitHub invertocat. Fill uses currentColor. Path matches hub `GitHubIcon`. */
 function GitHubMark() {
@@ -155,7 +155,7 @@ export default async function HomePage({ params }: { params: Promise<HomeParams>
                 repoLabel={text.hero.primary}
                 hubLabel={text.hero.hub}
                 docsLabel={text.hero.secondary}
-                docsHref={`/${lang}/docs`}
+                docsHref={sitePath(`/${lang}/docs`)}
                 demo={{
                   label: text.hero.demo,
                   title: text.hero.demoAria,
@@ -340,7 +340,7 @@ export default async function HomePage({ params }: { params: Promise<HomeParams>
               repoLabel={text.cta.primary}
               hubLabel={text.cta.hub}
               docsLabel={text.cta.docs}
-              docsHref={`/${lang}/docs`}
+              docsHref={sitePath(`/${lang}/docs`)}
               demo={{
                 label: text.hero.demo,
                 title: text.hero.demoAria,

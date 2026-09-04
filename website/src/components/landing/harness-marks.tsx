@@ -1,4 +1,5 @@
 import type { SVGProps } from "react";
+import { assetPath } from "@/lib/shared";
 import { DSH_WHALE_PATH } from "./dsh-whale";
 
 /**
@@ -39,18 +40,18 @@ export function DshMark(props: MarkProps) {
 }
 
 export const HARNESSES: readonly Harness[] = [
-  { id: "claude-code", name: "Claude Code", src: "/images/harness/claude-code.svg" },
-  { id: "codex", name: "Codex", src: "/images/harness/codex.svg" },
-  { id: "pi", name: "Pi", src: "/images/harness/pi.svg" },
-  { id: "opencode", name: "OpenCode", src: "/images/harness/opencode.svg" },
+  { id: "claude-code", name: "Claude Code", src: assetPath("/images/harness/claude-code.svg") },
+  { id: "codex", name: "Codex", src: assetPath("/images/harness/codex.svg") },
+  { id: "pi", name: "Pi", src: assetPath("/images/harness/pi.svg") },
+  { id: "opencode", name: "OpenCode", src: assetPath("/images/harness/opencode.svg") },
   { id: "dsh", name: "DSH", Mark: DshMark },
-  { id: "nooa", name: "NOOA", src: "/images/harness/nooa.svg" },
-  { id: "miniswe", name: "mini-SWE-agent", src: "/images/harness/miniswe.svg" },
+  { id: "nooa", name: "NOOA", src: assetPath("/images/harness/nooa.svg") },
+  { id: "miniswe", name: "mini-SWE-agent", src: assetPath("/images/harness/miniswe.svg") },
 ];
 
 /** Environments a plugin can swap; same marquee row as the harnesses. */
 export const ENVIRONMENTS: readonly Harness[] = [
-  { id: "e2b", name: "E2B", src: "/images/harness/e2b.svg" },
-  { id: "daytona", name: "Daytona", src: "/images/harness/daytona.svg" },
-  { id: "docker", name: "Docker", src: "/images/harness/docker.svg" },
+  { id: "e2b", name: "E2B", src: assetPath("/images/harness/e2b.svg") },
+  { id: "daytona", name: "Daytona", src: assetPath("/images/harness/daytona.svg") },
+  { id: "docker", name: "Docker", src: assetPath("/images/harness/docker.svg") },
 ];

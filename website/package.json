@@ -3,16 +3,16 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "build": "next build",
+    "build": "next build && node scripts/post-export.mjs",
     "dev": "next dev",
-    "start": "next start",
+    "start": "npx --yes serve@14 out -p 3000",
     "typecheck": "fumadocs-mdx && next typegen && tsc --noEmit",
     "postinstall": "fumadocs-mdx",
     "lint": "eslint"
   },
   "dependencies": {
     "@fumadocs/language": "^0.2.1",
-    "@orama/tokenizers": "^3.1.16",
+    "@orama/orama": "^3.1.18",
     "fumadocs-core": "16.11.5",
     "fumadocs-mdx": "15.2.0",
     "fumadocs-ui": "npm:@fumadocs/base-ui@16.11.5",

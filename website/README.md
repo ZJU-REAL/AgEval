@@ -41,6 +41,7 @@ Open `http://localhost:3000`. Default locale is Simplified Chinese at `/zh-CN`; 
 | Env | Meaning |
 | --- | --- |
 | `NEXT_PUBLIC_HUB_URL` | Homepage CTA and docs sidebar link to the Hub SPA. Unset = `http://127.0.0.1:5174`. Empty = hide. |
+| `NEXT_PUBLIC_BASE_PATH` | URL prefix for GitHub project Pages (`/ageval`). Unset for a domain root. Build-time. |
 
 ## Content layout
 
@@ -76,26 +77,30 @@ pnpm --dir website typecheck
 pnpm --dir website build
 ```
 
-## Self-host (Docker)
+## Static export
 
-The site runs as a **Next.js standalone server** — the search API (`/api/search`, Mandarin tokenizer) and the i18n middleware need a Node runtime; TLS stays on the operator's Caddy/nginx in front.
-
-From the repo root:
+`pnpm build` writes HTML to `out/` (`output: "export"`). Search indexes are baked into `search-index.json` and queried in the browser. There is no Node server and no locale-detecting middleware: `/` redirects to `/zh-CN/`; `/en/` is the English site. Chinese queries use the default tokenizer (no Mandarin segmenter).
 
 ```sh
-# build locally
-docker compose -f website/docker-compose.yml up -d --build
-
-# or pull a released image
-export AGEVAL_IMAGE_TAG=<tag>
-docker compose -f website/docker-compose.yml pull && docker compose -f website/docker-compose.yml up -d
+pnpm --dir website build
+pnpm --dir website start   # http://127.0.0.1:3000
 ```
 
-Serves on port `3000`. `NEXT_PUBLIC_HUB_URL` (Hub SPA link on homepage/docs sidebar) is **build-time**; pass it as an env when building:
+## GitHub Pages
+
+Push to `main` (paths under `website/` or the workflow file) runs [`.github/workflows/website-pages.yml`](../.github/workflows/website-pages.yml): `pnpm build` with `NEXT_PUBLIC_BASE_PATH=/ageval` and the production Hub URL, then uploads `website/out`. The site is `https://zju-real.github.io/ageval/`.
+
+Repo Settings → Pages → Source must be **GitHub Actions**.
+
+To preview the Pages-shaped build locally (links are under `/ageval/`):
 
 ```sh
-NEXT_PUBLIC_HUB_URL=https://hub.example.com docker compose -f website/docker-compose.yml build
+NEXT_PUBLIC_BASE_PATH=/ageval NEXT_PUBLIC_HUB_URL=https://120.46.13.24/ pnpm --dir website build
+mkdir -p /tmp/ageval-pages && rm -rf /tmp/ageval-pages/ageval && cp -R website/out /tmp/ageval-pages/ageval
+python3 -m http.server 3000 --bind 127.0.0.1 --directory /tmp/ageval-pages
 ```
+
+Open http://127.0.0.1:3000/ageval/ .
 
 ## Not in scope here
 
