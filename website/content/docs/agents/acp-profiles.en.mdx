@@ -48,4 +48,4 @@ ageval run <dataset> --task <id> \
   --set '/parameters/active_profile="main"'
 ```
 
-One ACP client in the parent process. Without editing files, `--agent pi --model glm-4.7` picks this run's agent and model; non-ACP agent runtimes take a whole `--profiles` file instead.
+One ACP client in the parent process; each vendor's protocol translation runs outside the process, in the entry. `--agent pi --model glm-4.7` picks this run's agent and model directly; non-ACP agent runtimes take a whole `--profiles` file instead.
