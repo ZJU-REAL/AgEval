@@ -505,7 +505,7 @@ class DockerHost:
 
 def _box_python_version(raw: object) -> str | None:
     """Job ``environment_options.python_version``. None = the official 3.12 base."""
-    if raw is None or raw == "":
+    if raw is None:
         return None
     text = _text(raw)
     if text is None or not _PYTHON_VERSION_RE.fullmatch(text):

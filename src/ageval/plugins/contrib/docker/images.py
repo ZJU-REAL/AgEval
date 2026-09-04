@@ -34,7 +34,10 @@ PACKAGE_TAG_PREFIX = "ageval-pkg"
 BASE_LOCK_PATH = Path(".ageval") / "runtime-images" / "attempt-base.json"
 DEFAULT_PYTHON_VERSION = "3.12"
 
-_BASE_FROM_RE = re.compile(r"^FROM\s+ageval-attempt:base\b", re.IGNORECASE | re.MULTILINE)
+_BASE_FROM_RE = re.compile(
+    r"^FROM(?P<flags>(?:\s+--[^\s]+)*)\s+ageval-attempt:base\b",
+    re.IGNORECASE | re.MULTILINE,
+)
 _COPY_HEAD = re.compile(r"^(COPY|ADD)\s+", re.IGNORECASE)
 _SKIP_COPY_NAMES = frozenset({".ageval", ".git", "__pycache__", "node_modules"})
 _DIGEST_FORMAT = "{{if .RepoDigests}}{{index .RepoDigests 0}}{{else}}{{.Id}}{{end}}"
@@ -309,7 +312,7 @@ def _recipe_text(task_root: Path, dockerfile_rel: str | None, base_tag: str = BA
     recipe = dockerfile.read_text(encoding="utf-8")
     if base_tag == BASE_TAG:
         return recipe
-    return _BASE_FROM_RE.sub(f"FROM {base_tag}", recipe)
+    return _BASE_FROM_RE.sub(lambda m: f"FROM{m.group('flags')} {base_tag}", recipe)
 
 
 def content_digest(

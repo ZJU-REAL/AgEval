@@ -12,9 +12,8 @@ from ageval.plugins.contrib.docker import images
 from ageval.plugins.contrib.docker.host import DockerHost, _box_python_version
 
 
-@pytest.mark.parametrize("raw", [None, ""])
-def test_python_version_omitted_is_none(raw: object) -> None:
-    assert _box_python_version(raw) is None
+def test_python_version_omitted_is_none() -> None:
+    assert _box_python_version(None) is None
 
 
 @pytest.mark.parametrize("raw", ["3.9", "3.10", "3.13"])
@@ -22,7 +21,7 @@ def test_python_version_accepts_minor(raw: str) -> None:
     assert _box_python_version(raw) == raw
 
 
-@pytest.mark.parametrize("raw", ["latest", "3", "  ", "3.13.1", True, 3.13])
+@pytest.mark.parametrize("raw", ["", "latest", "3", "  ", "3.13.1", True, 3.13])
 def test_python_version_rejects_other_shapes(raw: object) -> None:
     with pytest.raises(EnvironmentFailure, match="CPython minor"):
         _box_python_version(raw)
@@ -63,6 +62,15 @@ def test_bare_recipe_uses_versioned_base() -> None:
         images._recipe_text(Path("."), None, "ageval-attempt:py3.13")
         == "FROM ageval-attempt:py3.13\n"
     )
+
+
+def test_recipe_from_with_build_flags_resolves_onto_versioned_base(tmp_path: Path) -> None:
+    text = "FROM --platform=linux/arm64 ageval-attempt:base\nRUN pip install x\n"
+    recipe = tmp_path / "Dockerfile"
+    recipe.write_text(text, encoding="utf-8")
+    assert images._recipe_text(tmp_path, "Dockerfile") == text
+    resolved = images._recipe_text(tmp_path, "Dockerfile", "ageval-attempt:py3.13")
+    assert resolved.startswith("FROM --platform=linux/arm64 ageval-attempt:py3.13\n")
 
 
 def test_content_digest_separates_python_bases(tmp_path: Path) -> None:
