@@ -29,7 +29,7 @@
   - [安装 skills](#安装-skills)
   - [从源码开发](#从源码开发)
 - [✨ 功能](#功能)
-  - [Screenshots](#screenshots)
+  - [截图](#截图)
 - [⚙️ 如何运行](#如何运行)
   - [整体链路](#整体链路)
   - [基座总览](#基座总览)
@@ -119,11 +119,29 @@ uv run ageval view examples/datasets/minimal-demo --no-browser
 
 把 dataset、插件、Agent 包和评测结果上传到 ageval Hub。榜单上的成绩会标明用的 Agent 和环境；已发布的 Agent 可用 `--agent` 直接拉取；也可以按模型横向对比。
 
-### Screenshots
+### 截图
 
-|                                                 插件市场                                                  |                                            本地 Viewer                                            |                                             Hub 上比较模型                                              |
-| :-------------------------------------------------------------------------------------------------------: | :-----------------------------------------------------------------------------------------------: | :-----------------------------------------------------------------------------------------------------: |
-| <img src="docs/assets/demo/plugins-marketplace.png" alt="插件市场：环境与 Agent 运行时插件" width="100%"> | <img src="docs/assets/demo/viewer-trajectory.png" alt="本地 Viewer：轨迹与事件明细" width="100%"> | <img src="docs/assets/demo/agent-model-compare.png" alt="在 Agent Hub 中比较不同模型表现" width="100%"> |
+| 插件市场 | Hub 上比较模型 |
+| :---: | :---: |
+| <img src="docs/assets/demo/plugins-marketplace.png" alt="插件市场：环境与 Agent 运行时插件" width="100%"> | <img src="docs/assets/demo/agent-model-compare.png" alt="在 Agent Hub 中比较不同模型表现" width="100%"> |
+
+<details>
+<summary>更多截图</summary>
+<br/>
+
+<p align="center">nooa 插件详情：NVIDIA 官方 Agent 运行时</p>
+<p align="center"><img src="docs/assets/demo/nooa-plugin.png" alt="nooa 插件详情：NVIDIA 官方 Agent 运行时" width="90%"></p>
+
+<p align="center">Leaderboard：不同环境与 Agent 组合下的成绩</p>
+<p align="center"><img src="docs/assets/demo/leaderboard.png" alt="Hub Leaderboard：不同环境与 Agent 组合下的评测成绩" width="90%"></p>
+
+<p align="center">Models Hub：按模型看成功率和成本</p>
+<p align="center"><img src="docs/assets/demo/models-hub.png" alt="Models Hub：以模型为主维度的全景观测面板" width="90%"></p>
+
+<p align="center">Model 详情：同一模型在不同 dataset 和 Agent 下的表现</p>
+<p align="center"><img src="docs/assets/demo/model-detail.png" alt="Model 详情：模型在各个 dataset 和不同 Agent 下的表现明细" width="90%"></p>
+
+</details>
 
 <div align="right">
 

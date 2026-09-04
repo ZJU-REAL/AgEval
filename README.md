@@ -121,9 +121,27 @@ Upload datasets, plugins, Agent packages, and results to ageval Hub. Leaderboard
 
 ### Screenshots
 
-| Plugin marketplace | Local Viewer | Compare models on Hub |
-| :---: | :---: | :---: |
-| <img src="docs/assets/demo/plugins-marketplace.png" alt="Plugin marketplace: environment and agent runtime plugins" width="100%"> | <img src="docs/assets/demo/viewer-trajectory.png" alt="Local Viewer: trajectory and event detail" width="100%"> | <img src="docs/assets/demo/agent-model-compare.png" alt="Compare models under one Agent on Hub" width="100%"> |
+| Plugin marketplace | Compare models on Hub |
+| :---: | :---: |
+| <img src="docs/assets/demo/plugins-marketplace.png" alt="Plugin marketplace: environment and agent runtime plugins" width="100%"> | <img src="docs/assets/demo/agent-model-compare.png" alt="Compare models under one Agent on Hub" width="100%"> |
+
+<details>
+<summary>More screenshots</summary>
+<br/>
+
+<p align="center">nooa plugin: NVIDIA's official agent runtime</p>
+<p align="center"><img src="docs/assets/demo/nooa-plugin.png" alt="nooa plugin detail: NVIDIA official agent runtime" width="90%"></p>
+
+<p align="center">Leaderboard: scores bound to environment and Agent</p>
+<p align="center"><img src="docs/assets/demo/leaderboard.png" alt="Hub leaderboard: scores for environment and Agent combinations" width="90%"></p>
+
+<p align="center">Models Hub: success rate and cost by model</p>
+<p align="center"><img src="docs/assets/demo/models-hub.png" alt="Models Hub: panorama of models across datasets and Agents" width="90%"></p>
+
+<p align="center">Model detail: one model across datasets and Agents</p>
+<p align="center"><img src="docs/assets/demo/model-detail.png" alt="Model detail: performance on each dataset and Agent" width="90%"></p>
+
+</details>
 
 <div align="right">
 
