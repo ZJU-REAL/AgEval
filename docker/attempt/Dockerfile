@@ -3,7 +3,9 @@
 # Build once (docker/attempt/build.py); packages FROM ageval-attempt:l1 or extend upstream.
 # Python ACP SDK stays on the parent host — never installed here.
 
-FROM python:3.12-slim-bookworm
+# Base CPython minor; build.py passes --build-arg to pick another 3.x.
+ARG PYTHON_VERSION=3.12
+FROM python:${PYTHON_VERSION}-slim-bookworm
 
 USER root
 # Optional host build-args (empty = official Debian / PyPI). Applied before

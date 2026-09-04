@@ -4,6 +4,11 @@ Usage:
   uv run python docker/attempt/build.py --platform linux/arm64 \\
       --output-lock .ageval/runtime-images/provider-l1.json
 
+``--python-version`` selects the base CPython minor (default 3.12). The
+Dockerfile resolves ``FROM python:${PYTHON_VERSION}-slim-bookworm``; a
+non-default version also switches the default ``--tag`` to the versioned
+``ageval-attempt:py<version>`` so bases coexist instead of overwriting.
+
 Optional process / host-env knobs (empty = official Debian / PyPI):
 
   AGEVAL_APT_MIRROR   e.g. http://mirrors.aliyun.com/debian
@@ -22,6 +27,7 @@ import argparse
 import hashlib
 import json
 import os
+import re
 import subprocess
 import sys
 from pathlib import Path
@@ -32,6 +38,24 @@ if str(_SRC) not in sys.path:
     sys.path.insert(0, str(_SRC))
 
 BUILD_INPUT_NAMES = ("Dockerfile", "install-executors.sh", "acp-entries.lock.json")
+DEFAULT_PYTHON_VERSION = "3.12"
+_PYTHON_VERSION_RE = re.compile(r"^\d+\.\d+$")
+
+
+def valid_python_version(text: str) -> bool:
+    """A CPython minor like ``3.13``; ``latest`` / ``3`` / empty are not."""
+    return _PYTHON_VERSION_RE.fullmatch(text) is not None
+
+
+def versioned_tag(version: str) -> str:
+    return f"ageval-attempt:py{version}"
+
+
+def default_tag(python_version: str) -> str:
+    """3.12 keeps the historical ``l1`` tag; other versions get their own."""
+    if python_version == DEFAULT_PYTHON_VERSION:
+        return "ageval-attempt:l1"
+    return versioned_tag(python_version)
 
 
 def official_attempt_dir(root: Path) -> Path:
@@ -45,9 +69,11 @@ def prepare_official_build_env(root: Path) -> tuple[str, str]:
     ).strip()
 
 
-def official_build_input_digest(attempt_dir: Path, *, apt_mirror: str, pip_index: str) -> str:
+def official_build_input_digest(
+    attempt_dir: Path, *, apt_mirror: str, pip_index: str, python_version: str
+) -> str:
     hasher = hashlib.sha256()
-    hasher.update(f"{apt_mirror}\n{pip_index}\n".encode())
+    hasher.update(f"{apt_mirror}\n{pip_index}\n{python_version}\n".encode())
     for name in BUILD_INPUT_NAMES:
         path = attempt_dir / name
         if not path.is_file():
@@ -64,12 +90,14 @@ def official_buildx_command(
     context: Path,
     apt_mirror: str,
     pip_index: str,
+    python_version: str,
 ) -> list[str]:
     cmd = ["docker", "build", "--platform", platform, "-f", str(dockerfile), "-t", tag]
     if apt_mirror:
         cmd.extend(["--build-arg", f"AGEVAL_APT_MIRROR={apt_mirror}"])
     if pip_index:
         cmd.extend(["--build-arg", f"AGEVAL_PIP_INDEX={pip_index}"])
+    cmd.extend(["--build-arg", f"PYTHON_VERSION={python_version}"])
     cmd.append(str(context))
     return cmd
 
@@ -86,12 +114,29 @@ def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("--platform", default="linux/arm64")
     parser.add_argument(
+        "--python-version",
+        default=DEFAULT_PYTHON_VERSION,
+        help="base CPython minor, e.g. 3.13 (default 3.12)",
+    )
+    parser.add_argument(
         "--output-lock",
         type=Path,
         default=Path(".ageval/runtime-images/provider-l1.json"),
     )
-    parser.add_argument("--tag", default="ageval-attempt:l1")
+    parser.add_argument("--tag", default=None)
     args = parser.parse_args(argv)
+
+    python_version = args.python_version.strip()
+    if not valid_python_version(python_version):
+        print(
+            f"invalid --python-version {args.python_version!r}: expected a CPython minor like 3.13",
+            file=sys.stderr,
+        )
+        return 2
+
+    tag = args.tag
+    if tag is None:
+        tag = default_tag(python_version)
 
     root = _REPO_ROOT
     attempt_dir = official_attempt_dir(root)
@@ -107,6 +152,7 @@ def main(argv: list[str] | None = None) -> int:
             attempt_dir,
             apt_mirror=apt_mirror,
             pip_index=pip_index,
+            python_version=python_version,
         )
     except FileNotFoundError as exc:
         print(str(exc), file=sys.stderr)
@@ -117,11 +163,12 @@ def main(argv: list[str] | None = None) -> int:
 
     cmd = official_buildx_command(
         dockerfile=dockerfile,
-        tag=args.tag,
+        tag=tag,
         platform=args.platform,
         context=attempt_dir,
         apt_mirror=apt_mirror,
         pip_index=pip_index,
+        python_version=python_version,
     )
     proc = subprocess.run(cmd, check=False, capture_output=True, text=True)
     if proc.returncode != 0:
@@ -129,7 +176,7 @@ def main(argv: list[str] | None = None) -> int:
         return proc.returncode
 
     inspect = subprocess.run(
-        ["docker", "image", "inspect", args.tag, "--format", "{{json .Id}}"],
+        ["docker", "image", "inspect", tag, "--format", "{{json .Id}}"],
         check=False,
         capture_output=True,
         text=True,
@@ -143,7 +190,7 @@ def main(argv: list[str] | None = None) -> int:
             "docker",
             "image",
             "inspect",
-            args.tag,
+            tag,
             "--format",
             "{{if .RepoDigests}}{{index .RepoDigests 0}}{{else}}{{.Id}}{{end}}",
         ],
@@ -161,7 +208,7 @@ def main(argv: list[str] | None = None) -> int:
             "--rm",
             "--user",
             "10001:10001",
-            args.tag,
+            tag,
             "bash",
             "-c",
             "command -v codex && command -v codex-acp && "
@@ -182,14 +229,15 @@ def main(argv: list[str] | None = None) -> int:
     lock = {
         "kind": "docker-attempt",
         "platform": args.platform,
-        "image_tag": args.tag,
+        "python_version": python_version,
+        "image_tag": tag,
         "image_id": image_id,
         "image_digest": image_digest,
         "build_input_digest": f"sha256:{build_input}",
         "build_input_files": list(BUILD_INPUT_NAMES),
         "acp_entries_lock": pin_doc,
         "generator": "docker/attempt/build.py",
-        "runtime_abi": "python3.12",
+        "runtime_abi": f"python{python_version}",
         "actor_uid_path_probe": "ok",
     }
     args.output_lock.parent.mkdir(parents=True, exist_ok=True)
