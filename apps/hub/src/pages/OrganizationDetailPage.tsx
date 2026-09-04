@@ -733,8 +733,8 @@ export function OrganizationDetailPage() {
                         <TableHeader>
                           <TableRow className="hover:bg-transparent">
                             <TableHead>Member</TableHead>
-                            <TableHead>Role</TableHead>
-                            <TableHead className="text-right w-[1%]">
+                            <TableHead className="w-36">Role</TableHead>
+                            <TableHead className="w-56 text-right">
                               Actions
                             </TableHead>
                           </TableRow>
@@ -791,7 +791,7 @@ export function OrganizationDetailPage() {
                                     </SelectContent>
                                   </Select>
                                 </TableCell>
-                                <TableCell className="text-right">
+                                <TableCell className="overflow-visible text-right">
                                   <div className="flex justify-end gap-2">
                                     {!isSelf ? (
                                       <Button
@@ -947,7 +947,7 @@ export function OrganizationDetailPage() {
                             <TableHead>Uses</TableHead>
                             <TableHead>Expires</TableHead>
                             <TableHead>Status</TableHead>
-                            <TableHead className="text-right w-[1%]">
+                            <TableHead className="w-32 text-right">
                               Actions
                             </TableHead>
                           </TableRow>
@@ -981,7 +981,7 @@ export function OrganizationDetailPage() {
                                 <TableCell className="capitalize text-body">
                                   {status}
                                 </TableCell>
-                                <TableCell className="text-right">
+                                <TableCell className="overflow-visible text-right">
                                   <Button
                                     type="button"
                                     variant="dangerOutline"
