@@ -253,7 +253,8 @@ html:has(.ageval-landing) body {
     transform 200ms var(--ease);
 }
 
-.ageval-landing .hero-ctas .btn svg {
+.ageval-landing .hero-ctas .btn svg,
+.ageval-landing .hero-ctas .btn img {
   width: 16px;
   height: 16px;
   flex-shrink: 0;
