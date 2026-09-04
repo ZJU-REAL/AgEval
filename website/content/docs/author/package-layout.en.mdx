@@ -54,13 +54,13 @@ Homogeneous multi-task packages can keep shared bridges and domain assets under 
 | `shared/assets/` | Read-only fixtures / policy / db | code paths |
 | `tasks/*/lib/` | Task-only extensions | `from lib…` |
 
-Runtime path prefix is **`[task_dir, dataset_root]`** — the `shared/lib` leaf is **not** injected as a path root.
+The Core-injected path prefix is **`[task_dir, dataset_root]`** — the `shared/lib` leaf is **not** injected as a path root.
 
 Hard rules (summary):
 
 - If present, `shared/**` **must** enter `packageDigest` / the publish blob  
 - Not Agent-mounted by default; gold stays under `tasks/*/evaluation/` only  
-- Task members must **not** own top-level name `shared` (`shared/` dir or `shared.py`) — lock fails closed  
+- Task members must **not** own top-level name `shared` (`shared/` dir or `shared.py`) — lock fails  
 - Same stem under `shared/lib` and `tasks/*/lib` is **allowed** (namespaces differ)  
 - Core never silently COPYs `shared/` into docker images — task Dockerfile must declare it and put **dataset root** on `PYTHONPATH`  
 - Author gate: `uv run python scripts/check_shared_lib_collisions.py <dataset-root>`  
@@ -83,8 +83,8 @@ Do **not** put `harness` / `provider` / `agent_profiles` / `evaluation` on the r
 ## parameters vs envelope
 
 - **`parameters`** → `run.py` (`ctx.params`)
-- **`limits` / `evaluation` / `environment/`** → Runtime
-- Box and ACP entry → root `profiles.yaml`
+- **`limits` / `evaluation` / `environment/`** → Core
+- Environment and ACP entry → root `profiles.yaml`
 
 No second config truth in `run.py`. Runtime knobs: `--set` ([CLI](/docs/reference/cli)).
 
