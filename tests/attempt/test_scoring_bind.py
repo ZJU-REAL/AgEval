@@ -227,7 +227,7 @@ async def test_scoring_host_binds_at_evaluate_with_nested_options_and_layers(
 
 
 @pytest.mark.asyncio
-async def test_scoring_options_without_nested_map_inherit_platform_user_only(
+async def test_scoring_options_without_nested_map_inherit_platform_user_python(
     tmp_path: Path,
     fake_layers: list[str],
 ) -> None:
@@ -240,6 +240,7 @@ async def test_scoring_options_without_nested_map_inherit_platform_user_only(
                 "network": "bridge",
                 "platform": "linux/arm64",
                 "user": "root",
+                "python_version": "3.13",
             },
             "evaluate_host": {"isolated": True},
         },
@@ -257,9 +258,14 @@ async def test_scoring_options_without_nested_map_inherit_platform_user_only(
     await _ensure_evaluate_host(ctx)
 
     options = created[0]["options"]
-    # Non-inheritance: agent network/egress stay agent-only; platform/user and
-    # the scoring image are the whole story.
-    assert options == {"platform": "linux/arm64", "user": "root", "image": "ageval-eval:grader"}
+    # Non-inheritance: agent network/egress stay agent-only; platform/user,
+    # python_version and the scoring image are the whole story.
+    assert options == {
+        "platform": "linux/arm64",
+        "user": "root",
+        "python_version": "3.13",
+        "image": "ageval-eval:grader",
+    }
 
 
 def test_scoring_layers_follow_seal_set(tmp_path: Path, fake_layers: list[str]) -> None:

@@ -190,8 +190,9 @@ def _scoring_environment_options(
     """Two boxes, two option maps.
 
     Declared ``evaluate_host.environment_options`` wins whole. Omitted, the
-    scoring box keeps today's non-inheritance: only ``platform`` / ``user``
-    from the job map, never the agent ``egress`` / ``network`` or image.
+    scoring box keeps today's non-inheritance: only ``platform`` / ``user`` /
+    ``python_version`` from the job map, never the agent ``egress`` /
+    ``network`` or image.
     """
     overlay = thaw(getattr(ctx.lock, "job_overlay", None) or {})
     host = overlay.get("evaluate_host") if isinstance(overlay.get("evaluate_host"), dict) else {}
@@ -203,7 +204,7 @@ def _scoring_environment_options(
         options = {
             key: value
             for key, value in (job_options.items() if isinstance(job_options, dict) else [])
-            if key in {"platform", "user"}
+            if key in {"platform", "user", "python_version"}
         }
     image = (recipe or {}).get("docker_image")
     if not (isinstance(image, str) and image.strip()):
