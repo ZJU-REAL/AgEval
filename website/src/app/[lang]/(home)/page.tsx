@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
-import { BookOpen, Orbit } from "lucide-react";
+import { BookOpen, Copyright, Orbit } from "lucide-react";
 import { landingCopy } from "@/components/landing/copy";
 import { LandingNav } from "@/components/landing/landing-nav";
 import { HeroSignal } from "@/components/landing/hero-signal";
@@ -27,7 +27,6 @@ function GitHubMark() {
 }
 
 const repoUrl = `https://github.com/${gitConfig.user}/${gitConfig.repo}`;
-const designUrl = `https://github.com/${gitConfig.user}/${gitConfig.repo}/tree/${gitConfig.branch}/docs/design`;
 const hubUrl = hubSiteUrl();
 
 type HeroCtasDemo = {
@@ -255,22 +254,37 @@ export default async function HomePage({ params }: { params: Promise<HomeParams>
               <span className="sec-name">{text.eval.name}</span>
             </div>
             <h2>{text.eval.title}</h2>
-            <div className="barrier">
-              <div>
-                <p className="lead">{text.eval.lead}</p>
-                <p className="ne" aria-hidden="true">
-                  {text.eval.neLeft} <span>≠</span> {text.eval.neRight}
-                </p>
-              </div>
-              <dl className="barrier-note">
-                {text.eval.steps.map(([dt, dd]) => (
-                  <div key={dt}>
-                    <dt>{dt}</dt>
-                    <dd>{dd}</dd>
-                  </div>
+            <p className="lead">{text.eval.lead}</p>
+            <table className="skill-table">
+              <caption>{text.eval.tableAria}</caption>
+              <thead>
+                <tr>
+                  {text.eval.columns.map((col) => (
+                    <th key={col} scope="col">
+                      {col}
+                    </th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {text.eval.skills.map(([name, body]) => (
+                  <tr key={name}>
+                    <th scope="row">
+                      <code>{name}</code>
+                    </th>
+                    <td>{body}</td>
+                  </tr>
                 ))}
-              </dl>
-            </div>
+              </tbody>
+            </table>
+            <dl className="barrier-note skill-steps">
+              {text.eval.steps.map(([dt, dd]) => (
+                <div key={dt}>
+                  <dt>{dt}</dt>
+                  <dd>{dd}</dd>
+                </div>
+              ))}
+            </dl>
           </div>
         </section>
 
@@ -353,15 +367,13 @@ export default async function HomePage({ params }: { params: Promise<HomeParams>
 
       <footer>
         <div className="wrap foot">
-          <div>
-            <a className="logo" href="#top">
-              ageval<span>.</span>
-            </a>
-            <p>{text.footer.body}</p>
-          </div>
-          <small>
-            <a href={designUrl}>{text.footer.mark}</a>
-          </small>
+          <a className="logo" href="#top">
+            ageval<span>.</span>
+          </a>
+          <p className="foot-copy">
+            <Copyright aria-hidden="true" />
+            {text.footer.copy}
+          </p>
         </div>
       </footer>
     </div>

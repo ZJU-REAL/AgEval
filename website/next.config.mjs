@@ -11,6 +11,9 @@ const config = {
   output: "export",
   trailingSlash: true,
   images: { unoptimized: true },
+  // next dev binds localhost; opening 127.0.0.1 is a different origin and
+  // Next 16 blocks /_next/webpack-hmr unless it is listed here.
+  allowedDevOrigins: ["127.0.0.1"],
   ...(basePath ? { basePath } : {}),
 };
 

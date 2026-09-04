@@ -28,7 +28,7 @@ export const landingCopy = {
       hub: "前往 Hub",
       secondary: "阅读文档",
       startAria: "开始使用",
-      startTabs: ["快速开始", "源码安装"],
+      startTabs: ["快速开始", "安装源码"],
       copy: "复制",
       copied: "已复制",
       demo: "查看演示",
@@ -37,38 +37,50 @@ export const landingCopy = {
     },
     pactAria: "三个特点",
     pact: [
-      ["SWITCH", "一键切换待评测 Agent", "换 Agent 不改 ageval：装插件，在配置里切一行，同一份 dataset 原样跑。"],
-      ["TEACH", "让 Agent 学会自动评测", "装上 CLI 和 skill，让 Agent 能设计、转化 benchmark，并自动跑评测。"],
-      ["HUB", "在 Hub 上分享与复用", "在 ageval Hub 上分享或复用 dataset、插件和 Agent 配置，并上传评测结果。"],
+      [
+        "SWITCH",
+        "一键切换待评测 Agent",
+        "换 Agent 不改 ageval：装插件，在配置里切一行，同一份 dataset 原样跑。",
+      ],
+      [
+        "TEACH",
+        "让 Agent 学会自动评测",
+        "装上 CLI 和 skill，让 Agent 能设计、转化 benchmark，并自动跑评测。",
+      ],
+      [
+        "HUB",
+        "在 Hub 上分享与复用",
+        "在 ageval Hub 上分享或复用 dataset、插件和 Agent 配置，并上传评测结果。",
+      ],
     ] as const,
     problem: {
       index: "// 01",
       name: "The Problem",
-      title: ["评测还在只比模型。", "可你交付的是整个 Agent。"],
+      title: ["评测还在只比模型。", "可真正干活的是 Agent。"],
       items: [
         [
           "01 / MODEL",
           "只换模型名",
-          "提示、工具、流程全都不动，把模型从 A 换成 B，跑一遍记一个分。",
+          "提示词、工具和流程全都不动，把模型从 A 换成 B，跑一遍记一个分。",
         ],
         [
           "02 / RUNTIME",
-          "交付的是整个 Agent",
-          "真正干活的是模型加上它外面的 coding agent；模型只是其中一块。",
+          "实际运行的是 Agent",
+          "决定最终表现的是模型加上外层的 coding agent 运行时；模型只是其中一块。",
         ],
         [
           "03 / DRIFT",
           "换个跑法，分数就变",
-          "同一个模型，接上不同的 coding agent、放进不同的环境，得分和花费都会不一样。",
+          "同一个模型，接上不同的 coding agent、放进不同的环境，任务得分和调用成本都会不一样。",
         ],
         [
           "04 / RECORD",
           "只报模型名，分数没法比",
-          "『模型 X 跑了 80 分』说明不了什么：是哪个 Agent、哪套环境跑出来的？不说清就没法比。",
+          "『模型 X 跑了 80 分』说明不了什么：是哪个 Agent 运行时、哪套环境跑出来的？不说清就没法比。",
         ],
       ] as const,
       solLabel: "SOLUTION →",
-      sol: "ageval 用插件换待评测 Agent，把每次用的组合写进 lock，分数才有得比",
+      sol: "ageval 用插件组合环境与待测 Agent，把每次运行的组合写入不可变的 lock，分数才有得比",
     },
     position: {
       index: "// 02",
@@ -77,7 +89,6 @@ export const landingCopy = {
       lead: "ageval 的运行时基座是一条固定流水线：lock → environment → run → evaluate → record。环境和 Agent 运行时都经插件接入，不必修改基座；装插件，在配置里切一行，同一份 dataset 原样跑。",
       flow: {
         aria: "一次运行的控制流：输入之后从 lock 走到 evidence",
-        svgTitle: "ageval Core 基座：一次运行的构成",
         svgDesc:
           "外部输入（用户、dataset、profiles）经 lock、environment、run、evaluate、record 到达 evidence。插件在 lock、environment、run 接入；limits 与 cleanup 横贯全程。",
         user: "用户",
@@ -105,7 +116,8 @@ export const landingCopy = {
         evaluateMeta: "PASS / FAIL / ERROR",
         evidence: "evidence",
         evidenceMeta: ".ageval/runs/<id>/",
-        coreNote: "ageval Core · 一次运行打开一个环境，run.py 与 evaluator 在其中执行",
+        coreNote:
+          "ageval Core · 一次运行打开一个环境，run.py 与 evaluator 在其中执行",
         limits: "limits · 执行前强制",
         limitsMeta: "(墙钟 · 内存 · 进程 · 调用次数)",
         cleanup: "cleanup · finally 始终执行",
@@ -118,12 +130,30 @@ export const landingCopy = {
         legendPhase: "阶段推进",
         legendPlugin: "插件接入点",
         notes: [
-          ["INPUTS", "用户、dataset、profiles 从外面进来。dataset 写这道题；环境和 Agent 写在 profiles.yaml，不绑进 dataset。"],
-          ["LOCK", "ageval lock 把 dataset、环境和 Agent 定成一份可复现的组合，写入 lock.json。能力或凭证对不上，这里失败，不会开跑。"],
-          ["ENVIRONMENT", "打开一个环境，把 task 文件传进去。本机、Docker、云沙箱或远端：换环境改 profiles，不重写 dataset。"],
-          ["RUN", "run.py 在环境里跑任务循环。loop、本地工具和对 Agent 的调用都写在这份文件里；换环境或换 Agent 不用改它。"],
-          ["EVALUATE", "评分独立，只有 evaluator.py 能给出 PASS。缺省确定性脚本，也可 LLM-as-judge；支持多阶段打分 Host。评测容器的网络策略（如 network: none）与 Agent executor 隔离，gold 到这一阶段才 upload。"],
-          ["RECORD", "分数和轨迹写入 evidence（lock.json · result.json · trajectory.jsonl）。无论结果如何，cleanup 都会执行。"],
+          [
+            "INPUTS",
+            "用户输入、dataset 与 profiles 从外部传入。dataset 定义评测任务；环境和 Agent 写在 profiles.yaml，不绑进 dataset。",
+          ],
+          [
+            "LOCK",
+            "ageval lock 静态解析依赖图（ExtensionGraph），将插件与基座接入点绑定，写入 lock.json。能力或凭证对不上，这里失败，不会开跑。",
+          ],
+          [
+            "ENVIRONMENT",
+            "打开一个环境，把 task 文件传进去。本机、Docker、云沙箱或远端：换环境改 profiles，不重写 dataset。",
+          ],
+          [
+            "RUN",
+            "run.py 在环境里跑任务循环。循环、本地工具和对 Agent 的调用都写在这份文件里；换环境或换 Agent 不用改它。",
+          ],
+          [
+            "EVALUATE",
+            "评分独立，只有 evaluator.py 能给出 PASS。默认确定性脚本，也支持 LLM-as-judge 与多阶段打分。评测容器网络隔离（如 network: none），gold 到这一阶段才 upload。",
+          ],
+          [
+            "RECORD",
+            "分数和轨迹写入 evidence（lock.json · result.json · trajectory.jsonl）。无论结果如何，cleanup 都会执行。",
+          ],
         ] as const,
       },
     },
@@ -133,8 +163,20 @@ export const landingCopy = {
       title: "换环境，不重写 dataset。",
       lead: "同一份 task 在本机、容器、云沙箱、远端上跑。环境是 profiles.yaml 里的一行，经插件接入。",
       items: [
-        ["ENV · LOCAL", "本机目录", "真文件系统，子进程直接跑。", "开箱即跑", false],
-        ["ENV · DOCKER", "本机容器", "同一份 Dockerfile。参考答案到评分才进环境。", "开箱即跑", true],
+        [
+          "ENV · LOCAL",
+          "本机目录",
+          "真文件系统，子进程直接跑。",
+          "开箱即跑",
+          false,
+        ],
+        [
+          "ENV · DOCKER",
+          "本机容器",
+          "同一份 Dockerfile。gold 到评分阶段才进环境。",
+          "开箱即跑",
+          true,
+        ],
         [
           "ENV · E2B / SSH / DAYTONA",
           "云沙箱与远端",
@@ -148,9 +190,19 @@ export const landingCopy = {
       index: "// 04",
       name: "Auto",
       title: "让 Agent 学会自动评测。",
-      lead: "装上 CLI 和 skill，Agent 能设计、转化 benchmark，并自动跑评测。",
-      neLeft: "人盯着跑",
-      neRight: "Agent 自动跑",
+      lead: "装上 CLI 和 skill，Agent 能设计、转化 benchmark，并自动跑评测。内置 skill 按任务装，不必一次全上。",
+      tableAria: "内置 skill",
+      columns: ["Skill", "做什么"],
+      skills: [
+        ["ageval-platform", "进仓库时读：谁 lock、谁打分、红线是什么。"],
+        ["ageval-cli", "跑 lock / run / campaign，看结果、上传。"],
+        [
+          "ageval-config-package",
+          "写 dataset：ageval.yaml、task.yaml、profiles。",
+        ],
+        ["ageval-sdk-harness", "写 run.py：session、工具、publish。"],
+        ["ageval-plugin", "写插件：接环境或 Agent 运行时。"],
+      ] as const,
       steps: [
         ["01 CLI", "uv tool install ageval-cli"],
         ["02 skill", "npx skills add ZJU-REAL/ageval"],
@@ -163,14 +215,26 @@ export const landingCopy = {
       title: "一键切换待评测 Agent。",
       lead: "换 Agent 不改 ageval：装插件，在 profiles 里切一行。环境同理。",
       slots: [
-        ["ENV", "环境插件", "本机 / Docker / 云沙箱 / 远端。缺哪样就补一个插件，基座不动。"],
-        ["AGENT", "Agent 运行时插件", "默认 ACP（pi / Codex / Claude Code / OpenCode）；nooa / dsh / miniswe 走同一条插件路。"],
-        ["LOCK", "装上即检", "插件要的能力或凭证对不上，lock 就失败，不会开始跑。"],
+        [
+          "ENV",
+          "环境插件",
+          "本机 / Docker / 云沙箱 / 远端。缺哪样就补一个插件，基座不动。",
+        ],
+        [
+          "AGENT",
+          "Agent 运行时插件",
+          "默认 ACP（pi / Codex / Claude Code / OpenCode）；nooa / dsh / miniswe 走同一条插件路。",
+        ],
+        [
+          "LOCK",
+          "装上即检",
+          "插件要的能力或凭证对不上，lock 就失败，不会开始跑。",
+        ],
       ] as const,
       exampleTag: "EXAMPLE · DSH",
       exampleTitle: "接入 DeepSeek 官方 harness，没改 ageval 一行源码。",
       exampleBody:
-        "dsh 和 ACP 完全不同，照样以插件进来：装上 extras，profiles 里把 executor 切成 dsh，跑同一份 task。缺 deepseek_api_key 时 lock 失败——装上即检在起作用。",
+        "dsh 与 ACP 机制完全不同，照样以插件方式接入：装上 extras，在 profiles 里把 executor 切成 dsh，同一份 task 原样开跑。缺少 DEEPSEEK_API_KEY 时 lock 阶段直接拦截——装上即检在起作用。",
       exampleCode: `# dsh 是插件，不是 ageval 的分支
 uv tool install 'ageval-cli[dsh]'
 
@@ -193,7 +257,7 @@ ageval run <dataset> --task <task-id> \\
           "怎么切换待评测的 Agent？",
           [
             "待评测的是 coding agent（pi、Codex、Claude Code、dsh 这类），不是只换一个模型名。基座和 dataset 都不动：装上对应插件，在 profiles.yaml 里切换，同一份 task 原样跑。",
-            "内置 Agent 包可以直接 --agent pi，不必先 install。自己的 overlays 包先 ageval agent install，再 --agent org/name@version。环境和绑定写在 profiles.yaml，不写进 dataset。换 Agent 不用 fork 框架。",
+            "内置 Agent 包可以直接 --agent pi，不必先 install。自定义 Agent 包先 ageval agent install，再 --agent org/name@version。环境和绑定写在 profiles.yaml，不写进 dataset。换 Agent 不用 fork 框架。",
           ],
         ],
         [
@@ -213,8 +277,8 @@ ageval run <dataset> --task <task-id> \\
         [
           "写一份 dataset 要准备哪些文件？",
           [
-            "交付单位是 dataset。根目录放 ageval.yaml；每个 task 一个 tasks/<id>/，里面是 task.yaml、业务循环 run.py、评分 evaluator.py，以及 gold。环境和 Agent 写在 profiles.yaml，不要在 dataset 里绑死某一种运行时。",
-            "loop、角色、本地 Tool 留在 task 里。lock、开环境、把分数绑上去、cleanup，由 ageval 管。SDK 可选，不决定 PASS，也不持有宿主凭据。",
+            "评测的组织单位是 dataset。根目录放 ageval.yaml；每个 task 一个 tasks/<id>/，里面是 task.yaml、任务循环 run.py、评分 evaluator.py，以及 gold。环境和 Agent 绑定写在 profiles.yaml，不要在 dataset 里绑死某一种运行时。",
+            "任务循环、角色和本地工具留在 task 里。lock 锁定依赖图、打开环境、将分数绑定到 Result 以及清理环境，全由 ageval 负责。SDK 是可选的，不决定 PASS，也不持有宿主凭据。",
           ],
         ],
         [
@@ -225,7 +289,7 @@ ageval run <dataset> --task <task-id> \\
           ],
         ],
         [
-          "换成本机、Docker 或云沙箱，dataset 要重写吗？参考答案会进 Agent 能看见的目录吗？",
+          "换成本机、Docker 或云沙箱，dataset 要重写吗？gold 会进 Agent 能看见的目录吗？",
           [
             "不用重写 dataset。换环境改 profiles.yaml：本机、Docker，或 E2B / SSH / Daytona。同一份 task 在不同环境下跑。",
             "gold 放在 tasks/<id>/evaluation/。Agent 跑的时候不会把它 mount 进去；evaluate 阶段才 upload 到环境里打分。",
@@ -234,8 +298,7 @@ ageval run <dataset> --task <task-id> \\
       ] as const,
     },
     footer: {
-      body: "ageval — agent eval。ZJU-REAL 维护。仓库：ZJU-REAL/ageval。",
-      mark: "ZJU-REAL · ageval",
+      copy: "ZJU-REAL",
     },
   },
   en: {
@@ -269,19 +332,35 @@ ageval run <dataset> --task <task-id> \\
       copy: "Copy",
       copied: "Copied",
       demo: "Watch demo",
-      demoAria: "Product demo: configure the eval once, swap the agent under test, and run it end to end",
+      demoAria:
+        "Product demo: configure the eval once, swap the agent under test, and run it end to end",
       demoClose: "Close",
     },
     pactAria: "Three things you can do",
     pact: [
-      ["SWITCH", "Swap the agent under test in one line", "No changes to ageval: install a plugin, flip one line of config, and the same dataset runs as-is."],
-      ["TEACH", "Teach the Agent automated evaluation", "Install the CLI and skills so the Agent can design, convert benchmarks, and run evaluations."],
-      ["HUB", "Share and reuse on Hub", "Share or reuse datasets, plugins, and agent configs on ageval Hub, and upload evaluation results."],
+      [
+        "SWITCH",
+        "Swap the agent under test in one line",
+        "No changes to ageval: install a plugin, flip one line of config, and the same dataset runs as-is.",
+      ],
+      [
+        "TEACH",
+        "Teach the Agent automated evaluation",
+        "Install the CLI and skills so the Agent can design, convert benchmarks, and run evaluations.",
+      ],
+      [
+        "HUB",
+        "Share and reuse on Hub",
+        "Share or reuse datasets, plugins, and agent configs on ageval Hub, and upload evaluation results.",
+      ],
     ] as const,
     problem: {
       index: "// 01",
       name: "The Problem",
-      title: ["Evaluation still compares models only.", "What you ship is the whole agent."],
+      title: [
+        "Evaluation still compares models only.",
+        "What actually runs is the whole agent.",
+      ],
       items: [
         [
           "01 / MODEL",
@@ -290,22 +369,22 @@ ageval run <dataset> --task <task-id> \\
         ],
         [
           "02 / RUNTIME",
-          "You ship the whole agent",
-          "What does the work is the model plus the coding agent around it; the model is one part.",
+          "The whole agent does the work",
+          "What actually executes tasks is the model plus the coding agent runtime around it; the model is one part.",
         ],
         [
           "03 / DRIFT",
           "Different setup, different score",
-          "The same model through another coding agent or in another environment scores differently — and bills differently.",
+          "The same model through another coding agent or in another environment scores differently — and costs differently.",
         ],
         [
           "04 / RECORD",
           "A bare model name compares nothing",
-          "“Model X scored 80” says little: which agent, which environment? Without that, scores cannot be compared.",
+          "“Model X scored 80” says little: which agent runtime, which environment? Without that, scores cannot be compared.",
         ],
       ] as const,
       solLabel: "SOLUTION →",
-      sol: "ageval swaps the agent under test with plugins and pins the combination in lock — that is what makes scores comparable",
+      sol: "ageval pairs environments and agents under test with plugins and pins the combination in lock — making scores comparable",
     },
     position: {
       index: "// 02",
@@ -314,7 +393,6 @@ ageval run <dataset> --task <task-id> \\
       lead: "The ageval runtime base is a fixed pipeline: lock → environment → run → evaluate → record. Environments and agent runtimes join as plugins; the base stays untouched. Install a plugin, flip one line of config, and the same dataset runs as-is.",
       flow: {
         aria: "Control flow of one run: after the inputs, lock through evidence",
-        svgTitle: "The ageval Core base: what one run is made of",
         svgDesc:
           "External inputs (User, dataset, profiles) flow through lock, environment, run, evaluate, and record into evidence. Plugins bind at lock, environment, and run. Limits and cleanup span every phase.",
         user: "User",
@@ -342,7 +420,8 @@ ageval run <dataset> --task <task-id> \\
         evaluateMeta: "PASS / FAIL / ERROR",
         evidence: "evidence",
         evidenceMeta: ".ageval/runs/<id>/",
-        coreNote: "ageval Core · one run opens one environment; run.py and evaluator.py execute inside it",
+        coreNote:
+          "ageval Core · one run opens one environment; run.py and evaluator.py execute inside it",
         limits: "limits · enforced before the run",
         limitsMeta: "(wall-clock · memory · processes · calls)",
         cleanup: "cleanup · finally, always runs",
@@ -355,12 +434,30 @@ ageval run <dataset> --task <task-id> \\
         legendPhase: "phase advance",
         legendPlugin: "plugin point",
         notes: [
-          ["INPUTS", "User, dataset, and profiles enter from outside. The dataset holds the task; environment and Agent live in profiles.yaml, not in the dataset."],
-          ["LOCK", "ageval lock resolves dataset, environment, and Agent into one reproducible combination in lock.json. A capabilities or credentials mismatch fails here — the run never starts."],
-          ["ENVIRONMENT", "Open one environment and upload the task files. Host, Docker, cloud sandbox, or remote: switching is a profiles change, not a dataset rewrite."],
-          ["RUN", "run.py runs the task loop inside that environment. The loop, local tools, and Agent invocations live in this file; changing environment or Agent doesn't touch it."],
-          ["EVALUATE", "Scoring is independent: only evaluator.py can return PASS. Default is a deterministic script; LLM-as-judge is optional. Scoring hosts can be multi-stage. The scoring container's network policy (e.g. network: none) is isolated from the Agent executor; gold uploads only at evaluate."],
-          ["RECORD", "Score and trajectory land in evidence (lock.json · result.json · trajectory.jsonl). Whatever the outcome, cleanup runs."],
+          [
+            "INPUTS",
+            "User, dataset, and profiles enter from outside. The dataset defines evaluation tasks; environment and Agent live in profiles.yaml, not in the dataset.",
+          ],
+          [
+            "LOCK",
+            "ageval lock resolves the dependency graph (ExtensionGraph) into lock.json, binding plugins to runtime extension points. A capabilities or credentials mismatch fails here — the run never starts.",
+          ],
+          [
+            "ENVIRONMENT",
+            "Open one environment and upload the task files. Host, Docker, cloud sandbox, or remote: switching is a profiles change, not a dataset rewrite.",
+          ],
+          [
+            "RUN",
+            "run.py runs the task loop inside that environment. The loop, local tools, and Agent invocations live in this file; changing environment or Agent doesn't touch it.",
+          ],
+          [
+            "EVALUATE",
+            "Scoring is independent: only evaluator.py can return PASS. Default is a deterministic script; LLM-as-judge and multi-stage evaluation are supported. The scoring container is network-isolated (e.g. network: none); gold uploads only at evaluate.",
+          ],
+          [
+            "RECORD",
+            "Score and trajectory land in evidence (lock.json · result.json · trajectory.jsonl). Whatever the outcome, cleanup runs.",
+          ],
         ] as const,
       },
     },
@@ -370,8 +467,20 @@ ageval run <dataset> --task <task-id> \\
       title: "Swap environments. Keep the dataset.",
       lead: "The same task runs on your machine, in a container, in a cloud sandbox, or on a remote host. The environment is one line in profiles.yaml, plugged in as a plugin.",
       items: [
-        ["ENV · LOCAL", "A directory on your machine", "Real filesystem, child-process worker.", "RUNS TODAY", false],
-        ["ENV · DOCKER", "A local container", "Same Dockerfile. Gold arrives only at evaluate.", "RUNS TODAY", true],
+        [
+          "ENV · LOCAL",
+          "A directory on your machine",
+          "Real filesystem, child-process worker.",
+          "RUNS TODAY",
+          false,
+        ],
+        [
+          "ENV · DOCKER",
+          "A local container",
+          "Same Dockerfile. Gold arrives only at evaluate.",
+          "RUNS TODAY",
+          true,
+        ],
         [
           "ENV · E2B / SSH / DAYTONA",
           "Cloud sandbox and remote",
@@ -385,9 +494,25 @@ ageval run <dataset> --task <task-id> \\
       index: "// 04",
       name: "Auto",
       title: "Teach the Agent automated evaluation.",
-      lead: "Install the CLI and skills so the Agent can design, convert benchmarks, and run evaluations.",
-      neLeft: "you click through",
-      neRight: "the Agent runs it",
+      lead: "Install the CLI and skills so the Agent can design, convert benchmarks, and run evaluations. Load only the skill the task needs.",
+      tableAria: "Built-in skills",
+      columns: ["Skill", "What it does"],
+      skills: [
+        [
+          "ageval-platform",
+          "Start here: who locks, who scores, the red lines.",
+        ],
+        [
+          "ageval-cli",
+          "Run lock / run / campaign; inspect and upload results.",
+        ],
+        [
+          "ageval-config-package",
+          "Author a dataset: ageval.yaml, task.yaml, profiles.",
+        ],
+        ["ageval-sdk-harness", "Write run.py: sessions, tools, publish."],
+        ["ageval-plugin", "Author a plugin: environment or agent runtime."],
+      ] as const,
       steps: [
         ["01 CLI", "uv tool install ageval-cli"],
         ["02 skill", "npx skills add ZJU-REAL/ageval"],
@@ -400,14 +525,27 @@ ageval run <dataset> --task <task-id> \\
       title: "Swap the agent under test in one line.",
       lead: "Swapping the Agent means installing a plugin and flipping one line in profiles — no changes to ageval. Environments work the same way.",
       slots: [
-        ["ENV", "Environment plugins", "Host / Docker / cloud sandbox / remote. Missing one? Write a plugin; the base stays put."],
-        ["AGENT", "Agent-runtime plugins", "ACP by default (pi / Codex / Claude Code / OpenCode); nooa / dsh / miniswe take the same plugin path."],
-        ["LOCK", "Checked at lock", "If a plugin's capabilities or credentials don't match, lock fails and the run never starts."],
+        [
+          "ENV",
+          "Environment plugins",
+          "Host / Docker / cloud sandbox / remote. Missing one? Write a plugin; the base stays put.",
+        ],
+        [
+          "AGENT",
+          "Agent-runtime plugins",
+          "ACP by default (pi / Codex / Claude Code / OpenCode); nooa / dsh / miniswe take the same plugin path.",
+        ],
+        [
+          "LOCK",
+          "Checked at lock",
+          "If a plugin's capabilities or credentials don't match, lock fails and the run never starts.",
+        ],
       ] as const,
       exampleTag: "EXAMPLE · DSH",
-      exampleTitle: "DeepSeek's harness came in as a plugin — zero lines changed in ageval.",
+      exampleTitle:
+        "DeepSeek's harness came in as a plugin — zero lines changed in ageval.",
       exampleBody:
-        "dsh is nothing like ACP and still arrives as a plugin: install the extra, switch executor to dsh in a profile, run the same task. A missing deepseek_api_key fails at lock — the check does its job.",
+        "dsh is fundamentally different from ACP and still arrives as a plugin: install the extra, switch executor to dsh in a profile, and run the same task. A missing deepseek_api_key fails at lock — early verification does its job.",
       exampleCode: `# dsh is a plugin, not a fork of ageval
 uv tool install 'ageval-cli[dsh]'
 
@@ -430,7 +568,7 @@ ageval run <dataset> --task <task-id> \\
           "How do I switch the agent under test?",
           [
             "The thing under test is a coding agent (pi, Codex, Claude Code, dsh), not a model name. Neither the base nor the dataset changes: install the plugin, switch it in profiles.yaml, and the same task runs.",
-            "Built-in Agent packages bind with --agent pi (no install). Custom overlay packs use ageval agent install, then --agent org/name@version. Environment and bindings live in profiles.yaml, not in the dataset. You do not fork the framework to swap Agent.",
+            "Built-in Agent packages bind with --agent pi (no install). Custom Agent packages use ageval agent install, then --agent org/name@version. Environment and bindings live in profiles.yaml, not in the dataset. You do not fork the framework to swap Agent.",
           ],
         ],
         [
@@ -450,7 +588,7 @@ ageval run <dataset> --task <task-id> \\
         [
           "What files belong in a dataset?",
           [
-            "The unit of delivery is a dataset. Put ageval.yaml at the root. Each task lives in tasks/<id>/ with task.yaml, the loop in run.py, scoring in evaluator.py, and gold. Environment and Agent go in profiles.yaml; do not bake one runtime into the dataset.",
+            "The standard unit of evaluation is a dataset. Put ageval.yaml at the root. Each task lives in tasks/<id>/ with task.yaml, the task loop in run.py, scoring in evaluator.py, and gold. Environment and Agent bindings live in profiles.yaml; do not bake one runtime into the dataset.",
             "The task keeps the loop, roles, and local tools. ageval owns lock, opening the environment, binding the score, and cleanup. The SDK is optional: it does not decide PASS and does not hold host credentials.",
           ],
         ],
@@ -471,8 +609,7 @@ ageval run <dataset> --task <task-id> \\
       ] as const,
     },
     footer: {
-      body: "ageval — agent eval. Maintained by ZJU-REAL. GitHub: ZJU-REAL/ageval.",
-      mark: "ZJU-REAL · ageval",
+      copy: "ZJU-REAL",
     },
   },
 } as const;

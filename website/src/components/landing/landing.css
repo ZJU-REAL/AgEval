@@ -778,7 +778,80 @@ html:has(.ageval-landing) body {
   color: var(--muted);
 }
 
-.ageval-landing .barrier .lead {
+.ageval-landing .skill-table {
+  width: 100%;
+  margin-top: 40px;
+  border-collapse: collapse;
+}
+
+.ageval-landing .skill-table caption {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+.ageval-landing .skill-table th,
+.ageval-landing .skill-table td {
+  text-align: left;
+  vertical-align: top;
+  padding: 14px 20px 14px 0;
+  border-bottom: 1px solid var(--border);
+}
+
+.ageval-landing .skill-table thead th {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--comment);
+}
+
+.ageval-landing .skill-table tbody th {
+  font-family: var(--font-mono);
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--cream);
+  white-space: nowrap;
+  padding-right: 32px;
+}
+
+.ageval-landing .skill-table tbody th code {
+  font-family: inherit;
+  font-size: inherit;
+  color: inherit;
+}
+
+.ageval-landing .skill-table td {
+  color: var(--muted);
+  font-size: 14.5px;
+  line-height: 1.65;
+}
+
+.ageval-landing .skill-steps {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 0;
+  margin-top: 28px;
+  padding: 0;
+}
+
+.ageval-landing .skill-steps > div {
+  padding: 28px 26px;
+  border-right: 1px solid var(--border);
+}
+
+.ageval-landing .skill-steps > div:last-child {
+  border-right: 0;
+}
+
+.ageval-landing .skill-steps dt {
   margin-top: 0;
 }
 
@@ -1253,14 +1326,6 @@ html:has(.ageval-landing) body {
   color: var(--cream);
 }
 
-.ageval-landing .barrier {
-  display: grid;
-  grid-template-columns: 1.1fr 0.9fr;
-  gap: 56px;
-  align-items: start;
-  margin-top: 8px;
-}
-
 .ageval-landing .barrier-note {
   background: var(--ink-2);
   border: 1px solid var(--border);
@@ -1286,17 +1351,7 @@ html:has(.ageval-landing) body {
   line-height: 1.7;
 }
 
-.ageval-landing .ne {
-  font-family: var(--font-display);
-  font-size: clamp(36px, 5vw, 64px);
-  line-height: 0.95;
-  color: var(--cream);
-  margin-top: 28px;
-}
 
-.ageval-landing .ne span {
-  color: var(--red);
-}
 
 /* Portaled to <body> with the scope class carried on the overlay itself. */
 .ageval-landing.demo-lightbox {
@@ -1588,7 +1643,7 @@ html:has(.ageval-landing) body {
 .ageval-landing .foot {
   display: flex;
   justify-content: space-between;
-  align-items: end;
+  align-items: center;
   gap: 24px;
 }
 
@@ -1596,24 +1651,37 @@ html:has(.ageval-landing) body {
   font-size: 24px;
 }
 
-.ageval-landing .foot p {
-  font-size: 13px;
+.ageval-landing .foot-copy {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0;
+  font-family: var(--font-mono);
+  font-size: 12px;
+  letter-spacing: 0.08em;
   color: var(--muted);
-  max-width: 42em;
 }
 
-.ageval-landing .foot small {
-  font-family: var(--font-mono);
-  font-size: 11px;
-  letter-spacing: 0.1em;
-  color: var(--muted);
+.ageval-landing .foot-copy svg {
+  width: 14px;
+  height: 14px;
+  flex-shrink: 0;
 }
 
 @media (max-width: 1024px) {
   .ageval-landing .split,
-  .ageval-landing .barrier,
-  .ageval-landing .plugin-example {
+  .ageval-landing .plugin-example,
+  .ageval-landing .skill-steps {
     grid-template-columns: 1fr;
+  }
+
+  .ageval-landing .skill-steps > div {
+    border-right: 0;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .ageval-landing .skill-steps > div:last-child {
+    border-bottom: 0;
   }
 
   .ageval-landing .problem-grid {

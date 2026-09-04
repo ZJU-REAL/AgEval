@@ -109,7 +109,6 @@ export function CoreFlow({ copy }: { copy: FlowCopy }) {
   const arrow = `${uid}-arrow`;
   const arrowAccent = `${uid}-arrow-accent`;
   const arrowSm = `${uid}-arrow-sm`;
-  const titleId = `${uid}-title`;
   const descId = `${uid}-desc`;
   const noteId = `${uid}-note`;
   const note = copy.notes[step] ?? copy.notes[0];
@@ -127,10 +126,9 @@ export function CoreFlow({ copy }: { copy: FlowCopy }) {
           className="core-flow-svg"
           viewBox="0 0 1000 540"
           role="img"
-          aria-labelledby={`${titleId} ${descId}`}
+          aria-labelledby={descId}
           aria-describedby={noteId}
         >
-          <title id={titleId}>{copy.svgTitle}</title>
           <desc id={descId}>{copy.svgDesc}</desc>
           <defs>
             <pattern id={dots} width={22} height={22} patternUnits="userSpaceOnUse">
