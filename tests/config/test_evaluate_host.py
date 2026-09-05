@@ -567,6 +567,23 @@ def test_evaluate_host_nested_options_without_isolated_fails_closed(tmp_path: Pa
     assert "requires evaluate_host.isolated" in caught.value.message
 
 
+def test_evaluate_host_nested_python_version_is_accepted() -> None:
+    """python_version is a per-box docker knob; image stays rejected."""
+    parsed = parse_job_mapping(
+        {
+            "format": "ageval.profiles/1",
+            "environment": "docker",
+            "evaluate_host": {
+                "isolated": True,
+                "environment_options": {"python_version": "3.13"},
+            },
+            "agent_profiles": {"solver": dict(DOCKER_SOLVER)},
+        }
+    )
+    host = parsed.evaluate_host
+    assert host is not None and host["environment_options"] == {"python_version": "3.13"}
+
+
 def test_evaluate_host_nested_unknown_key_fails_closed() -> None:
     with pytest.raises(ConfigError) as caught:
         parse_job_mapping(

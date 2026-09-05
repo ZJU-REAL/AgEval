@@ -266,7 +266,7 @@ _EVALUATE_HOST_KEYS = frozenset({"isolated", "environment_options"})
 # The scoring box reads the same per-box knobs as the agent box. ``image`` is
 # deliberately absent: the recipe stays environment/evaluate.Dockerfile or
 # evaluation.docker_image.
-_EVALUATE_HOST_OPTION_KEYS = frozenset({"network", "egress", "platform", "user"})
+_EVALUATE_HOST_OPTION_KEYS = frozenset({"network", "egress", "platform", "user", "python_version"})
 _EGRESS_VALUES = frozenset({"llm"})
 
 

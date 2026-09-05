@@ -10,13 +10,13 @@
 # profiles.yaml — 选独占槽 environment 的赢家
 format: ageval.profiles/1
 environment: e2b    # local | docker | e2b | ssh | daytona
-# environment_options:   # docker：image / platform / network / user / egress
+# environment_options:   # docker：image / platform / network / user / egress / python_version
 #                        # ssh：host / user / port / key_env / image
 #                        # daytona：image / snapshot / timeout_seconds
 # evaluate_host:         # 省略 = 同一环境打分
 #   isolated: true       # 第二只 EnvironmentProvider；不是新槽
 #   environment_options: # 打分盒自己的 docker 旋钮；省略 = 不继承 agent 的 egress / network
-#     egress: llm        # network / egress / platform / user；不是 image（配方照旧）
+#     egress: llm        # network / egress / platform / user / python_version；不是 image（配方照旧）
 ```
 
 取消隔离档产品面。不要写 `provider.kind`、`assurance: l0/l1`。Result 记 `kind` + `capabilities_used`。
@@ -36,7 +36,7 @@ environment: e2b    # local | docker | e2b | ssh | daytona
 
 `environment/Dockerfile`（或 `docker_image`）对 docker 与 e2b 是同一配方。docker 本机编；e2b `Template.from_dockerfile` 再 `Sandbox.create`。daytona 把同一配方编成 **snapshot**（`Image.from_dockerfile` 或公开 OCI tag），再 `Sandbox.create` from snapshot。OCI tag 须带具体 tag/digest；Daytona 拒绝 `latest` / `lts` / `stable`。
 
-官方 Attempt 镜像由 `docker/attempt/` 构建。题包 Dockerfile 用 `FROM ageval-attempt:base`。invoke 时禁止 `npm i` / 浮动 `npx`。Python ACP SDK 只在 parent，不进 Attempt 镜像。
+官方 Attempt 镜像由 `docker/attempt/` 构建，`ARG PYTHON_VERSION` 选基座 CPython（缺省 3.12）。题包 Dockerfile 用 `FROM ageval-attempt:base`；job 声明非缺省 `python_version` 时 docker 插件把该 `FROM` 解析到版本化 tag（如 `ageval-attempt:py3.13`），镜像内容键含 `python_version`，两个版本的本地基座并存、不互相覆盖。invoke 时禁止 `npm i` / 浮动 `npx`。Python ACP SDK 只在 parent，不进 Attempt 镜像。
 
 docker `environment_options`：
 
@@ -45,11 +45,13 @@ docker `environment_options`：
 - `network` — 缺省 `bridge`。这是 **原始 docker 网络名**。`none` 也是原始名：它会一并挡住环境内进程访问模型 API，**不是**下面的 LLM egress 模式。
 - `egress` — 省略 = 今日 `bridge`。`egress: llm`（Current：仅 docker contrib）：Agent 环境出站 HTTP(S) 只能到达已绑定 profile 的 `base_url` 主机（parent 侧代理 + 环境内 `HTTPS_PROXY` / `HTTP_PROXY`，或等价物）。ACP stdio 仍是 parent `attach_stdio`，不走这条代理。不能兑现的 kind 写了该键 → lock 失败。依赖仍 bake 在题包 `environment/Dockerfile`；官方 Attempt 镜像 invoke 时禁止 `npm i` / 浮动 `npx`。
 - `user` — 环境内身份，`docker run --user` 与 `exec`/`attach_stdio` 同一值。缺省 `10001:10001`。`root` / `0` / `0:0` 开 root（Harbor 式终端题要 `apt` 或写 `/usr/local` 时用）。其它值必须是 `uid` 或 `uid:gid`。未知字符串一次失败。默认仍带 `no-new-privileges`。
+- `python_version` — 官方 Attempt 基座的 CPython minor（如 `"3.13"`）；省略 = 3.12。形状 `^\d+\.\d+$`；`latest` / `3` / 空串 / 其它形状一次拒绝。基座 `FROM python:${python_version}-slim-bookworm` 拉不到 → image build 一次失败，**不**回退 3.12。ACP 引擎仍在 build 期 bake，Node / Go 等引擎版本不受此旋钮影响。
 
 `egress` 约束的是 **Agent 环境**。两只盒子两份策略：打分 Host 有自己的
-`evaluate_host.environment_options`（`network` / `egress` / `platform` / `user`）；
+`evaluate_host.environment_options`（`network` / `egress` / `platform` / `user` /
+`python_version`）；
 嵌套表省略时打分盒沿用今日行为——只继承 job `environment_options` 的
-`platform` / `user`，**不**继承 agent 的 `egress` / `network` 或镜像。
+`platform` / `user` / `python_version`，**不**继承 agent 的 `egress` / `network` 或镜像。
 打分 `egress: llm` 的放行名单来自 evaluate 相位 profile 的 `base_url`
 （judge 盒 reach judge 的 API host），不是 solver 名单。不能兑现该键的 kind
 写了任一处 `egress` → lock 失败，同一规则。

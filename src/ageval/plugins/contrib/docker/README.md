@@ -28,6 +28,7 @@ Job knobs are `environment_options` (not `extensions[].options`).
 | `environment_options.platform` | this host | `docker` platform (e.g. `linux/arm64`). |
 | `environment_options.network` | `bridge` | Attempt container network. A task compose file overrides this to `{project}_default`. |
 | `environment_options.user` | `10001:10001` | `docker run --user` and the same identity for `exec` / `attach_stdio`. `root` / `0` / `0:0` → root. Other values must be `uid` or `uid:gid`. Unknown strings are rejected. Default still has `no-new-privileges`. |
+| `environment_options.python_version` | `3.12` | CPython minor of the official Attempt base (`python:${version}-slim-bookworm`). Shape `^\d+\.\d+$`; `latest` / `3` / empty / other shapes are rejected once. The base builds as a versioned tag (e.g. `ageval-attempt:py3.13`) and the plugin rewrites the recipe's `FROM ageval-attempt:base` onto it, so 3.12 and 3.13 bases coexist. A base that cannot be pulled fails the image build once — no fallback to 3.12. The ACP entries stay baked at build time; engine versions are unaffected. |
 | `AGEVAL_PIP_INDEX` (host env) | unset | When set, plugin bake layers pass it as `PIP_INDEX_URL` so image-build pip uses that index. Unset / blank = pip default. Same knob as the official Attempt image build. |
 
 ## Bind

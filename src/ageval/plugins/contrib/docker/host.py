@@ -16,6 +16,7 @@ from __future__ import annotations
 import asyncio
 import contextlib
 import os
+import re
 import shutil
 import subprocess
 import uuid
@@ -39,6 +40,7 @@ BOX_ROOT = "/attempt"
 ATTEMPT_UID = 10001
 ATTEMPT_GID = 10001
 _MAX_STREAM_BYTES = 256 * 1024
+_PYTHON_VERSION_RE = re.compile(r"^\d+\.\d+$")
 
 # The daemon locators the docker CLI itself needs. They describe *this* machine,
 # so they must never be projected into a container.
@@ -112,6 +114,7 @@ class DockerHost:
         # The Agent runs inside the box and has to reach its provider.
         self._network = _text(opts.get("network")) or "bridge"
         self._user = _box_user(opts.get("user"))
+        self._python_version = _box_python_version(opts.get("python_version"))
         self._egress = _text(opts.get("egress"))
         raw_allow = opts.get("egress_allowlist") or ()
         if isinstance(raw_allow, (list, tuple)):
@@ -149,6 +152,7 @@ class DockerHost:
             platform=self._platform,
             force_build=force_build,
             plugin_layers=self._plugin_layers,
+            python_version=self._python_version,
         )
         self._image = tag
         # Sidecars come up first: the Attempt container joins their network, so
@@ -497,6 +501,20 @@ class DockerHost:
             raise EnvironmentFailure("environment_not_started", "docker box is not started")
         if self._stopped:
             raise EnvironmentFailure("environment_stopped", "docker box is already stopped")
+
+
+def _box_python_version(raw: object) -> str | None:
+    """Job ``environment_options.python_version``. None = the official 3.12 base."""
+    if raw is None:
+        return None
+    text = _text(raw)
+    if text is None or not _PYTHON_VERSION_RE.fullmatch(text):
+        raise EnvironmentFailure(
+            "environment_options_invalid",
+            "docker environment_options.python_version must be a CPython minor "
+            f'like "3.13", got {raw!r}',
+        )
+    return text
 
 
 def _box_user(raw: object) -> str:
