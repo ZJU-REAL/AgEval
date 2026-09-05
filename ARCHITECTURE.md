@@ -298,7 +298,7 @@ environment phase
   before_environment
   host.start
   upload data/ → /attempt/workspace
-  after_environment_ready      # ACP name+pin+stdio initialize, else install
+  after_environment_ready      # ACP probe; skip install when bake matches
   environment_setup            # setup.sh (defaults)
   after_environment
 
@@ -391,7 +391,8 @@ Phase detail: [docs/design/05-runtime/lifecycle.md](docs/design/05-runtime/lifec
 | `environment: ssh` A/B | `plugins/contrib/ssh` | A has no image; B has a remote tag |
 | ACP coding-agent | `plugins/contrib/acp` | Sole coding-agent inlet; `attach_stdio` |
 | Other Agent backends | `openai-http` / `anthropic-http` / external `nooa` `dsh` | Not vendor stdout scrape |
-| Official base image | `docker/attempt/` | Bake ACP entries at build; no `npm i` at invoke |
+| Official base image | `docker/attempt/` | Bake every shipped ACP entry at build; no `npm i` at invoke |
+| ACP task image layer | `plugins/contrib/acp` | `config.image_layers` bakes the bound `options.entry` onto the task recipe |
 | Registry HTTP | `services/registry/` | Handlers do not touch `state.meta` directly |
 
 ## Failure and Privacy Boundary

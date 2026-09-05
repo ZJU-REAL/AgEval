@@ -4,7 +4,9 @@ First-party exclusive-slot winner for `environment: docker`.
 
 The Attempt runs in a container built from the task's own recipe (plus
 plugin `image_layers` when declared). The official Attempt image bakes
-coding-agent ACP entries at **build** time; invoke does not `npm i`.
+every shipped ACP entry at **build** time. A task recipe that is not that
+base still gets the bound `options.entry` from the ACP plugin layer.
+Invoke does not `npm i`.
 Container id, `docker exec -u/-w`, and UID/GID stay in this package.
 ACP / `run.py` / Core never see `container_id`.
 

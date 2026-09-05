@@ -88,9 +88,10 @@ not import the Core-touching factory.
 ## Image layers (docker bake)
 
 Not a timeline slot. The environment winner reads `config.image_layers` at `host.start()`.
-`executor:` alone does not bake. Context = installed plugin root. Pin wheels at
-image build. No invoke-time `npm i` / floating pip. Official ACP entries do not
-use this external chain.
+`executor:` alone does not bake. Context = installed plugin root (first-party
+contribs use the package next to the plugin). Pin wheels / npm at image build.
+No invoke-time `npm i` / floating pip. First-party ACP uses the same contract
+and bakes only the bound `options.entry` (pins from `acp_entries.json`).
 
 `${BASE_IMAGE}` is usually `ageval-attempt:base` (CPython 3.12).
 Declare `ARG PIP_INDEX_URL=` after `FROM` so a parent `AGEVAL_PIP_INDEX` is

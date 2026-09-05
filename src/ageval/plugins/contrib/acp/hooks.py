@@ -1,9 +1,9 @@
 """ACP ``after_environment_ready`` hook: probe the box, install only if missing.
 
-The recipe comes from ``acp_entries.json``. A hit is the binary name, the pinned
-npm version, and one cheap stdio ``initialize``. Bake that already matches
-skips install. A same-named binary that speaks TCP ACP (or the wrong pin) does
-not.
+The recipe comes from ``acp_entries.json``. A hit is the binary name and one
+cheap stdio ``initialize``. Docker already baked the bound ``options.entry``
+into the task image at ``host.start()``; a matching bake skips
+``install_command``. A same-named binary that speaks TCP ACP does not.
 """
 
 from __future__ import annotations
