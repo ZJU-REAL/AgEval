@@ -64,11 +64,13 @@ class StubGraph:
         chain_plugin_ids: tuple[str, ...] = (),
     ) -> None:
         self.winners = {
-            ENVIRONMENT: SimpleNamespace(plugin_id="fakebox"),
-            EXECUTOR: SimpleNamespace(plugin_id=executor_plugin),
+            ENVIRONMENT: SimpleNamespace(plugin_id="fakebox", options=None),
+            EXECUTOR: SimpleNamespace(plugin_id=executor_plugin, options=None),
         }
         self.chains: dict[str, list[Any]] = {
-            AFTER_ENVIRONMENT_READY: [SimpleNamespace(plugin_id=pid) for pid in chain_plugin_ids]
+            AFTER_ENVIRONMENT_READY: [
+                SimpleNamespace(plugin_id=pid, options=None) for pid in chain_plugin_ids
+            ]
         }
 
     def chain(self, slot: str) -> list[Any]:
