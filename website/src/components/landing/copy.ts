@@ -148,7 +148,7 @@ export const landingCopy = {
           ],
           [
             "EVALUATE",
-            "评分独立，只有 evaluator.py 能给出 PASS。默认确定性脚本，也支持 LLM-as-judge 与多阶段打分。评测容器网络隔离（如 network: none），gold 到这一阶段才 upload。",
+            "评分独立，只有 evaluator.py 能给出 PASS。默认确定性脚本，也支持 LLM-as-judge 与多阶段打分。评测容器网络隔离（如 network: none），参考答案到这一阶段才 upload。",
           ],
           [
             "RECORD",
@@ -173,7 +173,7 @@ export const landingCopy = {
         [
           "ENV · DOCKER",
           "本机容器",
-          "同一份 Dockerfile。gold 到评分阶段才进环境。",
+          "同一份 Dockerfile。参考答案到评分阶段才进环境。",
           "开箱即跑",
           true,
         ],
@@ -277,7 +277,7 @@ ageval run <dataset> --task <task-id> \\
         [
           "写一份 dataset 要准备哪些文件？",
           [
-            "评测的组织单位是 dataset。根目录放 ageval.yaml；每个 task 一个 tasks/<id>/，里面是 task.yaml、任务循环 run.py、评分 evaluator.py，以及 gold。环境和 Agent 绑定写在 profiles.yaml，不要在 dataset 里绑死某一种运行时。",
+            "评测的组织单位是 dataset。根目录放 ageval.yaml；每个 task 一个 tasks/<id>/，里面是 task.yaml、任务循环 run.py、评分 evaluator.py，以及参考答案。环境和 Agent 绑定写在 profiles.yaml，不要在 dataset 里绑死某一种运行时。",
             "任务循环、角色和本地工具留在 task 里。lock 锁定依赖图、打开环境、将分数绑定到 Result 以及清理环境，全由 ageval 负责。SDK 是可选的，不决定 PASS，也不持有宿主凭据。",
           ],
         ],
@@ -289,10 +289,10 @@ ageval run <dataset> --task <task-id> \\
           ],
         ],
         [
-          "换成本机、Docker 或云沙箱，dataset 要重写吗？gold 会进 Agent 能看见的目录吗？",
+          "换成本机、Docker 或云沙箱，dataset 要重写吗？参考答案会进 Agent 能看见的目录吗？",
           [
             "不用重写 dataset。换环境改 profiles.yaml：本机、Docker，或 E2B / SSH / Daytona。同一份 task 在不同环境下跑。",
-            "gold 放在 tasks/<id>/evaluation/。Agent 跑的时候不会把它 mount 进去；evaluate 阶段才 upload 到环境里打分。",
+            "参考答案放在 tasks/<id>/evaluation/。Agent 跑的时候不会把它 mount 进去；evaluate 阶段才 upload 到环境里打分。",
           ],
         ],
       ] as const,
