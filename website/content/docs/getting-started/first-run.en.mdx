@@ -19,6 +19,12 @@ A registry ref downloads the published dataset into the local cache (`ageval cac
 
 The public smoke [`examples/datasets/minimal-demo`](https://github.com/ZJU-REAL/ageval/tree/main/examples/datasets/minimal-demo) ships with a repo checkout:
 
+<Callout type="info" title="Before you run">
+
+minimal-demo defaults to docker, so make sure the Docker engine is up. `ageval executors -v` should show your agent `engine_ready` / `acp_entry_ready`; a missing key shows `credential_missing`.
+
+</Callout>
+
 ```bash
 ageval tasks examples/datasets/minimal-demo
 ageval lock examples/datasets/minimal-demo --task terminal-jsonl-agg

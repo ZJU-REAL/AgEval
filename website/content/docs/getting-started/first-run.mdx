@@ -19,6 +19,12 @@ registry ref 会把已发布的 dataset 下载并缓存到本机（`ageval cache
 
 公开示例 [`examples/datasets/minimal-demo`](https://github.com/ZJU-REAL/ageval/tree/main/examples/datasets/minimal-demo) 随仓库 checkout 提供：
 
+<Callout type="info" title="跑之前">
+
+minimal-demo 默认 docker 环境，先确认 Docker 引擎已启动；再用 `ageval executors -v` 确认要用的 agent 是 `engine_ready` / `acp_entry_ready`，缺密钥会标 `credential_missing`。
+
+</Callout>
+
 ```bash
 ageval tasks examples/datasets/minimal-demo
 ageval lock examples/datasets/minimal-demo --task terminal-jsonl-agg

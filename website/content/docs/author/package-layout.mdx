@@ -37,7 +37,7 @@ my-dataset/
         ├── evaluator.py
         ├── prompts/
         ├── environment/    # Agent Dockerfile；打分配方在 evaluate.Dockerfile 或 evaluate/<name>/
-        ├── evaluation/     # gold 等，默认不给 agent；禁止放打分 Dockerfile
+        ├── evaluation/     # 参考答案等，默认不给 agent；禁止放打分 Dockerfile
         ├── data/
         └── lib/            # 仅本 task；以 lib.* 导入
 ```
@@ -59,13 +59,13 @@ Core 注入的 path 前缀是 **`[task_dir, dataset_root]`**，**不会**再把 
 硬规则（摘要）：
 
 - 有 `shared/` 则 **必须** 进入 `packageDigest` / publish blob；改它会改整包 digest  
-- 默认 **不** 挂到 Agent workspace；gold **只** 放 `tasks/*/evaluation/`  
+- 默认 **不** 挂到 Agent workspace；参考答案 **只** 放 `tasks/*/evaluation/`  
 - 成员 task **禁止** 占用顶层名 `shared`（`shared/` 目录或 `shared.py`）— lock 失败  
 - `shared/lib` 与 `tasks/*/lib` **允许** 同名 stem（命名空间已区分）  
 - docker 镜像 **不会** 由 Core 隐式 COPY `shared/`；容器内要用时在 Dockerfile 里显式 `COPY`，并把 **dataset 根** 放进 `PYTHONPATH`  
 - 本地自检：`uv run python scripts/check_shared_lib_collisions.py <dataset-root>`  
 
-**有 shared/、改 import 契约或 Hub Shared 浏览 ≠ 证据等级升级。**
+**有 `shared/`、改 import 契约或在 Hub 上共享浏览，都不会让评测结果更可信。**
 
 ## 根 `ageval.yaml`
 

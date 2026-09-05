@@ -39,7 +39,15 @@ Evaluate-phase ACP (for example `judge`) must `Agent.session("judge", environmen
 ageval executors -v
 ```
 
-`-v` also reports `credential_missing` when every declared credential env name is unset and the binding has no `api_key`. Entries that require a key (for example `pi`) fail `--probe` / session-open, and the run does not start; entries that document keyless (OAuth) auth warn only. The child environment is allowlisted (`PATH` / `HOME` / `LANG`, the entry’s credential names, and the binding’s `api_key` / `base_url`). Undeclared host tokens do not reach the entry.
+`ageval executors -v` reports three signals per entry:
+
+| Signal | Meaning |
+| --- | --- |
+| `engine_ready` | the entry's agent runtime (the `pi` / `codex` CLIs) is installed on this host |
+| `acp_entry_ready` | the ACP entry on top of that runtime is ready |
+| `credential_missing` | every declared credential env name is unset and the binding has no `api_key` |
+
+Entries that require a key (for example `pi`) fail `--probe` / session-open, and the run does not start; entries that document keyless (OAuth) auth warn only. The child environment is allowlisted (`PATH` / `HOME` / `LANG`, the entry’s credential names, and the binding’s `api_key` / `base_url`). Undeclared host tokens do not reach the entry.
 
 ## Runtime switch
 
