@@ -46,7 +46,7 @@ How to avoid rewriting scaffolds for the huge set of agent runtime × model × e
 **ageval** keeps one stable Core and swaps the agent under test and the environment through plugins. Install the CLI and skills so a coding agent can design or convert a benchmark and finish the eval; after results land on the Hub, datasets, plugins, and Agent packages can be shared or reused publicly.
 
 <p align="center">
-  <video src="https://github.com/user-attachments/assets/3aa09ecf-d20a-4240-8e08-f8d9f13f0784" controls width="100%" title="ageval highlights"></video>
+  <video src="https://github.com/user-attachments/assets/79f54d94-999f-44c1-b2a4-72d79d3ce1f4" controls width="100%" title="ageval highlights"></video>
 </p>
 
 ## Getting started
@@ -121,8 +121,8 @@ Upload datasets, plugins, Agent packages, and results to ageval Hub. Leaderboard
 
 ### Screenshots
 
-| Plugin marketplace | Compare models on Hub |
-| :---: | :---: |
+|                                                        Plugin marketplace                                                         |                                             Compare models on Hub                                             |
+| :-------------------------------------------------------------------------------------------------------------------------------: | :-----------------------------------------------------------------------------------------------------------: |
 | <img src="docs/assets/demo/plugins-marketplace.png" alt="Plugin marketplace: environment and agent runtime plugins" width="100%"> | <img src="docs/assets/demo/agent-model-compare.png" alt="Compare models under one Agent on Hub" width="100%"> |
 
 <details>

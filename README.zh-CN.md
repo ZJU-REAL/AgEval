@@ -46,7 +46,7 @@
 **ageval** 用一套稳定的 Core，靠插件切换待测 Agent 和环境。装上 CLI 和 skill，coding agent 可以自己设计或转化 benchmark 并跑完评测；结果上传 Hub 后，dataset、插件和 Agent 包也能公开分享或复用。
 
 <p align="center">
-  <video src="https://github.com/user-attachments/assets/3aa09ecf-d20a-4240-8e08-f8d9f13f0784" controls width="100%" title="ageval highlights"></video>
+  <video src="https://github.com/user-attachments/assets/79f54d94-999f-44c1-b2a4-72d79d3ce1f4" controls width="100%" title="ageval highlights"></video>
 </p>
 
 ## 快速开始
@@ -121,8 +121,8 @@ uv run ageval view examples/datasets/minimal-demo --no-browser
 
 ### 截图
 
-| 插件市场 | Hub 上比较模型 |
-| :---: | :---: |
+|                                                 插件市场                                                  |                                             Hub 上比较模型                                              |
+| :-------------------------------------------------------------------------------------------------------: | :-----------------------------------------------------------------------------------------------------: |
 | <img src="docs/assets/demo/plugins-marketplace.png" alt="插件市场：环境与 Agent 运行时插件" width="100%"> | <img src="docs/assets/demo/agent-model-compare.png" alt="在 Agent Hub 中比较不同模型表现" width="100%"> |
 
 <details>
