@@ -44,4 +44,4 @@ Time / tokens / step duration are **hints**, not PASS. Trajectory is not scoring
 
 **Verifier:** default is `result.json` plus the `evaluation/` tree. When `evaluation/observation.jsonl` exists (evaluate-phase SDK invoke, LLM-as-judge), that tab reuses the Trajectory step cards. The Agent Trajectory tab still reads only root `trajectory.jsonl`. Observation is not PASS.
 
-Viewer does **not** talk to Registry — see [Hub](/docs/share/hub). SPA details: `apps/viewer/README.md`.
+Viewer does **not** talk to Registry; remote directories live on the Hub. SPA details: `apps/viewer/README.md`.

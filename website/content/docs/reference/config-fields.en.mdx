@@ -16,7 +16,7 @@ Tutorial path: [Author a task](/docs/author/tutorial). This page is for lookup.
 | `defaults` | Only `max_concurrent_tasks` (≥1) |
 | Forbidden | `harness` / `provider` / `limits` / `evaluation` / profiles |
 
-**Not** in yaml: `n_attempts` / Always-k (CLI/job only — see [Suite](/docs/run/suite)).
+**Not** in yaml: `n_attempts` / Always-k (CLI/job only).
 
 Empty suite fails lock. Unknown format → `invalid_format`.
 
@@ -30,9 +30,16 @@ Empty suite fails lock. Unknown format → `invalid_format`.
 | `agent_profiles` | Role ids `{id}` only; ACP `entry` lives on root `profiles.yaml` |
 | `limits` | wall / invokes / env actions / memory |
 | `artifacts` | publishable id + path |
-| `evaluation` | optional inputs / output; `evaluator.py` is recognized. Optional `tmpfs_mb` (in-environment evaluator `/tmp`, positive MiB, default 32; **not** `limits.*`). Optional `environments`: named scoring hosts (`dockerfile` and/or `docker_image`); setting it requires job `evaluate_host.isolated: true` + `environment: docker` and ignores `evaluate.Dockerfile` |
+| `evaluation` | optional inputs / output; `evaluator.py` is recognized |
 | `provenance` | optional |
 | Forbidden | `harness:` block, `provider.kind`, `assurance`, `executor` / `api_key` on the member role |
+
+Optional `evaluation.*` fields:
+
+| Field | Notes |
+| --- | --- |
+| `evaluation.tmpfs_mb` | in-environment evaluator `/tmp`, positive MiB, default 32. **Not** `limits.*` |
+| `evaluation.environments` | named scoring hosts (`dockerfile` and/or `docker_image`). Setting it requires job `evaluate_host.isolated: true` + `environment: docker` and ignores `evaluate.Dockerfile` |
 
 Files present are recognized: `run.py`, `evaluator.py`, Dockerfile, `setup.sh`.
 

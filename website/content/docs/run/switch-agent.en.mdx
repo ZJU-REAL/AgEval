@@ -33,16 +33,15 @@ ACP `entry` lives on `- plugin: acp` / `options.entry`.
 
 ## Agent packages (`--agent`)
 
-`ageval.agent/1` is an Agent package (executor, entry, overlays).
-`binding.model` is the default, not identity. Built-in Agent packages (`pi`,
-`opencode`, `codex`, `claude-code`, `grok-build`, `openai-http`,
-`anthropic-http`) ship with
-ageval — no `agent install`. Custom overlay packs are `org/name@version` after
-install. `ageval agent install` also installs `binding.extensions[].plugin`
-(skips contrib; missing plugin or unsatisfied `host_requires` rejects the whole install). `--agent` and `--profiles` are mutually exclusive. `--model` overrides
-this run’s model on the roles `--agent` bound; omit it to keep the package
-default. This is not `ageval results upload-suite --model` (an observational
-upload label).
+`ageval.agent/1` is an Agent package (executor, entry, overlays); `binding.model` is the default, not identity.
+
+| Goal | How |
+| --- | --- |
+| Built-in package | `--agent pi`. Built-ins `pi` / `opencode` / `codex` / `claude-code` / `grok-build` / `openai-http` / `anthropic-http` ship with ageval — no install |
+| Custom overlay pack | `ageval agent install org/name@0.1.0` first, then bind. Install also pulls `binding.extensions[].plugin` (skips contrib; a missing plugin or unsatisfied `host_requires` rejects the whole install) |
+| Model for this run only | `--model <name>` (with `--agent`; omit to keep the package default. Not `ageval results upload-suite --model` — that is an observational upload label) |
+
+`--agent` and `--profiles` are mutually exclusive.
 
 ```bash
 ageval run examples/datasets/minimal-demo --task terminal-jsonl-agg --agent pi --model glm-4.7
@@ -59,6 +58,6 @@ ageval run examples/datasets/minimal-demo --task terminal-jsonl-agg \
 
 Only allowlisted `--set` pointers work, e.g. `/bindings/solver/options/reasoning_effort="high"` — see [CLI](/docs/reference/cli).
 
-`api_key` is always an env **name**, never the secret. More: [ACP profiles](/docs/agents/acp-profiles).
+`api_key` is always an env **name**, never the secret. Optional profile fields: `options.reasoning_effort` (thinking level), `options.idle_timeout_seconds` (stall ceiling), and `base_url`.
 
-Non-ACP agent runtimes (nooa / dsh / miniswe) switch with a whole `--profiles` file. See [Plugins](/docs/run/plugins).
+Non-ACP agent runtimes (nooa / dsh / miniswe) switch with a whole `--profiles` file. They ship as plugins: `ageval plugin install plugins/<name>`, then set `executor:` to that name and attach the matching `plugin:` line in profiles.
