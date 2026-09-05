@@ -101,8 +101,10 @@ runtime：打分盒实例在 **evaluate 相位**（writer 已密封）构造：c
 的联合（`bind_winner` 的赢家工厂仍是 Attempt 级 docker 插件；`BoxSpec` 仍只装
 evaluate 配方与独立 attempt root）——
 declare 了 `config.image_layers` 的 judge 插件由此 bake 进打分镜像，solver 独占的
-插件不进。无 `image_layers` 的插件（含 `acp`）不加东西；官方 ACP 引擎仍是 **配方**
-问题（`FROM` 官方 attempt 基座），不是 Core wrap。`evaluation_runtime` 仍是独占槽
+插件不进。无 `image_layers` 的插件不加东西。ACP 若出现在 evaluate 相位 graph（例如
+ACP judge）则只 bake 该 graph 绑定的 `options.entry`；solver 的 ACP 层不进打分镜像。
+官方 ACP 引擎仍可走 **配方**（`FROM` 官方 attempt 基座）；非基座配方由 ACP 插件层
+补绑定 entry，不是 Core wrap。`evaluation_runtime` 仍是独占槽
 默认引擎，parent 子进程跑 `evaluator.py`。isolated 时对 **未在 run 打开过的 profile**
 （不限 executor kind）在打分环境上再跑 `after_environment_ready`；空链 no-op，
 不跑 `environment_setup`。SDK 仍不得拥有 `host.start` / `host.upload`。

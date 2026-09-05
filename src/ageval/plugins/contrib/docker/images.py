@@ -24,6 +24,7 @@ import re
 import shlex
 import subprocess
 import sys
+import tempfile
 from collections.abc import Iterable, Sequence
 from pathlib import Path
 
@@ -224,10 +225,9 @@ def build_task_image(
         platform=platform,
         build_args=(),
     )
-    for plugin_id, dockerfile, package_root, _body in plugin_layers:
+    for plugin_id, _dockerfile, package_root, body in plugin_layers:
         current, _ = _build_named(
-            recipe=None,
-            dockerfile=Path(dockerfile),
+            recipe=body,
             context_root=Path(package_root),
             tag=f"{PACKAGE_TAG_PREFIX}:{content[:12]}-{plugin_id}",
             platform=platform,
@@ -260,8 +260,11 @@ def _build_named(
     generated: Path | None = None
     file_arg = dockerfile
     if recipe is not None:
-        generated = context_root / f".ageval-image-{tag.split(':')[-1]}.Dockerfile"
-        generated.write_text(recipe, encoding="utf-8")
+        with tempfile.NamedTemporaryFile(
+            "w", suffix=".Dockerfile", delete=False, encoding="utf-8"
+        ) as handle:
+            handle.write(recipe)
+            generated = Path(handle.name)
         file_arg = generated
     assert file_arg is not None
     args = [

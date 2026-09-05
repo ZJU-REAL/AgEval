@@ -74,7 +74,7 @@ agent_profiles:
     extensions: [ssh, acp]
 ```
 
-外置包实例见 `plugins/nooa/plugin.yaml`：`slots.exclusive` / `slots.chain`，`host_requires`，`config.image_layers`（给 environment 赢家 bake，**不是**时间线槽）。
+外置包实例见 `plugins/nooa/plugin.yaml`：`slots.exclusive` / `slots.chain`，`host_requires`，`config.image_layers`（给 environment 赢家 bake，**不是**时间线槽）。first-party `acp` 同样声明 `config.image_layers`：只 bake 该 graph 绑定的 `options.entry`（钉死包来自 `acp_entries.json`），不把全部 ACP entry 写进每张题图。
 
 `description` 可选。一段功能说明；Hub 插件详情把它画在 Install (CLI) 上方。缺省不展示。空字符串 / 非字符串则拒绝。Hub 渲染 Markdown 链接（`[text](https://…)`）；其它块级语法不展示。
 
@@ -90,7 +90,7 @@ agent_profiles:
 
 独占槽默认赢家（Current）：`environment` 由 job `environment:` 选出（缺省常见 local 或 docker，以 profiles 为准）；`executor` 由 **各** `agent_profiles.*.executor` 选出（coding-agent 默认 acp；judge 行可以是 `openai-http` 或 `anthropic-http`）；`evaluation_runtime` / `trajectory_seal` 由引擎 `plugin_id: default` 赢（parent `evaluator.py` / 轨迹文件 writer）。缺默认注册 → lock 失败，不能进入运行。lock 记录 **per-profile** executor 绑定。
 
-链默认：`after_environment_ready`（ACP 探测安装 + HOME overlay）；`environment_setup`（`setup.sh`，引擎 defaults）。
+链默认：`after_environment_ready`（ACP 探测；bake 已匹配则跳过安装 + HOME overlay）；`environment_setup`（`setup.sh`，引擎 defaults）。
 
 ## 解析
 

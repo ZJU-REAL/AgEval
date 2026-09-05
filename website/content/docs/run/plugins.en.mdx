@@ -48,7 +48,8 @@ agent_profiles:
 
 `executor:` selects the Agent for this profiles file. Plugin options live on that
 plugin's `extensions` row. Docker image layers are written when the environment
-starts. ACP `entry` lives on `- plugin: acp` / `options.entry`.
+starts. ACP `entry` lives on `- plugin: acp` / `options.entry` and is baked
+into the task image; switching model does not rebuild.
 
 ```bash
 ageval run examples/datasets/minimal-demo --task terminal-jsonl-agg \

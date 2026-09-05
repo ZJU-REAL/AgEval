@@ -1,0 +1,29 @@
+# Bake the lock-bound ACP entry onto the task image.
+# Pins come from acp_entries.json (renderer fills the markers). No floating npx.
+# Build context = this plugin package root.
+ARG BASE_IMAGE
+FROM ${BASE_IMAGE}
+
+USER root
+
+# Node only when the recipe did not already ship npm (official Attempt base has it).
+RUN set -eu; \
+    if ! command -v npm >/dev/null 2>&1; then \
+      export DEBIAN_FRONTEND=noninteractive; \
+      if ! command -v apt-get >/dev/null 2>&1; then \
+        echo "npm missing and no apt-get on this base" >&2; \
+        exit 1; \
+      fi; \
+      apt-get update; \
+      apt-get install -y --no-install-recommends ca-certificates curl gnupg; \
+      curl -fsSL https://deb.nodesource.com/setup_22.x | bash -; \
+      apt-get install -y --no-install-recommends nodejs; \
+      rm -rf /var/lib/apt/lists/*; \
+    fi
+
+# Pinned engine + ACP packages for options.entry.
+RUN npm install -g __ACP_ENTRY_PACKAGES__ \
+    && npm cache clean --force
+
+# Detect commands the probe will look for (first name of each family).
+RUN __ACP_DETECT_BINARIES__

@@ -36,7 +36,7 @@
   },
   {
     "plugin_id": "acp",
-    "description": "Coding-agent executor: parent is the only [ACP](https://agentclientprotocol.com) JSON-RPC client (`executor: acp` + `options.entry`). Vendor CLIs stay behind a process-out ACP entry (native, shim, or vendor package). Injects `environment.attach_stdio`. Official Attempt images bake entries at build time; invoke does not `npm i`.",
+    "description": "Coding-agent executor: parent is the only [ACP](https://agentclientprotocol.com) JSON-RPC client (`executor: acp` + `options.entry`). Vendor CLIs stay behind a process-out ACP entry (native, shim, or vendor package). Injects `environment.attach_stdio`. Official Attempt images bake every shipped entry at build time. Task recipes also stack ``config.image_layers`` for the bound ``options.entry``. Invoke does not ``npm i``.",
     "host_requires": [],
     "exclusive": ["executor"],
     "chain": ["after_environment_ready", "trajectory_collect"]

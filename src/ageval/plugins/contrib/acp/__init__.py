@@ -1,7 +1,8 @@
 """ACP first-party contrib: parent client, entry registry, executor SPI.
 
 Not an external ``plugins/acp`` package and not installed via ``ageval plugin
-install``. Official entries stay bake-in on ``docker/attempt``.
+install``. Official Attempt images bake every shipped entry; task recipes
+also stack ``config.image_layers`` for the bound ``options.entry``.
 """
 
 from __future__ import annotations

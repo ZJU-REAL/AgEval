@@ -103,7 +103,7 @@ async def run(ctx) -> None:
     await emit(ctx, "after_environment")
 ```
 
-- `after_environment_ready`：环境已开、`environment_setup` 之前。HOME overlay、env inject、**ACP 探测再装**挂这里。按 `options.entry` 探名字 + 钉死包版本 + 一次 stdio `initialize`；齐了就跳过；不对再按 entry 的 `install_command` `exec`。失败 = environment 相位失败。不把安装写进 task `setup.sh`。
+- `after_environment_ready`：环境已开、`environment_setup` 之前。HOME overlay、env inject、**ACP 探测**挂这里。按 `options.entry` 探名字 + 钉死包版本 + 一次 stdio `initialize`；docker bake 已匹配则跳过 `install_command`；不对再按 entry 的 `install_command` `exec`。失败 = environment 相位失败。不把安装写进 task `setup.sh`。invoke 不是装引擎的 happy path。
 - `environment_setup`：默认插件若存在 `environment/setup.sh`（或 yaml 覆盖的 entry）则 `host.exec`。本题依赖，不是 agent CLI。
 - bake / `image_layers` 消化在 `host.start()` 内部（docker build / e2b template），不是 attempt 上的独立 phase。`kind: ssh` 且 skip_build 时无 bake。
 

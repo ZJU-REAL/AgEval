@@ -95,7 +95,7 @@ Agent Service **跨 evaluate 保持**（或 reopen）：`evaluator.py` 才能 `A
 - `evaluator.py` 与 `run.py` 一样是 **parent 子进程**。`AGEVAL_AGENT_SERVICE_SOCK` 是本机 unix 路径，不 bind-mount 进容器。
 - evaluate 相位的 `Agent.session`（judge 等 **未** 在 run 用过的 profile）走同一 Parent Agent Service。ACP `attach_stdio` 打 **打分 Host**（environment 服务 rebound 到当时的打分实例），不是 Agent Host。solver 仍密封。
 - 有 `evaluation.environments` 时，`session(profile_id, environment=<name>)` 只在 evaluate 相位（`seal_run` 之后）把 environment 服务绑到那只命名 Host（懒 start + **对该 profile** 跑 `after_environment_ready`）。未知名、run 相位点名、或 ACP 省略名字一次失败，不 start。省略 `environment=` = 无名表时的那只打分 Host。`openai-http` / `anthropic-http` 忽略 `environment=`。
-- isolated 打分环境 start 之后，对上述 ACP profile 再跑 `after_environment_ready`（probe / 按 entry `install_command`）。不要把 solver 的 ACP 配方装进打分镜像。
+- isolated 打分环境 start 之后，对上述 ACP profile 再跑 `after_environment_ready`（probe；bake 已匹配则跳过 `install_command`）。不要把 solver 的 ACP 配方装进打分镜像。
 - Agent 容器 **没有** docker daemon socket。ACP / `attempt` / `run.py` 仍然不见 `container_id`。
 
 observe 这些 invoke：`evaluation/observation.jsonl`（省略 `user` 行）。不是 PASS。
@@ -171,9 +171,9 @@ kind 名是 `anthropic-http`（api-client，Anthropic Messages）。与 `openai-
 0. **lock overlay（Attempt HOME，不拷宿主）。** lock 已有 `model` / `api_key` locator / 可选 `base_url`。箱子 `start` 之后、`attach_stdio` 之前，ACP contrib 按 **entry** 写成该引擎自己的配置文件（Pi：`.pi/agent/models.json` + `settings.json`；OpenCode：`.config/opencode/opencode.json`；Codex：`.codex/config.toml`（Attempt 已隔离，写 `sandbox_mode = danger-full-access`，禁止再套一层 bwrap）；Claude Code：`.claude/settings.json`）。`entry-default` 不写。locator **值**不进文件（Pi `$ENV`、OpenCode `{env:NAME}`）。**禁止**从宿主 `~/.pi` / `~/.config` 拷 catalog。local / docker / e2b 同一条 Attempt HOME。Claude Code 同时把 lock 的 `model` 投影进 attach env（`ANTHROPIC_MODEL`；有 `base_url` 时再写 `ANTHROPIC_DEFAULT_*` / `CLAUDE_CODE_SUBAGENT_MODEL`）。Codex ACP 默认 `workspace-write`（bwrap）；Attempt 里投影 `INITIAL_AGENT_MODE=agent-full-access`，并写 `.codex/models.json` + `model_catalog_json`（slug 等于 `model`）。grok-build 仍 argv `--model`。
 1. 读 `options.entry`（如 `pi`）→ 需要哪些环境内二进制（`pi`、`pi-acp`、…）以及 entry 表钉死的包版本。
 2. `host.exec` 探测三件事：名字（`which`）、钉死的 npm 包版本（`npm ls -g pkg@pin`）、一次便宜的 stdio JSON-RPC `initialize`（不是 `session/prompt`）。同名但协议不是 stdio ACP（例如只开 TCP 的旧 `opencode`）算未命中。
-3. **三件都齐就跳过。** 任一不对再按 **ACP entry 自己的** `install_command` `exec`，装完再探一次。失败 = environment 相位失败。不把「怎么装 opencode」下放到 environment 插件。
+3. **三件都齐就跳过。** docker 上题包配方已叠 ACP `image_layers`、且 pin + stdio `initialize` 命中时，不跑 `install_command`。local / 未 bake 的云 snapshot 等面，任一不对再按 **ACP entry 自己的** `install_command` `exec`，装完再探一次。失败 = environment 相位失败。不把「怎么装 opencode」下放到 environment 插件。invoke 禁止把 `npm i` / 浮动 `npx` 当 happy path。
 4. 不把安装写进 task `setup.sh`。`setup.sh` 只本题依赖。
-5. docker 官方 Attempt 镜像已 bake 且版本+stdio 对得上时，探测命中；云上瘦镜像或 snapshot 里是错版本/错协议才会走到安装。invoke 禁止 `npm i` / 浮动 `npx`。
+5. **build 期 bake（docker）。** ACP 插件声明 `config.image_layers`（`docker/Dockerfile.bake`），合同与 miniswe / dsh / nooa 相同：`ARG BASE_IMAGE` / `FROM ${BASE_IMAGE}`，缺 Node 才装 Node，再 `npm install -g` lock 绑定 `options.entry` 在 `acp_entries.json` 里钉死的 engine + ACP 包。只 bake **当前绑定的 entry**，不把五份 entry 写进每张题图。内容键已含插件层正文（`src/ageval/plugins/contrib/docker/images.py`）：同配方 + 同 entry + 同 platform 复用；同配方换 entry → 新层；换 `model` 不进内容键。题包已 `FROM ageval-attempt:base` 时叠层幂等（pin 已在基座则同 pin）。无浮动 `npx`。
 
 Python ACP SDK 只在 parent，不进 Attempt 镜像。
 
@@ -183,4 +183,4 @@ batch 默认 auto-approve，不提权、不突破未投影路径。decision 进 
 
 Pi：官方 registry `pi-acp`（npm `pi-acp`，桥 `pi --mode rpc`）。勿与反向桥 `pi-shell-acp` 混淆。
 
-官方 Attempt 镜像 `docker/attempt` 在 **build 期** 写入镜像 最低 entry 的 engine + ACP 入口（Mode 1 同时装 engine 和 adapter：codex/claude/**pi** + 各自 adapter）。
+官方 Attempt 镜像 `docker/attempt` 在 **build 期** 写入镜像 最低 entry 的 engine + ACP 入口（Mode 1 同时装 engine 和 adapter：codex/claude/**pi** + 各自 adapter）。题包配方不是这份基座时（例如 `FROM ubuntu:24.04`），由 ACP `image_layers` 在题图上再 bake **绑定的** `options.entry`；不要为此改写题包 `FROM`，也不要在 invoke 后再 `npm i`。
