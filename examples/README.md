@@ -157,8 +157,7 @@ upload), so clone size and CI paths stay bounded:
 | Terminal-Bench 2.0 | `terminal-bench-2` / light `terminal-bench-2-10` | Docker + Harbor pytest-style verifier |
 | MARBLE coding      | `marble-coding` / light `marble-coding-10`       | shared-container multi-agent coding   |
 
-Package presence, Hub publish, or a suite job on the board does **not** raise evidence grade
-(`package ≠ real-benchmark-verified`).
+Package presence, Hub publish, or a suite job on the board does not make the evaluation results more credible.
 
 ## Suggested first runs
 
