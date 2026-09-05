@@ -156,7 +156,7 @@ uv run ageval view examples/datasets/minimal-demo --no-browser
 1. **`ageval lock`** 解析插件依赖图（`ExtensionGraph`），检查能力和凭据，写出 `lock.json`（密钥只当 locator）。
 2. **`ageval run`** 打开环境并上传 task 文件（本机 / Docker / E2B 等）。
 3. **`run.py`** 在环境里跑任务循环；换环境或换 Agent 不需要修改这份文件。
-4. **只有 `evaluator.py` 能给出 PASS**；任务结束后才 upload gold；无论结果如何都会 cleanup。
+4. **只有 `evaluator.py` 能给出 PASS**；任务结束后才 upload 参考答案；无论结果如何都会 cleanup。
 
 ```mermaid
 %%{init: {"theme":"base","themeVariables":{"actorBkg":"#eaf1ff","actorBorder":"#5B7BFF","actorTextColor":"#10233f","actorLineColor":"rgba(45,49,66,0.2)","signalColor":"#4f5d75","signalTextColor":"#2d3142","labelBoxBkgColor":"#eaf1ff","labelBoxBorderColor":"#5B7BFF","labelTextColor":"#10233f","noteBkgColor":"#f1f5f9","noteBorderColor":"#64748b","noteTextColor":"#1e293b"}}}%%
@@ -179,7 +179,7 @@ sequenceDiagram
         t->>t: ACP invoke · attach_stdio
     end
     t-->>r: trajectory.jsonl
-    Note over r,v: 执行结束 → upload gold 后进入评测
+    Note over r,v: 执行结束 → upload 参考答案后进入评测
     r->>v: 运行 evaluator.py
     v-->>r: PASS / FAIL / ERROR
     r->>r: record · finally cleanup<br/>lock.json · result.json · trajectory.jsonl
