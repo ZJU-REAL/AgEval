@@ -6,7 +6,8 @@ Dockerfile; this module only substitutes the bound entry. No floating ``npx``.
 
 from __future__ import annotations
 
-from ageval.plugins.contrib.acp.registry import AcpEntryDescriptor, get_entry
+from ageval.plugins.contrib.acp.hooks import _needed_commands
+from ageval.plugins.contrib.acp.registry import get_entry
 from ageval.plugins.errors import ExtensionMaterializeError
 
 PACKAGES_MARKER = "__ACP_ENTRY_PACKAGES__"
@@ -43,7 +44,13 @@ def render_bake_body(template: str, entry_id: str) -> str:
             kind="extension_materialize_failed",
         )
     packages = _npm_packages(descriptor.install_command)
-    detect = _detect_verify(descriptor)
+    names = _needed_commands(descriptor)
+    if not names:
+        raise ExtensionMaterializeError(
+            f"acp entry {descriptor.entry_id!r} declares no detect commands",
+            kind="extension_materialize_failed",
+        )
+    detect = " && ".join(f"command -v {name}" for name in names)
     body = template.replace(PACKAGES_MARKER, packages).replace(DETECT_MARKER, detect)
     if descriptor.entry_id == "codex":
         body = body.rstrip() + "\n" + _CODEX_NATIVE_RUN.lstrip("\n")
@@ -66,24 +73,3 @@ def _npm_packages(install_command: str) -> str:
             kind="extension_materialize_failed",
         )
     return packages
-
-
-def _detect_verify(descriptor: AcpEntryDescriptor) -> str:
-    names: list[str] = []
-    if descriptor.integration_mode == 1 and descriptor.engine_detect_commands:
-        names.append(descriptor.engine_detect_commands[0])
-    if descriptor.acp_detect_commands:
-        names.append(descriptor.acp_detect_commands[0])
-    seen: set[str] = set()
-    out: list[str] = []
-    for name in names:
-        token = name.strip().split()[0] if name.strip() else ""
-        if token and token not in seen:
-            seen.add(token)
-            out.append(token)
-    if not out:
-        raise ExtensionMaterializeError(
-            f"acp entry {descriptor.entry_id!r} declares no detect commands",
-            kind="extension_materialize_failed",
-        )
-    return " && ".join(f"command -v {name}" for name in out)
