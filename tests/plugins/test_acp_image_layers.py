@@ -19,8 +19,7 @@ from ageval.plugins.protocol import ExtensionGraph, HandlerRef, WinnerRef
 from ageval.plugins.slots import AFTER_ENVIRONMENT_READY, EXECUTOR
 
 _TEMPLATE = (
-    Path(__file__).resolve().parents[2]
-    / "src/ageval/plugins/contrib/acp/docker/Dockerfile.bake"
+    Path(__file__).resolve().parents[2] / "src/ageval/plugins/contrib/acp/docker/Dockerfile.bake"
 )
 
 
@@ -28,8 +27,8 @@ def _template() -> str:
     return _TEMPLATE.read_text(encoding="utf-8")
 
 
-def _graph(entry: str) -> ExtensionGraph:
-    options = {"entry": entry}
+def _graph(entry: str, extra_options: dict[str, str] | None = None) -> ExtensionGraph:
+    options = {"entry": entry, **(extra_options or {})}
     return ExtensionGraph(
         profile_id="solver",
         winners={
@@ -90,7 +89,11 @@ def test_bake_template_uses_base_image_arg() -> None:
     text = _template()
     assert "ARG BASE_IMAGE" in text
     assert "FROM ${BASE_IMAGE}" in text
-    assert all("npx" not in line.split() for line in text.splitlines() if line and not line.lstrip().startswith("#"))
+    assert all(
+        "npx" not in line.split()
+        for line in text.splitlines()
+        if line and not line.lstrip().startswith("#")
+    )
     assert "__ACP_ENTRY_PACKAGES__" in text
 
 
@@ -101,7 +104,11 @@ def test_render_opencode_bakes_pinned_detect_commands() -> None:
     assert "opencode-ai@1.18.12" in body
     assert "command -v opencode" in body
     assert "__ACP_ENTRY_PACKAGES__" not in body
-    assert all("npx" not in line.split() for line in body.splitlines() if line and not line.lstrip().startswith("#"))
+    assert all(
+        "npx" not in line.split()
+        for line in body.splitlines()
+        if line and not line.lstrip().startswith("#")
+    )
     assert "pi-acp@" not in body
 
 
@@ -137,6 +144,13 @@ def test_layers_for_graph_fills_bound_entry() -> None:
     assert plugin_id == "acp"
     assert "opencode-ai@1.18.12" in body
     assert "__ACP_ENTRY_PACKAGES__" not in body
+
+
+def test_model_option_does_not_change_layer_body() -> None:
+    plain = layers_for_graph(_graph("opencode"))
+    with_model = layers_for_graph(_graph("opencode", {"model": "gpt-5.4-mini"}))
+    assert plain[0][3] == with_model[0][3]
+    assert "gpt-5.4-mini" not in with_model[0][3]
 
 
 def test_layers_for_graph_requires_entry() -> None:

@@ -260,14 +260,11 @@ def _build_named(
     generated: Path | None = None
     file_arg = dockerfile
     if recipe is not None:
-        handle = tempfile.NamedTemporaryFile(
+        with tempfile.NamedTemporaryFile(
             "w", suffix=".Dockerfile", delete=False, encoding="utf-8"
-        )
-        try:
+        ) as handle:
             handle.write(recipe)
-        finally:
-            handle.close()
-        generated = Path(handle.name)
+            generated = Path(handle.name)
         file_arg = generated
     assert file_arg is not None
     args = [
