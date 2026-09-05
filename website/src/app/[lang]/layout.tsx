@@ -17,14 +17,18 @@ const notoSansSC = Noto_Sans_SC({
   variable: "--font-noto-sans-sc",
 });
 
+// Metadata icon URLs are user-provided, so Next does not apply its basePath;
+// prefix them the same way next.config does (GitHub Pages serves /ageval).
+const basePath = process.env.NEXT_PUBLIC_BASE_PATH?.trim() || "";
+
 export const metadata: Metadata = {
   title: { default: "ageval Docs", template: "%s · ageval Docs" },
   description:
     "ageval — lock a dataset, open a box, run the task, let an independent evaluator own the score.",
   icons: {
     icon: [
-      { url: "/favicon.ico" },
-      { url: "/favicon.svg", type: "image/svg+xml" },
+      { url: `${basePath}/favicon.ico` },
+      { url: `${basePath}/favicon.svg`, type: "image/svg+xml" },
     ],
   },
 };

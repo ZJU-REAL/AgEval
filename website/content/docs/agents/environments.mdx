@@ -24,6 +24,6 @@ ageval run examples/datasets/minimal-demo --task terminal-jsonl-agg --probe
 
 **ssh A 不支持 live ACP stdio。** 该面上的 dsh / nooa 走 `host.exec`，不是 ACP 长会话。
 
-`environment/setup.sh` 是 environment 阶段最后一步，不是独立 phase。gold（`evaluation/`）在 evaluate 才进打分 Host。`profiles.yaml` 可写 `evaluate_host.isolated: true`（Current：`docker`）：另起打分环境，gold 只上第二环境；省略 = 同一环境。
+`environment/setup.sh` 是 environment 阶段最后一步，不是独立 phase。参考答案（`evaluation/`）在 evaluate 才进打分 Host。`profiles.yaml` 可写 `evaluate_host.isolated: true`（Current：`docker`）：另起打分环境，参考答案只上第二环境；省略 = 同一环境。
 
-多只打分镜像（安装内容不同、顺序 stage）写在成员 `evaluation.environments`：每个名字一份 `dockerfile` 和/或 `docker_image`，放 `environment/evaluate/<name>/`，不要放 gold 树。Runtime 第一次 `scoring.exec` / `session(environment=)` 才 start 那只；未指定名字的不 build。写出该表则必须 `evaluate_host.isolated` + docker，且忽略 `environment/evaluate.Dockerfile`。ACP 打那只 Host；HTTP judge 忽略 `environment=`。`--agent` 与 `--profiles` 互斥。`--model` 须配合 `--agent`。
+多个打分镜像（安装内容不同、顺序 stage）写在成员 `evaluation.environments`：每个名字一份 `dockerfile` 和/或 `docker_image`，放 `environment/evaluate/<name>/`，不要放 `evaluation/`。Core 第一次 `scoring.exec` / `session(environment=)` 才 start；未指定名字的不 build。写出该表则必须 `evaluate_host.isolated` + docker，且忽略 `environment/evaluate.Dockerfile`。ACP 连到对应名字的 Host；HTTP judge 忽略 `environment=`。`--agent` 与 `--profiles` 互斥。`--model` 须配合 `--agent`。

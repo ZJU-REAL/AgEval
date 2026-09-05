@@ -63,7 +63,7 @@ public 只许出现「public」或「both」行的规范名。internal 词出现
 | inject / export | inject / export | internal | lock 期按名取服务 | public 写按名注入 |
 | `ageval lock` / digest | lock / digest | both | 合成可复现绑定。中文「锁定」只指这件事 | 一并锁定、锁定评测维度 |
 | limits | limits | both | 执行前强制的墙钟 / 内存 / 进程 / 调用次数 | 硬顶、配额、ceilings |
-| gold | gold | both | `tasks/*/evaluation/`。evaluate 才 upload | 金标 |
+| 参考答案 | gold | both | 评分对照的标准答案，在 `tasks/*/evaluation/`；evaluate 才 upload。zh public 写「参考答案」，EN / CLI / 路径用 gold | 金标；zh public 直接写 gold |
 | evidence | evidence | both | 目录 `.ageval/runs/<id>/` | 用 evidence 指那条 jsonl；存证 |
 | 轨迹 | trajectory | both | `trajectory.jsonl`。复盘用，不能发明 PASS | 用轨迹指整个 runs 目录 |
 | 投影 / Agent 能看见 | projected workspace | both | Agent 看见的文件 | 单独写「可见性」指这件事 |
@@ -79,6 +79,7 @@ public 只许出现「public」或「both」行的规范名。internal 词出现
 | 检查不过就不能进入运行 | the check fails; the run does not start | both | 探测或配置检查不过，就不能进入真正运行 | fail-closed、fail closed |
 | bake | bake | internal | 镜像在 build 期写入 | 烘焙；public 写「写入镜像」 |
 | isolated | isolated | — | 禁止单独出现。证据等级写 `runnable-mvp` 等全名；字段写 `evaluate_host.isolated` | isolated 当形容词裸用 |
+| —（内部分级，勿外露） | evidence grade | internal | `runnable-mvp` 等内部验收分级，只在 AGENTS / Issue / evidence 声明里出现 | public 出现「证据等级 / evidence grade」；「证据等级升级 / evidence-grade upgrade」当公开文案——public 写事实：「不影响评测结果」「不会让结果更可信」 |
 
 ### PASS / FAIL / ERROR
 

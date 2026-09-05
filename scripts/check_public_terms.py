@@ -55,9 +55,18 @@ BANNED = (
     "探测管子",
     "密封轨迹",
     "oneshot",
+    "证据等级",
+    "evidence grade",
+    "evidence-grade",
     r"([^-]|\b)slots?\b",
     "槽",
 )
+
+# Banned only in Chinese-facing files. EN pages and path literals (gold.json,
+# evaluation/gold) keep these words; landing copy.ts mixes zh and en in one
+# file, so it is outside this channel.
+ZH_ONLY_BANNED = (r"\bgold\b",)
+ZH_ONLY_ALLOW_IF_LINE_HAS = ("gold.json", "evaluation/gold")
 
 # These fire only when not part of a longer allowed token.
 SOFT = (
@@ -89,10 +98,16 @@ def line_allowed(line: str) -> bool:
     return any(tok in line for tok in ALLOW_IF_LINE_HAS)
 
 
+def is_zh_facing(path: Path) -> bool:
+    name = path.name
+    return name.endswith(".zh-CN.md") or (name.endswith(".mdx") and ".en." not in name)
+
+
 def main() -> int:
     hits: list[str] = []
     for path in iter_public_files():
         rel = path.relative_to(ROOT)
+        zh_facing = is_zh_facing(path)
         for i, raw in enumerate(path.read_text(encoding="utf-8").splitlines(), 1):
             if line_allowed(raw):
                 continue
@@ -103,6 +118,10 @@ def main() -> int:
             for phrase, _ in SOFT:
                 if phrase in raw:
                     hits.append(f"{rel}:{i}: {phrase!r}")
+            if zh_facing and not any(tok in raw for tok in ZH_ONLY_ALLOW_IF_LINE_HAS):
+                for phrase in ZH_ONLY_BANNED:
+                    if re.search(phrase, raw):
+                        hits.append(f"{rel}:{i}: {phrase!r} (zh-only)")
     if hits:
         print("public copy still uses glossary Avoid terms:")
         print("\n".join(hits))

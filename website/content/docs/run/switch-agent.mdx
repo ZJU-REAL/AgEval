@@ -33,7 +33,15 @@ ACP 的 `entry` 写在 `- plugin: acp` / `options.entry`。
 
 ## Agent 包（`--agent`）
 
-`ageval.agent/1` 是 Agent 包（executor、entry、overlays）。`binding.model` 是缺省，不是身份。内置 Agent 包（`pi`、`opencode`、`codex`、`claude-code`、`grok-build`、`openai-http`、`anthropic-http`）随 ageval 提供，不必 `agent install`。定制 overlays 包仍是 `org/name@version`，先装再绑。`ageval agent install` 会顺带安装 `binding.extensions[].plugin`（contrib 跳过；缺插件或 `host_requires` 不满足则整条失败，不能进入运行）。`--agent` 与 `--profiles` **互斥**。`--model` 改这次 run 已绑角色的模型；省略则用包缺省。不要和 `ageval results upload-suite --model`（上传观测标签）搞混。
+`ageval.agent/1` 是 Agent 包（executor、entry、overlays）；`binding.model` 是缺省，不是身份。
+
+| 想做 | 写法 |
+| --- | --- |
+| 用内置包 | `--agent pi`。内置 `pi` / `opencode` / `codex` / `claude-code` / `grok-build` / `openai-http` / `anthropic-http` 随 ageval 提供，不必 install |
+| 用定制 overlays 包 | 先 `ageval agent install org/name@0.1.0` 再绑。install 会顺带安装 `binding.extensions[].plugin`（contrib 跳过；缺插件或 `host_requires` 不满足则整条失败，不能进入运行） |
+| 只改这次的模型 | `--model <名>`（配合 `--agent`；省略则用包缺省。不是 `ageval results upload-suite --model`，那是上传观测标签） |
+
+`--agent` 与 `--profiles` **互斥**。
 
 ```bash
 ageval run examples/datasets/minimal-demo --task terminal-jsonl-agg --agent pi --model glm-4.7
@@ -50,6 +58,6 @@ ageval run examples/datasets/minimal-demo --task terminal-jsonl-agg \
 
 `--set` 只允许白名单指针，例如 `/bindings/solver/options/reasoning_effort="high"`；完整列表见 [CLI](/docs/reference/cli)。
 
-`api_key` 永远写**环境变量名**，不要写密钥本身。更多 profile 规则见 [ACP profiles](/docs/agents/acp-profiles)。
+`api_key` 永远写**环境变量名**，不要写密钥本身。可选 profile 字段还有 `options.reasoning_effort`（思考档位）、`options.idle_timeout_seconds`（静默上限）与 `base_url`。
 
-非 ACP 的 Agent 运行时（nooa / dsh / miniswe）用 `--profiles` 整份替换，见 [插件](/docs/run/plugins)。
+非 ACP 的 Agent 运行时（nooa / dsh / miniswe）用 `--profiles` 整份替换。它们以插件提供：`ageval plugin install plugins/<名>` 装好后，profiles 里 `executor:` 写对应名字，并挂上同名 `plugin:` 行。

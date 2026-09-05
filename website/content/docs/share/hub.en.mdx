@@ -3,32 +3,7 @@ title: Hub
 description: Remote Dataset catalog, organizations, job results, and leaderboard.
 ---
 
-Hub (`apps/hub`) is the web UI on top of Registry—browse shared packages and run results.
-
-- Dataset list (**Explore** / **Your organizations**, Explore default), grouped by organization: the group head shows the org name + description, and rows carry the name leaf, description, task count, and updated date; README, task file preview  
-- When the package has root `shared/`: Dataset **Shared** tab; Task **Files** header **Local | Shared** (Local default; Attempt evidence does not switch)  
-- When profiles declare `overlays:`: Dataset **Overlays** tab; Task **Files** adds an Overlays scope; Leaderboard **profiles** expand shows a Job tree (Dataset package) and/or an Agent tree (`agent_ref` package). One source hides the extra tab; none hides the tree. Not the suite archive.  
-- Large file preview: oversize members return a truncated head with a `truncated` flag (not full download)  
-- **Organizations**: create from the list page or join with an invite key; members, org datasets / plugins / agents (separate tables), shared suite results  
-- **Org settings**: invite keys (shown once on create); owners add members by GitHub login, change role, remove, or transfer ownership; leave or dissolve  
-- Task **Jobs**: open a row when run artifacts were uploaded (layout close to the local Viewer, including trajectory)  
-- Dataset version switcher: entitled users see **draft (current)**; everyone else switches among published releases. Org owners can flip the current version public/private, delete it, or promote a draft to a release  
-- Tasks table: README present, recent job count, last score/status; paginated (`?tab=tasks&offset=`). Dataset and task README load without waiting for the full package file tree.  
-- Leaderboard: **Public** (default) lists complete, release-bound suite rows that the Dataset org owner approved for listing. `public` is not the same as listed. **Internal** lists caller-visible incomplete or draft-bound runs in the same table. Sortable headers. Observational metrics, not suite PASS. Click a row to open the inspector (**Profiles** / **Plugin** / **Jobs**; Share for the owner). Secret-free YAML and rehydrate commands; plugins open the marketplace. The uploader opens Share / Delete from a settings menu: Share is a modal for visibility, org/user access, and Attach (overlay role, then a published `agent_ref`; direct write if you own the agent org, otherwise Inbox; an inflight request shows status). Task Jobs stay as they are.  
-- Plugin / Agent marketplace uses **cards** (description, tags, download and favorite counts on one row); datasets, jobs, members, and suites stay hairline tables  
-- Plugin detail: exclusive / chain **declared extension point** timeline; expand jumps into the in-package file preview. The browser never executes plugin code  
-- Official orgs, members of those orgs, and plugins from those orgs show a verified check  
-- Public user page: identity, GitHub link (from login), optional bio (self-PATCH `description`). Orgs may have a `description`, and owners can set an org icon via Choose icon (preset catalog marks or a GitHub link). Private memberships stay hidden. Platform Maintainers (`AGEVAL_REGISTRY_MAINTAINERS`) show a Shield mark on the profile and header, independent of Official  
-- Plugin / Agent cards and detail show download and star counts on one row. Downloads increment on a successful package content GET; stars are one row per signed-in user per plugin/agent, toggled only from the detail header. Dataset tables show neither. List tabs are the list query: Explore default (no params or `?visibility=public`), Your organizations `?orgs=1`, Stars `?favorited=1` (plugins/agents only). Org detail uses `?tab=settings`  
-- Org, dataset, plugin, and agent owners can edit the display name (org title, or the leaf after `org/`); dataset owners can also edit the description on the detail page without republishing (clearing it falls back to the manifest description). The stored package id prefix does not change  
-- Signed-in **Home**: jobs you uploaded, orgs, datasets/tasks you can maintain, plugins and agents you uploaded (same official mark and title as the marketplace). Signed-out visitors go to sign-in. No publish / upload / release buttons  
-- List search sits with the scope tabs; file-tree pane height is stable; trajectory tool-call rows collapse; steps follow sealed file order; a step shows duration only when `elapsed_ms` is on the sealed row  
-
-- **Models plaza**: the sidebar **Models** is a model directory grouped by lab (one hairline table per lab: Model / Released / Context / Output / Price per MTok, sortable headers). Data comes from a models.dev snapshot pinned per Hub release; prices are directory prices, not bills and not PASS. Modality tabs (Text / Image / Video / PDF / Transcription / Speech) filter the tables; Cmd/Ctrl+F opens a search palette, Enter opens the encyclopedia. A row name opens `/models/{canonical}`: an Overview spec table plus Performance (the HF mark shows only when the pin has a Hugging Face weights URL). Leaderboard / Share Attach model buckets join to canonical (longest unique; unmatched keeps the overlay text).
-- Agent detail: published package (binding + files, including bundled `overlays/`) plus **Performance** (built-in Agent packages default-collect official plaza; a Maintainer can turn collection off or include non-official orgs; custom cards still need consented `agent_ref`). Suites run with `--profiles` only stay on the Dataset Leaderboard until attached.
-- **Inbox:** Dataset org owners, Agent org owners, and platform Maintainers batch-approve or reject pending listing and Performance requests. Org join stays invite keys. Kind / Dataset filters; History can hide processed rows for the current user.
-
-- **Sign in with GitHub** (browser OAuth; CLI stays on Device Flow)
+Hub (`apps/hub`) is the web UI on top of Registry: browse shared datasets, plugins, agents, and run results. Sign in with **Sign in with GitHub** in the browser; the CLI stays on Device Flow.
 
 ## Local dev
 
@@ -63,7 +38,34 @@ Or `docker compose -f services/registry/docker-compose.yml up -d` for Hub at `ht
 | `/users/:login` | Public user profile (official orgs and public datasets / plugins / agents; signed-out OK) |
 | `/datasets/:id/tasks/:task/attempts/:runId` | Remote Attempt detail (needs uploaded run artifacts) |
 
-Click **Sign in with GitHub** to authenticate. Ops detail: `apps/hub/README.md`, `services/registry/README.md`.
+Ops detail: `apps/hub/README.md`, `services/registry/README.md`.
+
+## Datasets and tasks
+
+- The list is grouped by organization: the group head shows the org name and description; rows carry name, description, task count, and last update. Open one for its README and task file previews.
+- Version switching: entitled users see **draft (current)**; everyone else switches among published releases. An org owner can publish the draft, change visibility, or delete a version.
+- When the package declares root `shared/` or `overlays:`, the task **Files** header gains **Shared** / **Overlays** scopes (Local by default).
+- **Jobs** under a task list uploaded runs; click through for trajectories (the layout is close to the local Viewer).
+
+## Leaderboard
+
+- **Public** lists only suites that are complete, bound to a release, and approved for listing by the dataset org's owner; **Internal** shows caller-visible incomplete or draft-bound runs in the same table.
+- Metrics are observational summaries, not a suite PASS; headers sort.
+- Click a row for the inspector: **Profiles** / **Plugin** / **Jobs**, with secret-free YAML and rerun commands. Uploaders get Share, Delete, and Attach — link a published model / agent for provenance.
+- Listing and Performance requests are batch-approved by org owners in the **Inbox**.
+
+## Plugins, agents, and models
+
+- The plugin / agent marketplace uses cards: description, tags, downloads, and stars. Detail pages show the declared extension-point timeline, file preview, and the CLI install command.
+- Agent details add bindings, files, and Performance.
+- **Models** in the sidebar is a catalog grouped by lab (context, price, and more; searchable; a row opens its encyclopedia page). Prices are list prices — not bills, not PASS.
+- Official orgs, their members, and their plugins carry a verified badge.
+
+## Orgs and sharing
+
+- Create an org or join by invite code; the code is shown in full only once, at creation.
+- Owners / admins manage members and roles by GitHub login and can transfer the org; members can `publish` under it.
+- Private results can be shared with an org or user; the signed-in **Home** collects your uploaded jobs, packages, plugins, and agents.
 
 ## vs Viewer
 
@@ -97,4 +99,4 @@ ageval results upload-suite <dataset|id@version> --suite-run <8-hex> --public --
 
 Dataset Leaderboard lists every suite that passed the board gate. The header version switcher only changes README / Tasks. The Select to the right of Public filters rows by the suite's `dataset_version` (default All versions).
 
-Point Hub at the **same** Registry as `ageval login` / `~/.ageval/credentials` (local dev often `127.0.0.1:8700`). See [Run a Dataset suite](/docs/run/suite).
+Point Hub at the **same** Registry as `ageval login` / `~/.ageval/credentials` (local dev often `127.0.0.1:8700`).

@@ -66,7 +66,7 @@ These are **observational aggregates**, not suite-level PASS.
 | `ageval results upload-suite --suite-run …` | Suite row + metrics / task_refs | **Leaderboard** only when complete and release-bound; incomplete or draft-bound rows stay on Task Jobs |
 | `… --with-attempts` | Also packs attempt dirs | Jobs can open Attempt detail / trajectory |
 
-So: to show a package run on the public board, use **suite run → upload-suite** against a published release, not attempt-only upload. See [Suite](/docs/run/suite) and [Hub](/docs/share/hub).
+So: to show a package run on the public board, use **suite run → upload-suite** against a published release, not attempt-only upload.
 
 ## Browse
 
@@ -78,7 +78,7 @@ Attempt pages may show **Timing** (and **Tokens** when present). Trajectory step
 | Kind | Intuition |
 | --- | --- |
 | Config / lock | Never entered formal execution |
-| Runtime ERROR | Failed inside the boundary |
+| Execution ERROR | Failed inside the boundary |
 | FAIL | Evaluator says no |
 | PASS | Evaluator says yes |
 

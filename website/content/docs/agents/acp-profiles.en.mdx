@@ -31,7 +31,7 @@ agent_profiles:
 
 No command/version/install in package yaml.
 
-Evaluate-phase ACP (for example `judge`) on a named map must `Agent.session("judge", environment="<name>")`; attach targets that scoring host. Naming a host during run, or omitting the name when the map is set, fails once. HTTP judges ignore `environment=`. See [Write an evaluator](/docs/author/write-evaluator).
+Evaluate-phase ACP (for example `judge`) must `Agent.session("judge", environment="<name>")` when the task declares `evaluation.environments`, the named scoring-host map; attach targets that scoring host. Naming a host during run, or omitting the name when the map is set, fails once. HTTP judges ignore `environment=`.
 
 ## Host readiness
 
@@ -39,7 +39,15 @@ Evaluate-phase ACP (for example `judge`) on a named map must `Agent.session("jud
 ageval executors -v
 ```
 
-`-v` also reports `credential_missing` when every declared credential env name is unset and the binding has no `api_key`. Entries that require a key (for example `pi`) fail `--probe` / session-open, and the run does not start; entries that document keyless (OAuth) auth warn only. The child environment is allowlisted (`PATH` / `HOME` / `LANG`, the entry’s credential names, and the binding’s `api_key` / `base_url`). Undeclared host tokens do not reach the entry.
+`ageval executors -v` reports three signals per entry:
+
+| Signal | Meaning |
+| --- | --- |
+| `engine_ready` | the entry's agent runtime (the `pi` / `codex` CLIs) is installed on this host |
+| `acp_entry_ready` | the ACP entry on top of that runtime is ready |
+| `credential_missing` | every declared credential env name is unset and the binding has no `api_key` |
+
+Entries that require a key (for example `pi`) fail `--probe` / session-open, and the run does not start; entries that document keyless (OAuth) auth warn only. The child environment is allowlisted (`PATH` / `HOME` / `LANG`, the entry’s credential names, and the binding’s `api_key` / `base_url`). Undeclared host tokens do not reach the entry.
 
 ## Runtime switch
 
@@ -48,4 +56,4 @@ ageval run <dataset> --task <id> \
   --set '/parameters/active_profile="main"'
 ```
 
-One ACP client in the parent process. Operator path: [Switch agent](/docs/run/switch-agent).
+One ACP client in the parent process; each vendor's protocol translation runs outside the process, in the entry. `--agent pi --model glm-4.7` picks this run's agent and model directly; non-ACP agent runtimes take a whole `--profiles` file instead.

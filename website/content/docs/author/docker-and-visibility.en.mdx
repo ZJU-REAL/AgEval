@@ -33,4 +33,4 @@ environment: docker    # or local / e2b / ssh / daytona
 
 Real isolation is **unmounted + upload at evaluate**, not deleted yaml fields. That is not `path_views`. A scoring host's work root is not the Agent bind-mount: the harvested tree snapshot (with `exclude`) is copied onto that host on first `exec` / `session(environment=)`.
 
-Environments: [Environments](/docs/agents/environments).
+Multi-actor isolation (`shared-container` / `container-per-group`) is declared on `profiles.yaml` too; ageval owns container ids and UIDs. Agent engines and ACP entries are written into the image at build time — nothing is installed at invoke time.
